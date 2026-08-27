@@ -21,15 +21,19 @@ password  raot4623
 เครื่องที่ใช้พัฒนาไม่มี Node.js และไม่จำเป็นต้องมี — Vercel รัน `npm install` และ
 `next build` ให้เองบนคลาวด์
 
+repo: [github.com/poogif1869-cell/warning-actionplan2570](https://github.com/poogif1869-cell/warning-actionplan2570)
+
 ```
-git init
 git add -A
-git commit -m "เว็บแจ้งเตือนผลการดำเนินงาน กยท. ปีงบประมาณ 2570"
-git remote add origin <URL ของ repo บน GitHub>
-git push -u origin main
+git commit -m "ข้อความอธิบายว่าแก้อะไร"
+git push
 ```
 
 แล้วเข้า vercel.com > Add New > Project > Import repo นี้ > Deploy
+หลังจาก Import ครั้งแรกแล้ว ทุก push จะ deploy ใหม่อัตโนมัติ
+
+**เครือข่ายนี้บล็อก SSH port 22** remote จึงตั้งเป็น `ssh://git@ssh.github.com:443/...`
+ไม่ใช่ `git@github.com:...` ตามที่ GitHub แนะนำ ไม่งั้น push จะค้างแล้วขึ้น Connection timed out
 
 ## ตรวจก่อน push
 

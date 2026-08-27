@@ -175,16 +175,32 @@ docs/plan.txt                   ไฟล์นี้
 
 เครื่องนี้ไม่มี Node.js และไม่ต้องมี — Vercel จะ `npm install` และ `next build` ให้เองบนคลาวด์
 
+repo: **github.com/poogif1869-cell/warning-actionplan2570** (push ครั้งแรกแล้วเมื่อ 27 ส.ค. 2569)
+
 ```
 1. git init
-2. git add -A
-3. git commit -m "เว็บแจ้งเตือนผลการดำเนินงาน กยท. ปีงบประมาณ 2570"
-4. สร้าง repository เปล่าบน github.com
-5. git remote add origin <URL ของ repo>
+2. git add -A                     <-- ต้องเป็น -A ไม่ใช่ add README.md อย่างเดียว
+3. git commit -m "first commit"
+4. git branch -M main
+5. git remote add origin ssh://git@ssh.github.com:443/poogif1869-cell/warning-actionplan2570.git
 6. git push -u origin main
 7. เข้า vercel.com > Add New > Project > Import repo นี้
 8. กด Deploy ได้เลย ไม่ต้องตั้งค่าอะไรเพิ่ม (Vercel ตรวจเจอว่าเป็น Next.js เอง)
 ```
+
+**เครือข่ายนี้บล็อก SSH port 22** — ใช้ `git@github.com:...` ตามที่ GitHub แนะนำจะค้างแล้ว
+ขึ้น `Connection timed out` ต้องใช้ port 443 ผ่านโฮสต์ `ssh.github.com` แทน (ข้อ 5 ข้างบน)
+ถ้าอยากให้ใช้ `git@github.com:` ได้ทุก repo ให้ใส่ใน `~/.ssh/config`:
+
+```
+Host github.com
+  HostName ssh.github.com
+  Port 443
+  User git
+```
+
+ทดสอบว่าต่อได้ไหมด้วย `ssh -T -p 443 git@ssh.github.com` — ถ้าขึ้น
+"Hi <ชื่อผู้ใช้>! You've successfully authenticated" แปลว่าใช้ได้ (exit code เป็น 1 ถือว่าปกติ)
 
 จะแก้อะไรทีหลังก็ commit แล้ว push — Vercel deploy ใหม่อัตโนมัติ
 
