@@ -1,0 +1,315 @@
+/* จานสีอิงอัตลักษณ์ กยท. — เขียวยางพาราเป็นสีหลัก ทองเป็นสีขับเน้น
+   ยกมาจากเว็บเดิม (Desktop\Gif\build\template.html) เพื่อให้หน้าตาเหมือนกัน */
+:root{
+  --bg:#f2f5f1; --surface:#ffffff; --surface2:#e9f0ea; --border:#d3ded6;
+  --text:#132018; --muted:#55665c; --faint:#87988d;
+  --accent:#0f6b3f; --accent-2:#14884f; --accent-soft:#e2f0e7;
+  --gold:#b8892b; --gold-soft:#f8efdb;
+  --brand-1:#0a4227; --brand-2:#116038; --brand-3:#1a854e;
+  --on-brand:#ffffff; --on-brand-dim:rgba(255,255,255,.82); --on-brand-faint:rgba(255,255,255,.58);
+  --brand-line:rgba(255,255,255,.22);
+  --s1:#1d7a4a; --s2:#a86a10; --s3:#26608f; --s4:#75479a;
+  --ok:#2b7a34; --warn:#a67a00; --bad:#bf3b2c; --none:#94a19a;
+  --shadow:0 1px 2px rgba(11,58,35,.06),0 8px 24px rgba(11,58,35,.07);
+  --radius:10px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1512; --surface:#161d19; --surface2:#1e2722; --border:#2b3931;
+    --text:#e4ece7; --muted:#9fb0a6; --faint:#78897f;
+    --accent:#45c286; --accent-2:#5ad197; --accent-soft:#14301f;
+    --gold:#d9b45f; --gold-soft:#2a2312;
+    --brand-1:#08301d; --brand-2:#0d4a2c; --brand-3:#12653c;
+    --on-brand:#eef6f1; --on-brand-dim:rgba(238,246,241,.8); --on-brand-faint:rgba(238,246,241,.55);
+    --brand-line:rgba(255,255,255,.14);
+    --s1:#45c286; --s2:#dfa445; --s3:#6aa8e0; --s4:#b98ad6;
+    --ok:#5cbf62; --warn:#e0b040; --bad:#e8695a; --none:#78897f;
+    --shadow:0 1px 2px rgba(0,0,0,.45),0 8px 24px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1512; --surface:#161d19; --surface2:#1e2722; --border:#2b3931;
+  --text:#e4ece7; --muted:#9fb0a6; --faint:#78897f;
+  --accent:#45c286; --accent-2:#5ad197; --accent-soft:#14301f;
+  --gold:#d9b45f; --gold-soft:#2a2312;
+  --brand-1:#08301d; --brand-2:#0d4a2c; --brand-3:#12653c;
+  --on-brand:#eef6f1; --on-brand-dim:rgba(238,246,241,.8); --on-brand-faint:rgba(238,246,241,.55);
+  --brand-line:rgba(255,255,255,.14);
+  --s1:#45c286; --s2:#dfa445; --s3:#6aa8e0; --s4:#b98ad6;
+  --ok:#5cbf62; --warn:#e0b040; --bad:#e8695a; --none:#78897f;
+  --shadow:0 1px 2px rgba(0,0,0,.45),0 8px 24px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0; padding:0}
+body{
+  background:var(--bg); color:var(--text);
+  /* ฟอนต์ไทยห้ามลิงก์ออนไลน์ — สองตัวหลังติดมากับ Windows อยู่แล้ว */
+  font-family:"Sarabun","Noto Sans Thai","Leelawadee UI",Tahoma,"Segoe UI",sans-serif;
+  font-size:15px; line-height:1.65; -webkit-text-size-adjust:100%;
+}
+h1,h2,h3,h4{margin:0; font-weight:700; line-height:1.4}
+button,input,select,textarea{font:inherit; color:inherit}
+a{color:var(--accent)}
+
+/* ---------- แถบหัวเรื่อง ---------- */
+.topbar{
+  background:linear-gradient(118deg,var(--brand-1) 0%,var(--brand-2) 52%,var(--brand-3) 100%);
+  color:var(--on-brand); border-bottom:3px solid var(--gold);
+  position:sticky; top:0; z-index:30;
+}
+.topbar-in{
+  max-width:1500px; margin:0 auto; padding:12px 20px;
+  display:flex; gap:15px; align-items:center; flex-wrap:wrap;
+}
+/* ตราวางบนพื้นเขียวเข้ม จึงรองด้วยวงกลมขาวให้วงตราสีเขียวอ่านออก */
+.emblem{
+  width:46px; height:46px; flex:none; border-radius:50%;
+  background:#fff; padding:2px; box-shadow:0 0 0 1.5px var(--gold);
+}
+.brand{display:flex; flex-direction:column; gap:1px; min-width:0}
+.brand h1{font-size:17.5px; letter-spacing:-.01em; color:var(--on-brand)}
+.brand .sub{font-size:12.5px; color:var(--on-brand-dim)}
+.brand .en{font-size:9.5px; letter-spacing:.11em; color:var(--on-brand-faint); text-transform:uppercase}
+.fybadge{
+  border:1px solid var(--gold); background:rgba(184,137,43,.18); color:var(--on-brand);
+  border-radius:20px; padding:3px 14px; font-size:12px; white-space:nowrap;
+  display:flex; flex-direction:column; align-items:center; line-height:1.35;
+  margin-inline-start:6px;
+}
+.fybadge b{font-size:14.5px; letter-spacing:.02em}
+.fybadge span{font-size:9.5px; color:var(--on-brand-faint); letter-spacing:.06em}
+.topbar-right{margin-inline-start:auto; display:flex; gap:9px; align-items:center; flex-wrap:wrap}
+.savehint{font-size:11.5px; color:var(--on-brand-faint)}
+
+.iconbtn{
+  background:var(--surface2); border:1px solid var(--border); color:var(--text);
+  border-radius:8px; padding:6px 12px; cursor:pointer; font-size:13px; white-space:nowrap;
+}
+.iconbtn:hover{border-color:var(--accent); color:var(--accent)}
+/* ปุ่มบนแถบหัวเรื่องอยู่บนพื้นเขียวเข้ม ต้องกลับสีให้อ่านออก */
+.topbar .iconbtn{background:rgba(255,255,255,.1); border-color:var(--brand-line); color:var(--on-brand)}
+.topbar .iconbtn:hover{background:rgba(255,255,255,.22); border-color:var(--gold); color:var(--on-brand)}
+
+/* ---------- เมนู ---------- */
+.tabs{
+  display:flex; gap:2px; padding:0 20px; background:var(--surface);
+  border-bottom:1px solid var(--border); overflow-x:auto;
+  position:sticky; top:74px; z-index:29; box-shadow:var(--shadow);
+}
+.tabs a{
+  background:none; border:none; border-bottom:2.5px solid transparent;
+  padding:11px 15px; cursor:pointer; color:var(--muted); font-size:14px;
+  white-space:nowrap; text-decoration:none; display:flex; align-items:center; gap:7px;
+}
+.tabs a:hover{color:var(--text)}
+.tabs a[aria-current="page"]{color:var(--accent); border-bottom-color:var(--gold); font-weight:600}
+.tabs .count{
+  background:var(--bad); color:#fff; border-radius:20px; padding:0 7px;
+  font-size:11px; font-weight:600; min-width:19px; text-align:center;
+}
+
+main{padding:22px 20px 70px; max-width:1500px; margin:0 auto}
+section.block{margin-bottom:26px}
+section.block > h2{
+  font-size:15px; margin-bottom:12px; color:var(--text);
+  display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;
+}
+section.block > h2 small{font-weight:400; font-size:12.5px; color:var(--muted)}
+/* ขีดทองหน้าหัวข้อ */
+section.block > h2::before{
+  content:""; width:3px; height:15px; background:var(--gold);
+  border-radius:2px; display:inline-block; align-self:center; flex:none;
+}
+
+.card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow)}
+.pad{padding:16px}
+
+/* ---------- stat tiles ---------- */
+.tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(185px,1fr)); gap:12px}
+.tile{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; box-shadow:var(--shadow)}
+.tile .lab{font-size:12px; color:var(--muted); display:block; margin-bottom:5px}
+.tile .val{font-size:22px; font-weight:700; letter-spacing:-.02em; font-variant-numeric:tabular-nums; line-height:1.25}
+.tile .unit{font-size:12.5px; color:var(--muted); font-weight:400; margin-inline-start:4px}
+.tile .note{font-size:11.5px; color:var(--faint); margin-top:4px}
+.tile.crit{border-inline-start:4px solid var(--bad)}
+.tile.warn{border-inline-start:4px solid var(--warn)}
+.tile.ok{border-inline-start:4px solid var(--ok)}
+
+/* ---------- tables ---------- */
+.tablewrap{overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); box-shadow:var(--shadow)}
+table{border-collapse:collapse; width:100%; font-size:13.5px}
+th,td{padding:9px 11px; text-align:start; border-bottom:1px solid var(--border); vertical-align:top}
+th{background:var(--surface2); font-weight:600; font-size:12.5px; color:var(--muted); white-space:nowrap; position:sticky; top:0; z-index:1}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--surface2)}
+td.num,th.num{text-align:end; font-variant-numeric:tabular-nums; white-space:nowrap}
+.sortable{cursor:pointer; user-select:none}
+.sortable:hover{color:var(--accent)}
+
+/* ---------- misc atoms ---------- */
+.bar{height:7px; background:var(--surface2); border-radius:4px; overflow:hidden; min-width:60px}
+.bar > i{display:block; height:100%; border-radius:4px; background:var(--accent)}
+.chip{
+  display:inline-block; padding:1px 8px; border-radius:20px; font-size:11.5px;
+  background:var(--surface2); border:1px solid var(--border); color:var(--muted); white-space:nowrap;
+}
+.chip.s1{color:var(--s1)} .chip.s2{color:var(--s2)}
+.chip.s3{color:var(--s3)} .chip.s4{color:var(--s4)}
+.dot{display:inline-block; width:9px; height:9px; border-radius:50%; margin-inline-end:6px; vertical-align:baseline}
+.st-ok{color:var(--ok)} .st-warn{color:var(--warn)} .st-bad{color:var(--bad)} .st-none{color:var(--none)}
+.bg-ok{background:var(--ok)} .bg-warn{background:var(--warn)} .bg-bad{background:var(--bad)} .bg-none{background:var(--none)}
+.muted{color:var(--muted)}
+.small{font-size:12.5px}
+.mono{font-variant-numeric:tabular-nums}
+.nowrap{white-space:nowrap}
+.clamp2{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+
+/* ---------- filters ---------- */
+.filters{display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:14px}
+.field{display:flex; flex-direction:column; gap:4px}
+.field label{font-size:11.5px; color:var(--muted)}
+.field select,.field input{
+  background:var(--surface); border:1px solid var(--border); border-radius:8px;
+  padding:7px 10px; font-size:13.5px; min-width:150px; max-width:280px;
+}
+.field input[type=search]{min-width:240px}
+.field select:focus,.field input:focus{outline:2px solid var(--accent); outline-offset:-1px; border-color:transparent}
+
+/* ---------- แท่งกราฟ ----------
+   ใช้ div + CSS width เป็น % ไม่ใช้ SVG preserveAspectRatio="none"
+   ไม่งั้นตัวอักษรไทยจะถูกยืดตามความกว้างจอ (กับดักที่เจอมาแล้วในเว็บเดิม) */
+.hbars{display:flex; flex-direction:column; gap:13px}
+.hbar-top{display:flex; gap:14px; align-items:baseline; justify-content:space-between; font-size:12.5px; margin-bottom:4px}
+.hbar-top .lbl{overflow-wrap:anywhere}
+.hbar-top .val{color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap; flex:none}
+.hbars .bar{height:9px}
+
+/* ---------- ตัวเลือกเดือน ---------- */
+.monthpick{display:flex; flex-wrap:wrap; gap:6px}
+.monthpick button{
+  background:var(--surface); border:1px solid var(--border); border-radius:20px;
+  padding:5px 14px; cursor:pointer; font-size:12.5px; color:var(--muted); white-space:nowrap;
+}
+.monthpick button:hover{border-color:var(--accent); color:var(--accent)}
+.monthpick button[aria-pressed="true"]{background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600}
+
+/* ---------- รายการแจ้งเตือน ---------- */
+.alerts{display:flex; flex-direction:column; gap:9px}
+.alert{
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  box-shadow:var(--shadow); padding:12px 15px; display:flex; gap:13px; align-items:flex-start;
+  cursor:pointer; text-align:start; width:100%; border-inline-start-width:4px;
+}
+.alert:hover{border-color:var(--accent)}
+.alert.crit{border-inline-start-color:var(--bad)}
+.alert.warn{border-inline-start-color:var(--warn)}
+.alert .sev{
+  flex:none; border-radius:20px; padding:1px 10px; font-size:11.5px; font-weight:600;
+  color:#fff; white-space:nowrap; margin-top:2px;
+}
+.alert.crit .sev{background:var(--bad)}
+.alert.warn .sev{background:var(--warn)}
+.alert .abody{flex:1; min-width:0}
+.alert .title{font-size:14px; font-weight:600; overflow-wrap:anywhere}
+.alert .detail{font-size:12.5px; color:var(--muted); margin-top:3px; overflow-wrap:anywhere}
+.alert .meta{font-size:11.5px; color:var(--faint); margin-top:5px; display:flex; gap:12px; flex-wrap:wrap}
+.alert .amount{flex:none; text-align:end; font-variant-numeric:tabular-nums; font-size:12.5px; color:var(--muted); white-space:nowrap}
+
+/* ---------- ปุ่ม ---------- */
+.btnrow{display:flex; gap:9px; flex-wrap:wrap; margin-top:10px}
+.btn{
+  background:var(--accent); color:#fff; border:none; border-radius:8px;
+  padding:9px 16px; cursor:pointer; font-size:13.5px; font-weight:500;
+}
+.btn:hover{filter:brightness(1.08)}
+.btn:disabled{opacity:.55; cursor:default}
+.btn.ghost{background:var(--surface2); color:var(--text); border:1px solid var(--border)}
+.btn.danger{background:var(--bad)}
+
+.banner{
+  border:1px solid var(--warn); background:var(--gold-soft);
+  color:var(--text); padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:16px;
+}
+.banner.bad{border-color:var(--bad); background:transparent}
+.banner.ok{border-color:var(--ok); background:transparent}
+
+.toast{
+  position:fixed; inset-block-end:22px; inset-inline-start:50%; transform:translateX(-50%);
+  background:var(--text); color:var(--bg); padding:10px 18px; border-radius:22px;
+  font-size:13.5px; z-index:60; box-shadow:var(--shadow);
+}
+
+/* ---------- ลิ้นชักรายละเอียด ---------- */
+.scrim{position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:40}
+.drawer{
+  position:fixed; inset-block:0; inset-inline-end:0; width:min(760px,100%);
+  background:var(--surface); border-inline-start:1px solid var(--border);
+  z-index:41; display:flex; flex-direction:column;
+}
+.drawer header{
+  padding:16px 20px; border-bottom:1px solid var(--border);
+  display:flex; gap:12px; align-items:flex-start;
+}
+.drawer header h3{font-size:15.5px; flex:1; overflow-wrap:anywhere}
+.drawer .dbody{overflow-y:auto; padding:16px 20px 40px; flex:1}
+.dl{display:grid; grid-template-columns:minmax(120px,180px) 1fr; gap:7px 14px; font-size:13.5px; margin-bottom:18px}
+.dl dt{color:var(--muted); font-size:12.5px}
+.dl dd{margin:0; overflow-wrap:anywhere}
+.drawer h4{font-size:13px; color:var(--accent); margin:20px 0 9px; padding-bottom:5px; border-bottom:1px solid var(--border)}
+
+/* ---------- ฟอร์มติดตามผล ---------- */
+.trackgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; margin-bottom:12px}
+.trackgrid input,.trackgrid select,.trackgrid textarea{
+  width:100%; background:var(--surface); border:1px solid var(--border);
+  border-radius:8px; padding:7px 10px; font-size:13.5px;
+}
+textarea{min-height:70px; resize:vertical; font-family:inherit}
+
+/* ---------- ตารางรายงานผลรายเดือน ---------- */
+.mrep{width:100%; font-size:12.5px}
+.mrep th,.mrep td{padding:5px 8px}
+.mrep input{
+  width:100%; min-width:86px; background:var(--surface); border:1px solid var(--border);
+  border-radius:6px; padding:4px 7px; font-size:12.5px; text-align:end;
+}
+.mrep .plan{color:var(--muted); font-variant-numeric:tabular-nums; text-align:end; white-space:nowrap}
+.mrep tr.reported td:first-child{box-shadow:inset 3px 0 0 var(--ok)}
+.mrep tr.missed td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
+
+/* ---------- แถบเดือนแบบแกนต์ ---------- */
+.gantt{font-size:12.5px}
+.gantt td,.gantt th{padding:5px 6px}
+.gantt .mcell{width:26px; text-align:center; padding:5px 2px}
+.gantt .on{background:var(--accent); border-radius:3px; height:15px; display:block}
+.gantt .on.done{background:var(--ok)}
+.gantt .on.late{background:var(--bad)}
+
+/* ---------- หน้าเข้าสู่ระบบ ---------- */
+.loginwrap{
+  min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;
+  background:linear-gradient(150deg,var(--brand-1) 0%,var(--brand-2) 60%,var(--brand-3) 100%);
+}
+.logincard{
+  background:var(--surface); border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,.3);
+  padding:34px 32px; width:100%; max-width:400px; border-top:4px solid var(--gold);
+}
+.logincard .head{display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:24px; text-align:center}
+.logincard .head img{width:72px; height:72px}
+.logincard h1{font-size:17px}
+.logincard .sub{font-size:12.5px; color:var(--muted)}
+.logincard label{display:block; font-size:12.5px; color:var(--muted); margin-bottom:5px}
+.logincard input{
+  width:100%; background:var(--surface); border:1px solid var(--border);
+  border-radius:8px; padding:10px 12px; font-size:14px; margin-bottom:14px;
+}
+.logincard input:focus{outline:2px solid var(--accent); outline-offset:-1px; border-color:transparent}
+.logincard .btn{width:100%; padding:11px}
+.loginerr{color:var(--bad); font-size:12.5px; margin-bottom:12px}
+
+@media (max-width:640px){
+  .topbar{position:static}
+  .tabs{position:static}
+  main{padding:16px 13px 60px}
+  .dl{grid-template-columns:1fr}
+}

@@ -1,0 +1,19 @@
+{
+  "name": "raot-plan-alert-2570",
+  "version": "1.0.0",
+  "private": true,
+  "description": "เว็บแจ้งเตือนผลการดำเนินงานที่ไม่เป็นไปตามเป้าหมาย - แผนปฏิบัติการ กยท. ปีงบประมาณ 2570",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "14.2.15",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "engines": {
+    "node": ">=18.17.0"
+  }
+}
