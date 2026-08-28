@@ -1,20 +1,37 @@
 # ระบบแจ้งเตือนผลการดำเนินงาน กยท. ปีงบประมาณ 2570
 
 เว็บแจ้งเตือนโครงการในแผนปฏิบัติการ การยางแห่งประเทศไทย ปีงบประมาณ 2570
-ที่ผลการดำเนินงานไม่เป็นไปตามเป้าหมาย — Next.js App Router, deploy บน Vercel
+ที่ผลการดำเนินงานไม่เป็นไปตามเป้าหมาย — Next.js App Router + Supabase, deploy บน Vercel
 
 รายละเอียดทั้งหมด (กติกาการแจ้งเตือน, ข้อตกลงเรื่องข้อมูล, กับดักที่เจอมาแล้ว)
 อยู่ใน [docs/plan.txt](docs/plan.txt) — **อ่านไฟล์นั้นก่อนเริ่มแก้อะไร**
 
-## เข้าสู่ระบบ
+## ตั้งค่า Supabase (ต้องทำก่อนถึงจะใช้ได้)
+
+**1. รัน schema** — เปิด Supabase > SQL Editor วาง [supabase/schema.sql](supabase/schema.sql) ทั้งไฟล์ แล้ว Run
+
+**2. ปิดการสมัครสมาชิกเอง** — Authentication > Sign In / Providers > Email
+ปิด `Allow new users to sign up`
+เว็บไม่มีหน้าสมัครอยู่แล้ว แต่ถ้าไม่ปิดตรงนี้ใครก็ยิง API สมัครเองได้ เพราะ anon key เป็นของสาธารณะ
+
+**3. สร้างผู้ใช้** — Authentication > Users > Add user
+ใส่อีเมลกับรหัสผ่าน และ**ติ๊ก Auto Confirm User** ไม่งั้นจะเข้าไม่ได้
+
+**4. ใส่ env** — เอาค่าจาก Project Settings > Data API ไปใส่ที่
+Vercel > Settings > Environment Variables
 
 ```
-username  admin
-password  raot4623
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
 ```
 
-ทับได้ด้วย environment variable `APP_USER` / `APP_PASSWORD` บน Vercel
-และควรตั้ง `AUTH_SECRET` เป็นข้อความสุ่มยาว ๆ ถ้า repo เป็น public
+แล้ว **Redeploy หนึ่งครั้ง** — จำเป็นเสมอ เพราะ `NEXT_PUBLIC_*` ถูกฝังตอน build ไม่ใช่ตอนรัน
+ถ้ายังตั้งไม่ครบ เว็บจะพาไปหน้า `/setup` ที่บอกวิธีตั้งค่า
+
+รันในเครื่อง: คัดลอก `.env.local.example` เป็น `.env.local` แล้วใส่ค่าจริง
+
+> anon key เปิดเผยได้โดยการออกแบบ ความปลอดภัยอยู่ที่ Row Level Security ใน schema
+> **ห้ามเอา service_role key มาใส่ใน `NEXT_PUBLIC_*`** เพราะคีย์นั้นข้าม RLS ทั้งหมด
 
 ## deploy
 
@@ -28,9 +45,6 @@ git add -A
 git commit -m "ข้อความอธิบายว่าแก้อะไร"
 git push
 ```
-
-แล้วเข้า vercel.com > Add New > Project > Import repo นี้ > Deploy
-หลังจาก Import ครั้งแรกแล้ว ทุก push จะ deploy ใหม่อัตโนมัติ
 
 **เครือข่ายนี้บล็อก SSH port 22** remote จึงตั้งเป็น `ssh://git@ssh.github.com:443/...`
 ไม่ใช่ `git@github.com:...` ตามที่ GitHub แนะนำ ไม่งั้น push จะค้างแล้วขึ้น Connection timed out
@@ -50,8 +64,10 @@ powershell -File check\verify-imports.ps1   # ตรวจ import/export แล�
 |---|---|
 | `lib/plan.js` | แปลง `data/plan-data.json` เป็น `ITEMS` / `PROJECTS`, `monthsOf()`, `achievement()` |
 | `lib/alerts.js` | กลไกแจ้งเตือน 6 กฎ เกณฑ์ตัวเลขอยู่ที่ `RULES` |
-| `lib/store.jsx` | ผลการดำเนินงาน = ไฟล์ baseline ใน repo + localStorage ของแต่ละเครื่อง |
-| `lib/auth.js` + `middleware.js` | คุกกี้เซสชันเซ็นด้วย Web Crypto ไม่มี Database |
+| `lib/store.jsx` | โหลด/บันทึกผลการดำเนินงานกับ Supabase |
+| `lib/supabase/` | อ่าน env + สร้าง browser client |
+| `middleware.js` | ต่ออายุเซสชัน Supabase + กันคนที่ยังไม่ล็อกอิน |
+| `supabase/schema.sql` | 3 ตาราง + trigger + Row Level Security |
 | `app/(app)/` | สามหน้า: แจ้งเตือน / โครงการ / กรอกผล |
 
 **อย่าแก้ `data/plan-data.json` ด้วยมือ** — เป็นผลลัพธ์ที่แตกจาก `แผนปฏิบัติการ.xlsx`

@@ -10,18 +10,22 @@
 
 ## Feature
 
-- Login แบบง่ายด้วยรหัสตายตัว ไม่ใช้ Database
+- Login ด้วย **Supabase Auth** (อีเมล + รหัสผ่าน) ไม่มีหน้าสมัครสมาชิก
 - 3 หน้า: **แจ้งเตือน** / **โครงการ** / **กรอกผล**
 - กลไกแจ้งเตือน 6 กฎ พร้อมตัวเลือก "ณ เดือน" ให้เลื่อนดูสถานการณ์แต่ละเดือนได้
-- ผลการดำเนินงานเก็บเป็นไฟล์ baseline ใน repo + localStorage ของแต่ละเครื่อง
+- ผลการดำเนินงานเก็บใน **Supabase** ทุกคนที่เข้าสู่ระบบเห็นข้อมูลชุดเดียวกันทันที
 
-## รหัสผ่านที่กำหนด ไม่ต้องใช้ Database
+## บัญชีผู้ใช้
 
-    username  admin
-    password  raot4623
+**ไม่มีรหัสตายตัวแล้ว** ระบบเดิม (`admin` / `raot4623`) ถูกถอดออกทั้งหมดเมื่อ 28 ส.ค. 2569
+พร้อมกับไฟล์ `lib/auth.js`, `app/api/login/`, `app/api/logout/`
 
-ทับค่าได้ที่ Vercel > Settings > Environment Variables ด้วย `APP_USER` และ `APP_PASSWORD`
-โดยไม่ต้องแก้โค้ด (ดูหัวข้อ "Login และการตั้งค่าบน Vercel")
+ผู้ใช้ถูกสร้างจากหน้า Supabase เท่านั้น: **Authentication > Users > Add user**
+ใส่อีเมลกับรหัสผ่าน แล้ว**ติ๊ก "Auto Confirm User"** ไม่งั้นจะเข้าไม่ได้จนกว่าจะยืนยันอีเมล
+
+**ต้องปิดการสมัครสมาชิกเองด้วย**: Authentication > Sign In / Providers > Email
+ปิด "Allow new users to sign up" — เว็บไม่มีหน้าสมัครอยู่แล้ว แต่ถ้าไม่ปิดตรงนี้
+ใครก็ยิง API สมัครเองได้ เพราะ anon key เป็นของสาธารณะโดยธรรมชาติ
 
 ## เป้าหมาย
 
@@ -107,42 +111,82 @@
 โดยไม่มีคำอธิบาย จึงให้ผู้ใช้เลื่อนเดือนเองได้ ค่าเริ่มต้นคือเดือนงบประมาณปัจจุบัน
 ถ้ายังไม่ถึงปีงบจะเริ่มที่ ต.ค. 69
 
-## Login และการตั้งค่าบน Vercel
+## Supabase: Login และฐานข้อมูล
 
-- `app/api/login/route.js` ตรวจรหัสฝั่งเซิร์ฟเวอร์ เทียบกับ `APP_USER` / `APP_PASSWORD`
-  ถ้าไม่ได้ตั้ง env จะใช้ค่า `admin` / `raot4623` ที่ฝังไว้ **เพื่อให้ deploy แล้วใช้ได้ทันทีโดยไม่ต้องตั้งค่าอะไร**
-- ผ่านแล้วตั้งคุกกี้ `raot_session` = `<เวลาหมดอายุ>.<HMAC-SHA256>` อายุ 8 ชั่วโมง
-  เซ็นด้วย Web Crypto ซึ่งมีอยู่แล้วทั้งใน Edge runtime และ Node 18+
-  **จึงไม่ต้องลงไลบรารีอย่าง jose หรือ jsonwebtoken เพิ่ม**
-- `middleware.js` ตรวจลายเซ็นทุก request ยกเว้น `/login`, `/api/login` และไฟล์ static
-- คุกกี้เป็น `httpOnly` + `sameSite=lax` + `secure` เมื่อ production
+### สิ่งที่ต้องตั้งค่า
 
-**ข้อจำกัดที่ต้องรู้:** วิธีนี้ทำให้รหัสผ่านไม่ติดไปกับ JS ฝั่งเบราว์เซอร์
-แต่ถ้า repo เป็น public ใครอ่านซอร์สก็เห็นค่า fallback และปลอมคุกกี้ได้
-ถ้าต้องการความปลอดภัยจริงจัง ให้ตั้งค่าทั้งสามตัวใน Vercel > Settings > Environment Variables:
+env สองตัว ใช้ทั้งฝั่งเบราว์เซอร์และ middleware:
 
-    APP_USER        ชื่อผู้ใช้
-    APP_PASSWORD    รหัสผ่าน
-    AUTH_SECRET     ข้อความสุ่มยาว ๆ ใช้เซ็นคุกกี้
+    NEXT_PUBLIC_SUPABASE_URL        Project URL
+    NEXT_PUBLIC_SUPABASE_ANON_KEY   anon public key
 
-ตั้งแล้วต้อง Redeploy หนึ่งครั้งจึงมีผล
+ทั้งคู่อยู่ที่ Supabase > Project Settings > Data API
+บน Vercel ใส่ที่ Settings > Environment Variables แล้ว **Redeploy หนึ่งครั้ง**
+รันในเครื่องให้คัดลอก `.env.local.example` เป็น `.env.local`
+
+ถ้ายังตั้งไม่ครบ middleware จะพาไปหน้า `/setup` ที่บอกวิธีตั้งค่าเป็นขั้นตอน
+แทนที่จะปล่อยให้เว็บพังเงียบ ๆ
+
+### anon key เปิดเผยได้ ความปลอดภัยอยู่ที่ RLS
+
+anon key ถูกฝังลงบันเดิลที่ส่งให้เบราว์เซอร์อยู่แล้วโดยการออกแบบของ Supabase
+**การซ่อนคีย์ไม่ใช่มาตรการความปลอดภัย** สิ่งที่กันจริงคือ Row Level Security ใน
+`supabase/schema.sql` ซึ่งอนุญาตเฉพาะ role `authenticated` เท่านั้นที่อ่าน/เขียนได้
+ส่วน `anon` (ยังไม่ล็อกอิน) ทำอะไรไม่ได้เลย
+
+ห้ามเอา **service_role key** มาใส่ใน `NEXT_PUBLIC_*` เด็ดขาด — คีย์นั้นข้าม RLS ทั้งหมด
+
+### การไหลของเซสชัน
+
+- `app/login/page.jsx` เรียก `supabase.auth.signInWithPassword()` ฝั่งเบราว์เซอร์
+- `@supabase/ssr` เก็บ token ลงคุกกี้ ทำให้ middleware อ่านต่อได้
+- `middleware.js` เรียก `supabase.auth.getUser()` ทุก request
+  **ต้องเป็น `getUser()` ไม่ใช่ `getSession()`** เพราะ `getSession()` อ่านคุกกี้ตรง ๆ
+  โดยไม่ตรวจกับเซิร์ฟเวอร์ จึงปลอมได้
+- middleware ยังต่ออายุ token ให้ด้วย จึง**ต้องคืน response ตัวที่ `setAll` เขียนคุกกี้ลงไป**
+  ถ้าคืน `NextResponse.next()` ตัวใหม่ token ที่รีเฟรชแล้วจะไม่ถึงเบราว์เซอร์
+  แล้วผู้ใช้จะหลุดล็อกอินเป็นระยะโดยหาสาเหตุไม่เจอ
+
+### ตารางในฐานข้อมูล
+
+รัน `supabase/schema.sql` ใน SQL Editor ของ Supabase (รันซ้ำได้ ไม่ลบข้อมูลเดิม)
+
+| ตาราง | เก็บอะไร | คีย์ |
+|---|---|---|
+| `kpi_results` | ผลตัวชี้วัด 13 ตัว | `no` |
+| `project_results` | สถานะ/ความก้าวหน้า/หมายเหตุ รายโครงการ | `uid` |
+| `monthly_reports` | ผลผลิต/ผลลัพธ์/เบิกจ่าย รายเดือน | `(uid, month)` |
+
+**ผลรายเดือนแยกเป็นตารางต่างหาก ไม่ยัดเป็น jsonb ก้อนเดียว** เพื่อให้สองคน
+แก้คนละเดือนของโครงการเดียวกันพร้อมกันแล้วไม่เขียนทับกัน
+
+**คีย์เป็น `uid` ไม่ใช่รหัสโครงการ** เพราะไฟล์แผนมีรหัสซ้ำ 9 รหัส (ดูหัวข้อข้อตกลงเรื่องข้อมูล)
+
+ข้อมูลแผนเอง (553 รายการ) ไม่ได้อยู่ในฐานข้อมูล ยังฝังไปกับเว็บใน `data/plan-data.json`
+เพราะเป็นข้อมูลนิ่งที่ไม่มีใครแก้ ทำให้หน้าเว็บ render ได้โดยไม่ต้องรอ query
+
+### การบันทึก
+
+`lib/store.jsx` บันทึกแบบ optimistic — อัปเดตหน้าจอทันที แล้วค่อย upsert ขึ้น Supabase
+หลังหยุดพิมพ์ 800 ms เพื่อไม่ให้ยิง request ทุกตัวอักษร
+ถ้าบันทึกไม่สำเร็จจะขึ้นแถบแดงและข้อมูลบนจอยังอยู่ กดปุ่ม "บันทึกเดี๋ยวนี้" ในหน้ากรอกผลซ้ำได้
 
 ## โครงสร้างไฟล์
 
 ```
-package.json                    next / react / react-dom เท่านั้น ปักเวอร์ชันตายตัว
+package.json                    next / react / react-dom + @supabase/ssr, @supabase/supabase-js
 next.config.mjs
 jsconfig.json                   ตั้ง alias "@/*"
-middleware.js                   ประตูหน้า ตรวจคุกกี้ทุก request
+.env.local.example              แม่แบบของ env สองตัว
+middleware.js                   ประตูหน้า: ต่ออายุเซสชัน Supabase + กันคนที่ยังไม่ล็อกอิน
 
 app/
   layout.jsx                    <html lang="th"> + metadata + favicon
   globals.css                   ธีม กยท. ทั้งหมด (ยกจาก template.html ของโปรเจกต์เดิม)
-  login/page.jsx                หน้าเข้าสู่ระบบ
-  api/login/route.js            ตรวจรหัส ตั้งคุกกี้
-  api/logout/route.js           ล้างคุกกี้
+  login/page.jsx                หน้าเข้าสู่ระบบ (อีเมล + รหัสผ่าน ไม่มีปุ่มสมัคร)
+  setup/page.jsx                หน้าอธิบายวิธีตั้งค่าเมื่อ env ยังไม่ครบ
   (app)/layout.jsx              ครอบด้วย ResultsProvider
-  (app)/shell.jsx               แถบหัวเรื่อง + เมนู + ป้ายนับจำนวนวิกฤต
+  (app)/shell.jsx               แถบหัวเรื่อง + เมนู + อีเมลผู้ใช้ + ปุ่มออกจากระบบ
   (app)/page.jsx                หน้าแจ้งเตือน
   (app)/projects/page.jsx       หน้าโครงการ
   (app)/entry/page.jsx          หน้ากรอกผล
@@ -150,19 +194,18 @@ app/
 lib/
   plan.js                       materialize string table -> ITEMS / PROJECTS, monthsOf, achievement
   alerts.js                     กลไกแจ้งเตือน 6 กฎ + rolledReport
-  store.jsx                     baseline + localStorage overlay + export/import (React context)
+  store.jsx                     โหลด/บันทึกผลกับ Supabase (React context)
   format.js                     รูปแบบตัวเลขไทย
-  auth.js                       เซ็น/ตรวจคุกกี้ด้วย Web Crypto
+  supabase/config.js            อ่าน env + isConfigured()
+  supabase/client.js            createBrowserClient แบบใช้ซ้ำตัวเดียว
 
 components/
   month-picker.jsx              ตัวเลือก "ณ เดือน"
   project-drawer.jsx            ลิ้นชักรายละเอียด + ตารางรายงานผลรายเดือน
 
-data/
-  plan-data.json                ข้อมูลแผนที่แตกแล้ว (404 KB) ก๊อปจาก Gif\build\
-  results-2570.json             ค่าฐานผลการดำเนินงานที่ทุกคนเห็นตรงกัน
-
+data/plan-data.json             ข้อมูลแผนที่แตกแล้ว (404 KB) ก๊อปจาก Gif\build\
 public/logo.png                 ตราสัญลักษณ์ 256×256 ถอดจาก Gif\build\logo-datauri.txt
+supabase/schema.sql             ตาราง 3 ตาราง + trigger + Row Level Security
 
 check/
   verify-data.ps1               กระทบยอดข้อมูลกับไฟล์ต้นฉบับ 26 ข้อ
@@ -211,15 +254,20 @@ powershell -File check\verify-data.ps1      # ต้องผ่าน 26 ข้
 powershell -File check\verify-imports.ps1   # ต้องไม่พบ import/export ที่ผิด
 ```
 
-## วิธีรวมผลจากหลายคน (โดยไม่ต้องมี Database)
+## การใช้งานร่วมกันหลายคน
 
-1. แต่ละคน login แล้วกรอกผลในเบราว์เซอร์ของตัวเอง (เก็บใน localStorage)
-2. กด **"ส่งออกไฟล์ผล (.json)"** ในหน้ากรอกผล — ไฟล์ที่ได้รวม baseline เข้ากับสิ่งที่กรอกแล้ว
-3. นำไฟล์ไปวางทับ `data/results-2570.json` แล้ว commit + push
-4. Vercel deploy ใหม่ ทุกคนเห็นค่าฐานชุดใหม่ทันที
+ทุกคนที่เข้าสู่ระบบเห็นและแก้ข้อมูลชุดเดียวกันในฐานข้อมูลเดียวกัน กรอกแล้วบันทึกเอง
+ไม่ต้องส่งไฟล์ให้กันเหมือนรุ่นก่อน
 
-ค่าใน localStorage ของแต่ละเครื่องจะ**ทับค่าฐานเป็นรายฟิลด์** ใครที่กรอกอะไรค้างไว้จึงไม่หาย
-ถ้าอยากใช้ค่าฐานล้วน ให้กด "ล้างข้อมูลในเครื่องนี้"
+- เปิดหน้าค้างไว้นานแล้วสงสัยว่ามีคนอื่นแก้ — กด **"ดึงข้อมูลใหม่"** ในหน้ากรอกผล
+  (ยังไม่ได้ทำ realtime อัปเดตอัตโนมัติ)
+- **"ส่งออกไฟล์สำรอง (.json)"** ใช้เก็บสำเนาไว้เอง
+- **"นำเข้าไฟล์สำรอง"** จะ**เขียนทับ**แถวที่คีย์ตรงกันในฐานข้อมูล และทุกคนเห็นผลทันที
+  ใช้เฉพาะตอนกู้คืนข้อมูลเท่านั้น
+
+ตอนนี้ทุกคนที่ล็อกอินมีสิทธิ์เท่ากันหมด (แก้ได้ทุกโครงการ) ถ้าต้องการจำกัดให้แก้ได้
+เฉพาะของหน่วยงานตัวเอง ต้องเพิ่มตาราง `profiles` แล้วแก้เงื่อนไข `using(...)`
+ใน `supabase/schema.sql`
 
 ## ข้อตกลงเรื่องข้อมูลที่ต้องรู้
 
@@ -258,7 +306,8 @@ powershell -File check\verify-imports.ps1   # ต้องไม่พบ import
 - **เครื่องนี้ไม่มี Node.js** จึงรัน `npm install` / `next build` / `vercel` ไม่ได้เลย
   ต้องเขียนซอร์สให้ถูกตั้งแต่ครั้งแรก เพราะจะรู้ว่าพังก็ตอน Vercel build แล้ว
   ด้วยเหตุนี้จึง **ใช้ JavaScript ไม่ใช้ TypeScript** (typecheck ในเครื่องไม่ได้)
-  และ **ไม่ใส่ dependency เกินจำเป็น** — ไม่มี Tailwind ไม่มี chart library ไม่มี auth library
+  และ **ไม่ใส่ dependency เกินจำเป็น** — ไม่มี Tailwind ไม่มี chart library
+  (มีแค่ `@supabase/ssr` กับ `@supabase/supabase-js` ซึ่งจำเป็นจริง ๆ)
 - **`useSearchParams()` ใน Next 14 ต้องครอบ Suspense** ไม่งั้น build ไม่ผ่าน
   หน้า login จึงอ่าน `window.location.search` ตอนกดส่งแทน
 - **อย่าอ่าน `localStorage` ตอน render แรก** ผลฝั่งเซิร์ฟเวอร์กับเบราว์เซอร์จะไม่ตรงกัน
@@ -266,11 +315,28 @@ powershell -File check\verify-imports.ps1   # ต้องไม่พบ import
   ด้วยเหตุผลเดียวกัน ค่าเริ่มต้นของ "ณ เดือน" ต้องเป็นค่าคงที่ก่อน แล้วค่อยแก้ใน effect
 - **`localStorage.getItem()` คืน `null` เมื่อไม่มีค่า และ `Number(null)` เป็น `0`**
   ถ้าเช็คแค่ช่วง 0–11 จะได้ ต.ค. 69 เสมอ ต้องกันกรณี `null` แยกต่างหาก
-- **ทุกการเรียก `localStorage` ต้องครอบ try/catch** และมีทางลงเมื่อเขียนไม่ได้ (แถบเตือน + ส่งออกไฟล์เอง)
+- **ทุกการเรียก `localStorage` ต้องครอบ try/catch** ตอนนี้เหลือใช้เก็บแค่ค่า "ณ เดือน"
+  ข้อมูลผลย้ายไป Supabase หมดแล้ว
 - **กราฟแท่งห้ามใช้ SVG + `preserveAspectRatio="none"`** ตัวอักษรไทยจะถูกยืดตามความกว้างจอ
   ใช้ `<div>` + CSS width เป็น % แทน
 - **ฟอนต์ไทยห้ามลิงก์ออนไลน์** ใช้สแตก `'Sarabun','Noto Sans Thai','Leelawadee UI',Tahoma`
   (สองตัวหลังติดมากับ Windows)
+
+**ของ Supabase**
+
+- **`NEXT_PUBLIC_*` ถูกฝังตอน build ไม่ใช่ตอนรัน** เพิ่ม env บน Vercel แล้วต้อง Redeploy
+  ไม่งั้นค่าจะยังเป็น undefined และเว็บจะเด้งไปหน้า `/setup` ทั้งที่ตั้งค่าไปแล้ว
+- **ใน middleware ต้องคืน response ตัวที่ `setAll` เขียนคุกกี้ลงไป** ถ้าคืน
+  `NextResponse.next()` ตัวใหม่ token ที่รีเฟรชแล้วจะหาย ผู้ใช้จะหลุดล็อกอินเป็นระยะ
+  โดยหาสาเหตุไม่เจอ
+- **ใช้ `getUser()` ไม่ใช่ `getSession()` ในการตรวจสิทธิ์** `getSession()` เชื่อคุกกี้ตรง ๆ
+  โดยไม่ตรวจกับเซิร์ฟเวอร์
+- **สร้าง browser client ครั้งเดียวแล้วใช้ซ้ำ** ถ้าเรียก `createBrowserClient()` ทุก render
+  จะมี listener ซ้อนกัน
+- **ช่องเบิกจ่ายที่เว้นว่างต้องบันทึกเป็น `null` ไม่ใช่ `0`** ไม่งั้นเดือนที่ไม่ได้กรอก
+  จะกลายเป็น "เบิกจ่าย 0 บาท" แล้วกฎแจ้งเตือนจะนับว่ารายงานแล้ว
+- **anon key เปิดเผยได้ แต่ service_role key ห้ามเด็ดขาด** อันหลังข้าม RLS ทั้งหมด
+- ถ้าเข้าไม่ได้ทั้งที่รหัสถูก ให้เช็คว่าผู้ใช้ถูก **Auto Confirm** แล้วหรือยัง
 
 **ของ PowerShell (สคริปต์ใน check\)**
 
@@ -299,5 +365,9 @@ powershell -File check\verify-imports.ps1   # ต้องไม่พบ import
   (ข้อมูลมีอยู่ครบใน `plan-data.json` แล้ว — ฟิลด์ `nX`/`nY`/`nSub` และ `rScen`/`rFactor`/`rC1`–`rC3`)
 - ยังไม่มี **รายงานพิมพ์ A4** แบบเว็บเดิม
 - ยังไม่มีการส่งอีเมล/แจ้งเตือนอัตโนมัติ — ต้องเปิดเว็บดูเอง
-- การรวมผลจากหลายคนยังต้องส่งออก/นำเข้าไฟล์ `.json` แล้ว commit เอง
-  ถ้าอยากให้กรอกแล้วเห็นตรงกันทันที ต้องเพิ่ม Vercel Blob หรือ KV ซึ่งขัดกับข้อ "ไม่ต้องใช้ Database"
+- **ยังไม่มี realtime** ถ้ามีคนอื่นแก้ระหว่างที่เปิดหน้าค้างไว้ ต้องกด "ดึงข้อมูลใหม่" เอง
+  (Supabase มี Realtime ให้อยู่แล้ว เพิ่มทีหลังได้ไม่ยาก)
+- **ยังไม่มีระบบสิทธิ์แยกตามหน่วยงาน** ทุกคนที่ล็อกอินแก้ได้ทุกโครงการ
+  ถ้าต้องการต้องเพิ่มตาราง `profiles` แล้วแก้เงื่อนไข RLS
+- **ยังไม่มีประวัติการแก้ไข** ตารางเก็บแค่ `updated_at` / `updated_by` ของค่าล่าสุด
+  ถ้าอยากรู้ว่าใครแก้อะไรเมื่อไหร่ ต้องเพิ่มตาราง audit log

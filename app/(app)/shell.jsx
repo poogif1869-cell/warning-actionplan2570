@@ -14,7 +14,8 @@ const NAV = [
 
 export default function Shell({ children }) {
   const pathname = usePathname();
-  const { results, asOf, savedHint, storageOK, loaded } = useResults();
+  const { results, asOf, savedHint, loaded, loadError, saveError, userEmail, signOut, saveNow } =
+    useResults();
   const [signingOut, setSigningOut] = useState(false);
 
   const critCount = useMemo(() => {
@@ -22,12 +23,13 @@ export default function Shell({ children }) {
     return buildAlerts(results, asOf).filter((a) => a.sev === "crit").length;
   }, [results, asOf, loaded]);
 
-  async function signOut() {
+  async function handleSignOut() {
     setSigningOut(true);
+    // ส่งสิ่งที่ยังค้างขึ้น Supabase ก่อน ไม่งั้นข้อความที่เพิ่งพิมพ์จะหาย
     try {
-      await fetch("/api/logout", { method: "POST" });
+      await saveNow();
     } catch (e) {}
-    window.location.href = "/login";
+    await signOut();
   }
 
   return (
@@ -56,7 +58,8 @@ export default function Shell({ children }) {
 
           <div className="topbar-right">
             {savedHint ? <span className="savehint">{savedHint}</span> : null}
-            <button className="iconbtn" onClick={signOut} disabled={signingOut}>
+            {userEmail ? <span className="savehint">{userEmail}</span> : null}
+            <button className="iconbtn" onClick={handleSignOut} disabled={signingOut}>
               {signingOut ? "กำลังออก…" : "ออกจากระบบ"}
             </button>
           </div>
@@ -79,12 +82,8 @@ export default function Shell({ children }) {
       </nav>
 
       <main>
-        {!storageOK ? (
-          <div className="banner">
-            เบราว์เซอร์นี้บันทึกลงเครื่องไม่ได้ (localStorage ถูกปิดหรือเต็ม) —
-            สิ่งที่กรอกจะหายเมื่อปิดหน้า ให้กด “ส่งออกไฟล์ผล” ในหน้ากรอกผลเก็บไว้เอง
-          </div>
-        ) : null}
+        {loadError ? <div className="banner bad">{loadError}</div> : null}
+        {saveError ? <div className="banner bad">{saveError}</div> : null}
         {children}
       </main>
     </>

@@ -1,54 +1,32 @@
 "use client";
 
 /* =====================================================================
-   ผลการดำเนินงาน = baseline ในrepo + overlay ใน localStorage
+   ผลการดำเนินงาน เก็บใน Supabase
 
-   - data/results-2570.json  คือค่าฐานที่ commit ไว้ ทุกคนที่ login เห็นเหมือนกัน
-   - localStorage            คือสิ่งที่ผู้ใช้เครื่องนั้นกรอกเพิ่ม ทับค่าฐานเป็นรายฟิลด์
-   - ส่งออกไฟล์ผล -> เอาไปวางทับ data/results-2570.json แล้ว commit
-     คือวิธีรวมข้อมูลจากหลายคนโดยไม่ต้องมี Database
+   ตาราง (ดู supabase/schema.sql):
+     kpi_results      no, actual
+     project_results  uid, code, status, progress, note
+     monthly_reports  uid, month, output, outcome, spend
 
-   คีย์ของโครงการใช้ uid (code + "#" + ลำดับแถว) ไม่ใช่ code เพราะไฟล์ต้นทาง
-   มีรหัสซ้ำ 9 รหัส ถ้าใช้ code สองโครงการที่รหัสชนกันจะใช้ข้อมูลก้อนเดียวกัน
+   คีย์ของโครงการใช้ uid = code + "#" + ลำดับแถว ไม่ใช่ code เปล่า ๆ
+   เพราะไฟล์แผนมีรหัสซ้ำ 9 รหัส ถ้าใช้ code สองโครงการที่ชนกันจะเขียนทับกัน
+
+   การเขียนกลับเป็นแบบ optimistic: อัปเดตหน้าจอทันที แล้วค่อยส่งขึ้น Supabase
+   แบบหน่วงเวลา เพื่อไม่ให้ยิง request ทุกตัวอักษรที่พิมพ์
    ===================================================================== */
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import BASELINE from "@/data/results-2570.json";
-import { ITEMS, currentFiscalMonth } from "@/lib/plan";
+import { getSupabase } from "@/lib/supabase/client";
+import { currentFiscalMonth } from "@/lib/plan";
 import { toNum } from "@/lib/format";
 
-const STORE_KEY = "raot-plan-2570/v2";
-const OLD_STORE_KEY = "raot-plan-2570/v1"; // รูปแบบของเว็บเดิม คีย์ด้วย code
 const ASOF_KEY = "raot-plan-2570/asof";
+const FLUSH_MS = 800;
 
-const emptyResults = () => ({ kpi: {}, project: {}, savedAt: null });
-
-/* ---------- รวม baseline กับ overlay ---------- */
-function mergeResults(base, over) {
-  const out = emptyResults();
-
-  out.kpi = Object.assign({}, base.kpi, over.kpi);
-
-  const codes = new Set([
-    ...Object.keys(base.project || {}),
-    ...Object.keys(over.project || {}),
-  ]);
-  codes.forEach((k) => {
-    const b = (base.project || {})[k] || {};
-    const o = (over.project || {})[k] || {};
-    const monthly = Object.assign({}, b.monthly);
-    Object.keys(o.monthly || {}).forEach((i) => {
-      monthly[i] = Object.assign({}, monthly[i], o.monthly[i]);
-    });
-    out.project[k] = Object.assign({}, b, o, { monthly });
-  });
-
-  out.savedAt = over.savedAt || base.savedAt || null;
-  return out;
-}
+const emptyResults = () => ({ kpi: {}, project: {} });
 
 /* ---------- ตัวช่วยที่ใช้ทั้งหน้าแจ้งเตือนและหน้ากรอกผล ---------- */
-/* แต่ละเดือนเก็บ { o: ผลผลิต, r: ผลลัพธ์, s: เบิกจ่าย } — เหมือนเว็บเดิม */
+/* แต่ละเดือนเก็บ { o: ผลผลิต, r: ผลลัพธ์, s: เบิกจ่าย } */
 export function hasReport(e) {
   return !!(
     e &&
@@ -92,131 +70,204 @@ export function kpiActual(results, no) {
   return ((results.kpi || {})[no] || {}).actual;
 }
 
-/* ---------- แปลงไฟล์รุ่นเก่า (คีย์ด้วย code) มาเป็นคีย์ uid ---------- */
-export function migrateByCode(obj) {
-  const firstByCode = new Map();
-  const dupCodes = new Set();
-  ITEMS.forEach((x) => {
-    if (firstByCode.has(x.code)) dupCodes.add(x.code);
-    else firstByCode.set(x.code, x);
-  });
-
-  const project = {};
-  const collided = [];
-  Object.keys(obj.project || {}).forEach((key) => {
-    if (key.indexOf("#") >= 0) {
-      project[key] = obj.project[key]; // เป็นรูปแบบใหม่อยู่แล้ว
-      return;
-    }
-    const item = firstByCode.get(key);
-    if (!item) return; // รหัสที่ไม่มีในแผนแล้ว ทิ้งไป
-    if (dupCodes.has(key)) collided.push(key);
-    project[item.uid] = obj.project[key];
-  });
-
-  return { results: { kpi: obj.kpi || {}, project, savedAt: obj.savedAt || null }, collided };
-}
-
-function needsMigration(obj) {
-  return Object.keys((obj && obj.project) || {}).some((k) => k.indexOf("#") < 0);
-}
-
 /* =====================================================================
    React context
    ===================================================================== */
 const Ctx = createContext(null);
 
 export function ResultsProvider({ children }) {
-  const [overlay, setOverlay] = useState(emptyResults);
-  const [storageOK, setStorageOK] = useState(true);
+  const [results, setResults] = useState(emptyResults);
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [saveError, setSaveError] = useState("");
   const [savedHint, setSavedHint] = useState("");
-  const saveTimer = useRef(null);
-  const dirty = useRef(false);
+  const [userEmail, setUserEmail] = useState("");
 
   /* "ณ เดือน" ที่ใช้เป็นฐานคำนวณการแจ้งเตือน — ใช้ร่วมกันทุกหน้า
-     ปีงบ 2570 คือ ต.ค. 2026 - ก.ย. 2027 ถ้าวันนี้ยังไม่ถึงจะเริ่มที่เดือนแรก
-     ค่าเริ่มต้นต้องเป็นค่าคงที่ตอน render แรก ไม่งั้น hydration ไม่ตรงกัน */
+     ค่าเริ่มต้นต้องคงที่ตอน render แรก ไม่งั้น hydration ฝั่งเซิร์ฟเวอร์กับเบราว์เซอร์ไม่ตรงกัน */
   const [asOf, setAsOfState] = useState(0);
   const [fyStarted, setFyStarted] = useState(true);
 
-  /* โหลด overlay หลัง mount เท่านั้น — ถ้าอ่าน localStorage ตอน render แรก
-     ผลลัพธ์ฝั่งเซิร์ฟเวอร์กับฝั่งเบราว์เซอร์จะไม่ตรงกันแล้ว React จะเตือน hydration */
+  /* คิวของแถวที่ยังไม่ได้ส่งขึ้น Supabase */
+  const pending = useRef({ kpi: new Set(), project: new Set(), monthly: new Set() });
+  const flushTimer = useRef(null);
+  const latest = useRef(results);
+  latest.current = results;
+
+  /* ---------- โหลดข้อมูลทั้งหมดจาก Supabase ---------- */
+  async function loadAll() {
+    const supabase = getSupabase();
+
+    const [kpiRes, projRes, monRes] = await Promise.all([
+      supabase.from("kpi_results").select("no,actual"),
+      supabase.from("project_results").select("uid,status,progress,note"),
+      supabase.from("monthly_reports").select("uid,month,output,outcome,spend"),
+    ]);
+
+    const firstError = kpiRes.error || projRes.error || monRes.error;
+    if (firstError) throw firstError;
+
+    const next = emptyResults();
+
+    (kpiRes.data || []).forEach((row) => {
+      next.kpi[row.no] = { actual: row.actual == null ? "" : row.actual };
+    });
+
+    (projRes.data || []).forEach((row) => {
+      next.project[row.uid] = {
+        status: row.status == null ? "" : row.status,
+        progress: row.progress == null ? "" : row.progress,
+        note: row.note == null ? "" : row.note,
+        monthly: {},
+      };
+    });
+
+    (monRes.data || []).forEach((row) => {
+      if (!next.project[row.uid]) next.project[row.uid] = { monthly: {} };
+      if (!next.project[row.uid].monthly) next.project[row.uid].monthly = {};
+      next.project[row.uid].monthly[row.month] = {
+        o: row.output == null ? "" : row.output,
+        r: row.outcome == null ? "" : row.outcome,
+        s: row.spend == null ? "" : String(row.spend),
+      };
+    });
+
+    return next;
+  }
+
   useEffect(() => {
-    try {
-      let raw = localStorage.getItem(STORE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        setOverlay(Object.assign(emptyResults(), parsed));
-      } else {
-        // ยกข้อมูลจากเว็บเดิมมาให้อัตโนมัติถ้ามี
-        raw = localStorage.getItem(OLD_STORE_KEY);
-        if (raw) {
-          const old = JSON.parse(raw);
-          migrateOldMonthlyField(old);
-          setOverlay(Object.assign(emptyResults(), migrateByCode(old).results));
+    let alive = true;
+
+    (async () => {
+      try {
+        const supabase = getSupabase();
+        const { data } = await supabase.auth.getUser();
+        if (alive && data && data.user) setUserEmail(data.user.email || "");
+
+        const next = await loadAll();
+        if (alive) setResults(next);
+      } catch (err) {
+        if (alive) {
+          setLoadError(
+            "โหลดข้อมูลจาก Supabase ไม่สำเร็จ: " +
+              (err && err.message ? err.message : String(err)) +
+              " — ถ้าเพิ่งตั้งค่าใหม่ ให้ตรวจว่ารัน supabase/schema.sql แล้ว"
+          );
         }
       }
-    } catch (e) {
-      setStorageOK(false);
-    }
 
-    const fm = currentFiscalMonth();
-    setFyStarted(!!fm.started);
-    try {
-      // getItem คืน null เมื่อไม่มีค่า และ Number(null) เป็น 0 ซึ่งผ่านการเช็คช่วง
-      // ต้องกันกรณี null แยกต่างหาก ไม่งั้นจะได้ ต.ค. 69 เสมอแทนเดือนปัจจุบัน
-      const stored = localStorage.getItem(ASOF_KEY);
-      const savedAsOf = stored == null ? NaN : Number(stored);
-      setAsOfState(
-        isFinite(savedAsOf) && savedAsOf >= 0 && savedAsOf <= 11 ? savedAsOf : fm.index
-      );
-    } catch (e) {
-      setAsOfState(fm.index);
-    }
+      const fm = currentFiscalMonth();
+      if (alive) setFyStarted(!!fm.started);
+      try {
+        // getItem คืน null เมื่อไม่มีค่า และ Number(null) เป็น 0 ซึ่งผ่านการเช็คช่วง
+        // ต้องกันกรณี null แยกต่างหาก ไม่งั้นจะได้ ต.ค. 69 เสมอแทนเดือนปัจจุบัน
+        const stored = localStorage.getItem(ASOF_KEY);
+        const saved = stored == null ? NaN : Number(stored);
+        if (alive) setAsOfState(isFinite(saved) && saved >= 0 && saved <= 11 ? saved : fm.index);
+      } catch (e) {
+        if (alive) setAsOfState(fm.index);
+      }
 
-    setLoaded(true);
+      if (alive) setLoaded(true);
+    })();
+
+    return () => {
+      alive = false;
+    };
   }, []);
 
-  /* เขียนกลับแบบหน่วงเวลา ทุกครั้งต้องครอบ try/catch และมีทางลงเมื่อเขียนไม่ได้ */
-  useEffect(() => {
-    if (!loaded) return;
-    // รอบแรกหลังโหลดเสร็จยังไม่มีใครแก้อะไร ไม่ต้องเขียนทับและไม่ต้องขึ้น "บันทึกแล้ว"
-    if (!dirty.current) {
-      dirty.current = true;
+  /* ---------- ส่งแถวที่ค้างอยู่ขึ้น Supabase ---------- */
+  async function flush() {
+    const queue = pending.current;
+    pending.current = { kpi: new Set(), project: new Set(), monthly: new Set() };
+
+    const snapshot = latest.current;
+    const supabase = getSupabase();
+    const jobs = [];
+
+    if (queue.kpi.size) {
+      const rows = [...queue.kpi].map((no) => ({
+        no,
+        actual: (snapshot.kpi[no] || {}).actual ?? "",
+      }));
+      jobs.push(supabase.from("kpi_results").upsert(rows, { onConflict: "no" }));
+    }
+
+    if (queue.project.size) {
+      const rows = [...queue.project].map((uid) => {
+        const p = snapshot.project[uid] || {};
+        return {
+          uid,
+          code: uid.split("#")[0],
+          status: p.status ?? "",
+          progress: p.progress ?? "",
+          note: p.note ?? "",
+        };
+      });
+      jobs.push(supabase.from("project_results").upsert(rows, { onConflict: "uid" }));
+    }
+
+    if (queue.monthly.size) {
+      const rows = [...queue.monthly].map((key) => {
+        const sep = key.lastIndexOf("|");
+        const uid = key.slice(0, sep);
+        const month = Number(key.slice(sep + 1));
+        const e = ((snapshot.project[uid] || {}).monthly || {})[month] || {};
+        const raw = e.s == null ? "" : String(e.s).trim();
+        return {
+          uid,
+          month,
+          output: e.o ?? "",
+          outcome: e.r ?? "",
+          // ช่องว่างต้องเป็น null ไม่ใช่ 0 ไม่งั้นเดือนที่ไม่ได้กรอกจะกลายเป็นเบิกจ่าย 0 บาท
+          spend: raw === "" ? null : toNum(raw),
+        };
+      });
+      jobs.push(
+        supabase.from("monthly_reports").upsert(rows, { onConflict: "uid,month" })
+      );
+    }
+
+    if (!jobs.length) return;
+
+    const done = await Promise.all(jobs);
+    const failed = done.find((r) => r && r.error);
+    if (failed) {
+      setSaveError(
+        "บันทึกขึ้น Supabase ไม่สำเร็จ: " + failed.error.message +
+          " — ข้อมูลที่เห็นบนจอยังอยู่ แต่ยังไม่ได้บันทึก ลองกดบันทึกซ้ำอีกครั้ง"
+      );
       return;
     }
-    clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      try {
-        const payload = Object.assign({}, overlay, { savedAt: new Date().toISOString() });
-        localStorage.setItem(STORE_KEY, JSON.stringify(payload));
-        const d = new Date();
-        setSavedHint(
-          "บันทึกแล้ว " +
-            String(d.getHours()).padStart(2, "0") + ":" +
-            String(d.getMinutes()).padStart(2, "0")
-        );
-      } catch (e) {
-        setStorageOK(false);
-        setSavedHint("บันทึกอัตโนมัติไม่สำเร็จ");
-      }
-    }, 400);
-    return () => clearTimeout(saveTimer.current);
-  }, [overlay, loaded]);
 
-  const results = useMemo(
-    () => mergeResults(Object.assign(emptyResults(), BASELINE), overlay),
-    [overlay]
-  );
+    setSaveError("");
+    const d = new Date();
+    setSavedHint(
+      "บันทึกแล้ว " +
+        String(d.getHours()).padStart(2, "0") + ":" +
+        String(d.getMinutes()).padStart(2, "0")
+    );
+  }
+
+  function scheduleFlush() {
+    clearTimeout(flushTimer.current);
+    flushTimer.current = setTimeout(() => {
+      flush().catch((err) => setSaveError("บันทึกไม่สำเร็จ: " + (err.message || String(err))));
+    }, FLUSH_MS);
+  }
+
+  useEffect(() => {
+    return () => clearTimeout(flushTimer.current);
+  }, []);
 
   const api = useMemo(() => {
     return {
       results,
-      overlay,
-      storageOK,
-      savedHint,
       loaded,
+      loadError,
+      saveError,
+      savedHint,
+      userEmail,
       asOf,
       fyStarted,
 
@@ -228,46 +279,71 @@ export function ResultsProvider({ children }) {
       },
 
       setKpi(no, actual) {
-        setOverlay((prev) => ({
+        setResults((prev) => ({
           ...prev,
           kpi: { ...prev.kpi, [no]: { ...(prev.kpi[no] || {}), actual } },
         }));
+        pending.current.kpi.add(no);
+        scheduleFlush();
       },
 
       setProject(uid, patch) {
-        setOverlay((prev) => ({
+        setResults((prev) => ({
           ...prev,
           project: { ...prev.project, [uid]: { ...(prev.project[uid] || {}), ...patch } },
         }));
+        pending.current.project.add(uid);
+        scheduleFlush();
       },
 
       setMonthly(uid, i, patch) {
-        setOverlay((prev) => {
+        setResults((prev) => {
           const cur = prev.project[uid] || {};
           const monthly = { ...(cur.monthly || {}) };
           monthly[i] = { ...(monthly[i] || {}), ...patch };
           return { ...prev, project: { ...prev.project, [uid]: { ...cur, monthly } } };
         });
+        pending.current.monthly.add(uid + "|" + i);
+        scheduleFlush();
       },
 
-      clearProject(uid) {
-        setOverlay((prev) => {
+      /* ล้างข้อมูลของโครงการเดียว — ลบออกจากฐานข้อมูลจริง ทุกคนจะเห็นผล */
+      async clearProject(uid) {
+        setResults((prev) => {
           const project = { ...prev.project };
           delete project[uid];
           return { ...prev, project };
         });
+        const supabase = getSupabase();
+        const [a, b] = await Promise.all([
+          supabase.from("monthly_reports").delete().eq("uid", uid),
+          supabase.from("project_results").delete().eq("uid", uid),
+        ]);
+        const err = (a && a.error) || (b && b.error);
+        if (err) setSaveError("ลบไม่สำเร็จ: " + err.message);
       },
 
-      /* ล้างเฉพาะสิ่งที่กรอกในเครื่องนี้ ค่าฐานใน repo ยังอยู่ */
-      resetOverlay() {
-        setOverlay(emptyResults());
+      /* บันทึกทันทีโดยไม่รอหน่วงเวลา */
+      async saveNow() {
+        clearTimeout(flushTimer.current);
+        await flush();
+      },
+
+      /* ดึงข้อมูลใหม่จาก Supabase เผื่อมีคนอื่นแก้ระหว่างที่เปิดหน้าค้างไว้ */
+      async refresh() {
+        setLoadError("");
         try {
-          localStorage.removeItem(STORE_KEY);
-        } catch (e) {}
+          const next = await loadAll();
+          setResults(next);
+          return true;
+        } catch (err) {
+          setLoadError("ดึงข้อมูลใหม่ไม่สำเร็จ: " + (err.message || String(err)));
+          return false;
+        }
       },
 
-      /* ส่งออกผลที่รวม baseline แล้ว เพื่อเอาไปวางทับ data/results-2570.json */
-      exportMerged() {
+      /* ส่งออกเป็นไฟล์สำรอง — รูปแบบเดียวกับที่ importJson รับ */
+      exportJson() {
         return JSON.stringify(
           { kpi: results.kpi, project: results.project, savedAt: new Date().toISOString() },
           null,
@@ -275,37 +351,66 @@ export function ResultsProvider({ children }) {
         );
       },
 
-      /* นำเข้าไฟล์ผล รองรับทั้งรูปแบบใหม่ (uid) และไฟล์เก่าจาก index.html (code) */
-      importJson(text) {
+      /* นำเข้าไฟล์สำรองแล้วเขียนทับลง Supabase */
+      async importJson(text) {
         const parsed = JSON.parse(text);
         if (!parsed || typeof parsed !== "object") throw new Error("ไฟล์ไม่ถูกรูปแบบ");
-        migrateOldMonthlyField(parsed);
-        if (needsMigration(parsed)) {
-          const { results: migrated, collided } = migrateByCode(parsed);
-          setOverlay(Object.assign(emptyResults(), migrated));
-          return { collided };
-        }
-        setOverlay(Object.assign(emptyResults(), parsed));
-        return { collided: [] };
+
+        const supabase = getSupabase();
+
+        const kpiRows = Object.keys(parsed.kpi || {}).map((no) => ({
+          no,
+          actual: (parsed.kpi[no] || {}).actual ?? "",
+        }));
+
+        const projRows = [];
+        const monRows = [];
+        Object.keys(parsed.project || {}).forEach((uid) => {
+          const p = parsed.project[uid] || {};
+          projRows.push({
+            uid,
+            code: uid.split("#")[0],
+            status: p.status ?? "",
+            progress: p.progress ?? "",
+            note: p.note ?? "",
+          });
+          Object.keys(p.monthly || {}).forEach((i) => {
+            const e = p.monthly[i] || {};
+            const raw = e.s == null ? "" : String(e.s).trim();
+            monRows.push({
+              uid,
+              month: Number(i),
+              output: e.o ?? "",
+              outcome: e.r ?? "",
+              spend: raw === "" ? null : toNum(raw),
+            });
+          });
+        });
+
+        const jobs = [];
+        if (kpiRows.length) jobs.push(supabase.from("kpi_results").upsert(kpiRows, { onConflict: "no" }));
+        if (projRows.length) jobs.push(supabase.from("project_results").upsert(projRows, { onConflict: "uid" }));
+        if (monRows.length) jobs.push(supabase.from("monthly_reports").upsert(monRows, { onConflict: "uid,month" }));
+
+        const done = await Promise.all(jobs);
+        const failed = done.find((r) => r && r.error);
+        if (failed) throw new Error(failed.error.message);
+
+        const next = await loadAll();
+        setResults(next);
+        return { rows: kpiRows.length + projRows.length + monRows.length };
+      },
+
+      async signOut() {
+        try {
+          await getSupabase().auth.signOut();
+        } catch (e) {}
+        window.location.href = "/login";
       },
     };
-  }, [results, overlay, storageOK, savedHint, loaded, asOf, fyStarted]);
+  }, [results, loaded, loadError, saveError, savedHint, userEmail, asOf, fyStarted]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
-}
-
-/* เว็บรุ่นแรกเก็บผลรายเดือนเป็นช่องเดียวชื่อ a — ย้ายมาเป็นช่อง o (ผลผลิต) */
-function migrateOldMonthlyField(obj) {
-  Object.keys((obj && obj.project) || {}).forEach((code) => {
-    const m = (obj.project[code] || {}).monthly;
-    if (!m) return;
-    Object.keys(m).forEach((i) => {
-      if (m[i] && m[i].a != null && m[i].o == null) {
-        m[i].o = m[i].a;
-        delete m[i].a;
-      }
-    });
-  });
 }
 
 export function useResults() {

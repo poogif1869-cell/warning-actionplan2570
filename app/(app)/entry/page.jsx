@@ -9,10 +9,10 @@ import MonthPicker from "@/components/month-picker";
 import ProjectDrawer from "@/components/project-drawer";
 
 export default function EntryPage() {
-  const { results, asOf, loaded, setKpi, resetOverlay, exportMerged, importJson, overlay } =
-    useResults();
+  const { results, asOf, loaded, setKpi, exportJson, importJson, refresh, saveNow } = useResults();
   const [openUid, setOpenUid] = useState(null);
   const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
   const fileRef = useRef(null);
 
   const alerts = useMemo(() => buildAlerts(results, asOf), [results, asOf]);
@@ -44,7 +44,7 @@ export default function EntryPage() {
 
   function download() {
     try {
-      const blob = new Blob([exportMerged()], { type: "application/json" });
+      const blob = new Blob([exportJson()], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       const d = new Date();
@@ -58,7 +58,7 @@ export default function EntryPage() {
       a.click();
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setMsg("ส่งออกไฟล์แล้ว — นำไปวางทับ data/results-2570.json แล้ว commit เพื่อให้ทุกคนเห็นตรงกัน");
+      setMsg("ส่งออกไฟล์สำรองแล้ว");
     } catch (e) {
       setMsg("ส่งออกไม่สำเร็จ: " + e.message);
     }
@@ -68,29 +68,22 @@ export default function EntryPage() {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
+      setBusy(true);
       try {
-        const { collided } = importJson(String(reader.result));
-        setMsg(
-          "นำเข้าไฟล์เรียบร้อย" +
-            (collided.length
-              ? " — แต่มีรหัสที่ซ้ำกันในแผน " +
-                collided.length +
-                " รหัส (" +
-                collided.join(", ") +
-                ") ระบบจับเข้ากับโครงการแรกที่พบ กรุณาตรวจสอบ"
-              : "")
-        );
+        const { rows } = await importJson(String(reader.result));
+        setMsg("นำเข้าเรียบร้อย เขียนลง Supabase " + rows + " แถว");
       } catch (err) {
         setMsg("นำเข้าไม่สำเร็จ: " + err.message);
       }
+      setBusy(false);
       if (fileRef.current) fileRef.current.value = "";
     };
     reader.readAsText(file);
   }
 
-  const nOverlayProjects = Object.keys(overlay.project || {}).length;
-  const nOverlayKpis = Object.keys(overlay.kpi || {}).length;
+  const nProjects = Object.keys(results.project || {}).length;
+  const nKpis = Object.keys(results.kpi || {}).length;
 
   if (!loaded) return <div className="muted">กำลังโหลดข้อมูลแผน…</div>;
 
@@ -223,29 +216,56 @@ export default function EntryPage() {
 
       <section className="block">
         <h2>
-          ข้อมูลและการส่งต่อ
+          ข้อมูลและการสำรอง
           <small>
-            กรอกไว้ในเครื่องนี้ {fmt(nOverlayProjects)} โครงการ · {fmt(nOverlayKpis)} ตัวชี้วัด
+            ในฐานข้อมูลตอนนี้ {fmt(nProjects)} โครงการ · {fmt(nKpis)} ตัวชี้วัด
           </small>
         </h2>
 
         <div className="card pad">
           <p style={{ marginTop: 0 }} className="small">
-            สิ่งที่กรอกจะเก็บไว้ใน localStorage ของเบราว์เซอร์เครื่องนี้เท่านั้น
-            ส่วนค่าฐานที่ทุกคนเห็นตรงกันมาจากไฟล์ <code>data/results-2570.json</code> ใน repo
+            ทุกอย่างที่กรอกถูกบันทึกขึ้น <b>Supabase</b> อัตโนมัติหลังหยุดพิมพ์ประมาณ 1 วินาที
+            ทุกคนที่เข้าสู่ระบบจะเห็นข้อมูลชุดเดียวกันทันที ไม่ต้องส่งไฟล์ให้กันอีกแล้ว
           </p>
           <p className="small">
-            <b>วิธีรวมผลจากหลายคนโดยไม่ต้องมีฐานข้อมูล:</b> กด “ส่งออกไฟล์ผล”
-            แล้วนำไฟล์ที่ได้ไปวางทับ <code>data/results-2570.json</code> ใน repo แล้ว commit —
-            Vercel จะ deploy ใหม่อัตโนมัติ และทุกคนจะเห็นค่าฐานชุดใหม่
+            ถ้าเปิดหน้านี้ค้างไว้นานแล้วสงสัยว่ามีคนอื่นแก้ ให้กด “ดึงข้อมูลใหม่”
+            เพื่อโหลดของล่าสุดจากฐานข้อมูล
           </p>
 
           <div className="btnrow">
-            <button className="btn" onClick={download}>
-              ส่งออกไฟล์ผล (.json)
+            <button
+              className="btn"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                await saveNow();
+                setMsg("บันทึกขึ้น Supabase แล้ว");
+                setBusy(false);
+              }}
+            >
+              บันทึกเดี๋ยวนี้
             </button>
-            <button className="btn ghost" onClick={() => fileRef.current && fileRef.current.click()}>
-              นำเข้าไฟล์ผล
+            <button
+              className="btn ghost"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                const ok = await refresh();
+                setMsg(ok ? "ดึงข้อมูลล่าสุดจาก Supabase แล้ว" : "ดึงข้อมูลไม่สำเร็จ");
+                setBusy(false);
+              }}
+            >
+              ดึงข้อมูลใหม่
+            </button>
+            <button className="btn ghost" disabled={busy} onClick={download}>
+              ส่งออกไฟล์สำรอง (.json)
+            </button>
+            <button
+              className="btn ghost"
+              disabled={busy}
+              onClick={() => fileRef.current && fileRef.current.click()}
+            >
+              นำเข้าไฟล์สำรอง
             </button>
             <input
               ref={fileRef}
@@ -254,18 +274,12 @@ export default function EntryPage() {
               style={{ display: "none" }}
               onChange={pickFile}
             />
-            <button
-              className="btn danger"
-              onClick={() => {
-                if (confirm("ล้างทุกอย่างที่กรอกไว้ในเครื่องนี้? (ค่าฐานใน repo ยังอยู่)")) {
-                  resetOverlay();
-                  setMsg("ล้างข้อมูลที่กรอกในเครื่องนี้แล้ว");
-                }
-              }}
-            >
-              ล้างข้อมูลในเครื่องนี้
-            </button>
           </div>
+
+          <p className="small muted" style={{ marginBottom: 0 }}>
+            “นำเข้าไฟล์สำรอง” จะ<b>เขียนทับ</b>ข้อมูลในฐานข้อมูลที่มีคีย์ตรงกัน
+            และทุกคนจะเห็นผลทันที ใช้เฉพาะตอนกู้คืนข้อมูลเท่านั้น
+          </p>
 
           {msg ? (
             <div className="banner" style={{ marginTop: 14, marginBottom: 0 }}>
