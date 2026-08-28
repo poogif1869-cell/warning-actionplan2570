@@ -146,3 +146,95 @@ create policy monthly_reports_delete on public.monthly_reports for delete to aut
 --    ใส่อีเมลกับรหัสผ่าน และติ๊ก "Auto Confirm User"
 --    ไม่งั้นจะเข้าไม่ได้จนกว่าจะยืนยันอีเมล
 -- =====================================================================
+
+
+-- =====================================================================
+-- ส่วนที่เพิ่มเมื่อ 28 ส.ค. 2569 — รายงานงบประมาณโครงการ และรายงานความเสี่ยงรายเดือน
+-- รันไฟล์นี้ซ้ำได้ ของเดิมไม่หาย
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- รายการเบิกจ่ายงบประมาณโครงการ
+--
+-- หนึ่งโครงการมีได้หลายรายการในเดือนเดียวกัน (เช่น เดินทางหลายครั้ง)
+-- จึงใช้ id เป็นคีย์ ไม่ใช่ (uid, month) แบบตารางอื่น
+--
+-- ยอดเบิกจ่ายรายเดือนในรายงานผลการดำเนินงาน = ผลรวมของรายการในตารางนี้
+-- ไม่ได้ให้กรอกมือแล้ว (ดู lib/store.jsx -> spendFromEntries)
+-- ---------------------------------------------------------------------
+create table if not exists public.budget_entries (
+  id          uuid primary key default gen_random_uuid(),
+  uid         text not null,                       -- รหัสโครงการ + "#" + ลำดับแถว
+  month       smallint not null check (month between 0 and 11),
+  occurred_on date,                                -- วันที่เกิดค่าใช้จ่าย (ไม่บังคับ)
+  note        text,                                -- รายละเอียด/กิจกรรมที่ใช้งบ
+  perdiem     numeric not null default 0,          -- ค่าเบี้ยเลี้ยง
+  lodging     numeric not null default 0,          -- ค่าที่พัก
+  travel      numeric not null default 0,          -- ค่าเดินทาง
+  fuel        numeric not null default 0,          -- ค่าน้ำมันเชื้อเพลิง
+  updated_at  timestamptz not null default now(),
+  updated_by  uuid references auth.users (id) on delete set null
+);
+
+create index if not exists budget_entries_uid_idx        on public.budget_entries (uid);
+create index if not exists budget_entries_uid_month_idx  on public.budget_entries (uid, month);
+
+-- ---------------------------------------------------------------------
+-- รายงานความเสี่ยงรายเดือน
+--
+-- ทะเบียนความเสี่ยง (สถานการณ์, ปัจจัยเสี่ยง, คะแนนควบคุมภายใน) มาจากไฟล์แผน
+-- อยู่ใน data/plan-data.json แล้ว ตารางนี้เก็บเฉพาะ "ผลการติดตามรายเดือน"
+--
+-- level: 0 = ไม่มีความเสี่ยง, 1 = ต่ำ, 2 = ปานกลาง, 3 = สูง, 4 = สูงมาก
+-- ---------------------------------------------------------------------
+create table if not exists public.risk_reports (
+  uid         text not null,
+  month       smallint not null check (month between 0 and 11),
+  level       smallint check (level between 0 and 4),
+  situation   text,                                -- สถานการณ์ความเสี่ยงที่พบในเดือนนั้น
+  action      text,                                -- มาตรการจัดการที่ดำเนินการไปแล้ว
+  updated_at  timestamptz not null default now(),
+  updated_by  uuid references auth.users (id) on delete set null,
+  primary key (uid, month)
+);
+
+create index if not exists risk_reports_uid_idx on public.risk_reports (uid);
+
+-- ---------------------------------------------------------------------
+-- trigger ประทับเวลา (ใช้ฟังก์ชัน stamp_row เดิม)
+-- ---------------------------------------------------------------------
+drop trigger if exists stamp_budget_entries on public.budget_entries;
+create trigger stamp_budget_entries
+  before insert or update on public.budget_entries
+  for each row execute function public.stamp_row();
+
+drop trigger if exists stamp_risk_reports on public.risk_reports;
+create trigger stamp_risk_reports
+  before insert or update on public.risk_reports
+  for each row execute function public.stamp_row();
+
+-- ---------------------------------------------------------------------
+-- Row Level Security — เงื่อนไขเดียวกับตารางอื่น
+-- ---------------------------------------------------------------------
+alter table public.budget_entries enable row level security;
+alter table public.risk_reports   enable row level security;
+
+drop policy if exists budget_entries_read   on public.budget_entries;
+drop policy if exists budget_entries_write  on public.budget_entries;
+drop policy if exists budget_entries_update on public.budget_entries;
+drop policy if exists budget_entries_delete on public.budget_entries;
+
+create policy budget_entries_read   on public.budget_entries for select to authenticated using (true);
+create policy budget_entries_write  on public.budget_entries for insert to authenticated with check (true);
+create policy budget_entries_update on public.budget_entries for update to authenticated using (true) with check (true);
+create policy budget_entries_delete on public.budget_entries for delete to authenticated using (true);
+
+drop policy if exists risk_reports_read   on public.risk_reports;
+drop policy if exists risk_reports_write  on public.risk_reports;
+drop policy if exists risk_reports_update on public.risk_reports;
+drop policy if exists risk_reports_delete on public.risk_reports;
+
+create policy risk_reports_read   on public.risk_reports for select to authenticated using (true);
+create policy risk_reports_write  on public.risk_reports for insert to authenticated with check (true);
+create policy risk_reports_update on public.risk_reports for update to authenticated using (true) with check (true);
+create policy risk_reports_delete on public.risk_reports for delete to authenticated using (true);

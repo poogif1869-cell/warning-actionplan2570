@@ -1,71 +1,86 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useMemo, useRef, useState } from "react";
 import { useResults } from "@/lib/store";
-import { buildAlerts, summarize, SEV_LABEL, KIND_LABEL, RULES } from "@/lib/alerts";
-import { PROJECTS, MONTHS, EXPECTED, reconcile } from "@/lib/plan";
+import { buildAlerts, summarize } from "@/lib/alerts";
+import { META, PROJECTS, MONTHS, EXPECTED, reconcile } from "@/lib/plan";
+import { STRATEGIES, FUND_ROLLUP, PROGRAMS, ORGS } from "@/lib/rollup";
 import { money, mb, fmt, pct } from "@/lib/format";
 import MonthPicker from "@/components/month-picker";
-import ProjectDrawer from "@/components/project-drawer";
+import Bars from "@/components/bars";
 
-const KINDS = Object.keys(KIND_LABEL);
+const S_COLORS = ["", "var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)"];
 
-export default function AlertsPage() {
-  const { results, asOf, loaded } = useResults();
-  const [sev, setSev] = useState("");
-  const [kind, setKind] = useState("");
-  const [sNo, setSNo] = useState("");
-  const [org, setOrg] = useState("");
-  const [q, setQ] = useState("");
-  const [openUid, setOpenUid] = useState(null);
+export default function OverviewPage() {
+  const { results, risk, asOf, loaded, exportJson, importJson, refresh, saveNow } = useResults();
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef(null);
 
-  const alerts = useMemo(() => buildAlerts(results, asOf), [results, asOf]);
+  const alerts = useMemo(() => buildAlerts(results, asOf, risk), [results, asOf, risk]);
   const stats = useMemo(() => summarize(alerts), [alerts]);
 
-  const orgs = useMemo(
-    () => [...new Set(PROJECTS.map((p) => p.org).filter(Boolean))].sort((a, b) => a.localeCompare(b, "th")),
-    []
-  );
-
-  const shown = useMemo(() => {
-    const needle = q.toLowerCase().trim();
-    return alerts.filter((a) => {
-      if (sev && a.sev !== sev) return false;
-      if (kind && a.kind !== kind) return false;
-      if (sNo && String(a.sNo || "") !== sNo) return false;
-      if (org && a.org !== org) return false;
-      if (needle) {
-        const hay = ((a.title || "") + " " + (a.detail || "") + " " + (a.code || "") + " " + (a.org || "")).toLowerCase();
-        if (!hay.includes(needle)) return false;
-      }
-      return true;
-    });
-  }, [alerts, sev, kind, sNo, org, q]);
-
-  // ยอดกระทบยอดกับไฟล์ต้นฉบับ ถ้าไม่ตรงแปลว่าข้อมูลที่ฝังมาผิด
   const check = useMemo(() => reconcile(), []);
   const checkOK =
     check.rows === EXPECTED.rows &&
     check.projects === EXPECTED.projects &&
     check.projectBudget === EXPECTED.projectBudget;
 
-  const totalBudget = PROJECTS.reduce((a, p) => a + (p.budget || 0), 0);
-  const riskShare = totalBudget ? (stats.budgetAtRisk / totalBudget) * 100 : 0;
+  const totals = META.totals;
+  const ceilingTotal = FUND_ROLLUP.reduce((a, f) => a + (f.ceiling || 0), 0);
+  const usedTotal = FUND_ROLLUP.reduce((a, f) => a + f.used, 0);
 
-  if (!loaded) {
-    return <div className="muted">กำลังโหลดข้อมูลแผน…</div>;
+  function download() {
+    try {
+      const blob = new Blob([exportJson()], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const d = new Date();
+      const stamp =
+        d.getFullYear() +
+        String(d.getMonth() + 1).padStart(2, "0") +
+        String(d.getDate()).padStart(2, "0");
+      a.href = url;
+      a.download = "results-2570-" + stamp + ".json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setMsg("ส่งออกไฟล์สำรองแล้ว");
+    } catch (e) {
+      setMsg("ส่งออกไม่สำเร็จ: " + e.message);
+    }
   }
+
+  function pickFile(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      setBusy(true);
+      try {
+        const { rows } = await importJson(String(reader.result));
+        setMsg("นำเข้าเรียบร้อย เขียนลง Supabase " + rows + " แถว");
+      } catch (err) {
+        setMsg("นำเข้าไม่สำเร็จ: " + err.message);
+      }
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    };
+    reader.readAsText(file);
+  }
+
+  if (!loaded) return <div className="muted">กำลังโหลดข้อมูล…</div>;
 
   return (
     <>
-      <MonthPicker />
-
+      {/* แถบแจ้งเตือนไว้บนสุด เพราะเป็นเหตุผลหลักที่เว็บนี้มีอยู่ */}
       <section className="block">
         <h2>
-          สรุปการแจ้งเตือน
+          สถานะการแจ้งเตือน
           <small>ณ สิ้นเดือน {MONTHS[asOf]}</small>
         </h2>
-
         <div className="tiles">
           <div className="tile crit">
             <span className="lab">วิกฤต</span>
@@ -81,9 +96,9 @@ export default function AlertsPage() {
             <span className="lab">โครงการที่ติดแจ้งเตือน</span>
             <div className="val">
               {fmt(stats.projects)}
-              <span className="unit">/ {fmt(PROJECTS.length)} โครงการ</span>
+              <span className="unit">/ {fmt(PROJECTS.length)}</span>
             </div>
-            <div className="note">ที่เหลือ {fmt(stats.okProjects)} โครงการยังไม่พบปัญหา</div>
+            <div className="note">อีก {fmt(stats.okProjects)} โครงการยังไม่พบปัญหา</div>
           </div>
           <div className="tile ok">
             <span className="lab">งบประมาณที่เกี่ยวข้อง</span>
@@ -91,194 +106,133 @@ export default function AlertsPage() {
               {mb(stats.budgetAtRisk)}
               <span className="unit">ล้านบาท</span>
             </div>
-            <div className="note">คิดเป็น {pct(riskShare)} ของงบโครงการทั้งหมด</div>
-          </div>
-        </div>
-      </section>
-
-      {stats.total > 0 ? (
-        <section className="block">
-          <h2>แยกตามประเภทการแจ้งเตือน</h2>
-          <div className="card pad">
-            <div className="hbars">
-              {KINDS.filter((k) => stats.byKind[k]).map((k) => {
-                const v = stats.byKind[k];
-                const max = Math.max(...Object.values(stats.byKind), 1);
-                return (
-                  <div key={k}>
-                    <div className="hbar-top">
-                      <span className="lbl">{KIND_LABEL[k]}</span>
-                      <span className="val">{fmt(v)} รายการ</span>
-                    </div>
-                    {/* แท่งเป็น div + CSS width % ไม่ใช้ SVG เพื่อไม่ให้ตัวอักษรไทยถูกยืด */}
-                    <div className="bar">
-                      <i style={{ width: (v / max) * 100 + "%" }} />
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="note">
+              <Link href="/alerts">ดูรายการแจ้งเตือนทั้งหมด →</Link>
             </div>
           </div>
-        </section>
-      ) : null}
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <MonthPicker />
+        </div>
+      </section>
 
       <section className="block">
         <h2>
-          รายการแจ้งเตือน
-          <small>
-            แสดง {fmt(shown.length)} จาก {fmt(alerts.length)} รายการ · คลิกเพื่อเปิดรายละเอียดและกรอกผล
-          </small>
+          งบประมาณตามแผน
+          <small>{META.plan}</small>
         </h2>
-
-        <div className="filters">
-          <div className="field">
-            <label htmlFor="f-q">ค้นหา</label>
-            <input
-              id="f-q"
-              type="search"
-              placeholder="ชื่อโครงการ / รหัส / หน่วยงาน"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
+        <div className="tiles">
+          <div className="tile">
+            <span className="lab">งบประมาณรวมทั้งสิ้น</span>
+            <div className="val">
+              {mb(totals.grand)}
+              <span className="unit">ล้านบาท</span>
+            </div>
+            <div className="note">{money(totals.grand)} บาท</div>
           </div>
-          <div className="field">
-            <label htmlFor="f-sev">ความรุนแรง</label>
-            <select id="f-sev" value={sev} onChange={(e) => setSev(e.target.value)}>
-              <option value="">ทั้งหมด</option>
-              <option value="crit">วิกฤต</option>
-              <option value="warn">เฝ้าระวัง</option>
-            </select>
+          <div className="tile">
+            <span className="lab">งบโครงการ</span>
+            <div className="val">
+              {mb(totals.projects)}
+              <span className="unit">ล้านบาท</span>
+            </div>
+            <div className="note">{fmt(totals.projectCount)} โครงการ</div>
           </div>
-          <div className="field">
-            <label htmlFor="f-kind">ประเภท</label>
-            <select id="f-kind" value={kind} onChange={(e) => setKind(e.target.value)}>
-              <option value="">ทั้งหมด</option>
-              {KINDS.map((k) => (
-                <option key={k} value={k}>
-                  {KIND_LABEL[k]}
-                </option>
-              ))}
-            </select>
+          <div className="tile">
+            <span className="lab">ค่าใช้จ่ายอื่น ๆ</span>
+            <div className="val">
+              {mb(totals.other)}
+              <span className="unit">ล้านบาท</span>
+            </div>
+            <div className="note">ไม่นับเป็นโครงการ</div>
           </div>
-          <div className="field">
-            <label htmlFor="f-s">ยุทธศาสตร์</label>
-            <select id="f-s" value={sNo} onChange={(e) => setSNo(e.target.value)}>
-              <option value="">ทั้งหมด</option>
-              <option value="1">ยุทธศาสตร์ที่ 1</option>
-              <option value="2">ยุทธศาสตร์ที่ 2</option>
-              <option value="3">ยุทธศาสตร์ที่ 3</option>
-              <option value="4">ยุทธศาสตร์ที่ 4</option>
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="f-org">หน่วยงาน</label>
-            <select id="f-org" value={org} onChange={(e) => setOrg(e.target.value)}>
-              <option value="">ทั้งหมด</option>
-              {orgs.map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
+          <div className="tile">
+            <span className="lab">งบลงทุนของ กยท.</span>
+            <div className="val">
+              {mb(totals.capital)}
+              <span className="unit">ล้านบาท</span>
+            </div>
+            <div className="note">ครุภัณฑ์และสิ่งก่อสร้าง</div>
           </div>
         </div>
-
-        {shown.length === 0 ? (
-          <div className="banner ok">
-            {alerts.length === 0
-              ? "ณ สิ้นเดือน " + MONTHS[asOf] + " ยังไม่พบผลการดำเนินงานที่ไม่เป็นไปตามเป้าหมาย — " +
-                "ถ้ายังไม่ได้กรอกผลเลย ให้เลื่อน “ณ เดือน” ไปข้างหน้าเพื่อดูรายการที่ถึงกำหนดแล้ว"
-              : "ไม่มีรายการที่ตรงกับตัวกรองที่เลือก"}
-          </div>
-        ) : (
-          <div className="alerts">
-            {shown.map((a) => (
-              <button
-                key={a.id}
-                className={"alert " + a.sev}
-                onClick={() => a.uid && setOpenUid(a.uid)}
-                style={a.uid ? undefined : { cursor: "default" }}
-              >
-                <span className="sev">{SEV_LABEL[a.sev]}</span>
-                <div className="abody">
-                  <div className="title">{a.title}</div>
-                  <div className="detail">{a.detail}</div>
-                  <div className="meta">
-                    <span>{KIND_LABEL[a.kind]}</span>
-                    {a.code ? <span>รหัส {a.code}</span> : null}
-                    {a.org ? <span>{a.org}</span> : null}
-                    {a.sNo ? <span className={"chip s" + a.sNo}>ยุทธศาสตร์ที่ {a.sNo}</span> : null}
-                  </div>
-                </div>
-                {a.budget ? (
-                  <div className="amount">
-                    {money(a.budget)}
-                    <br />
-                    <span className="muted">บาท</span>
-                  </div>
-                ) : null}
-              </button>
-            ))}
-          </div>
-        )}
       </section>
 
       <section className="block">
-        <h2>เกณฑ์ที่ใช้แจ้งเตือน</h2>
+        <h2>
+          งบประมาณตามยุทธศาสตร์
+          <small>{STRATEGIES.length} ยุทธศาสตร์ · นับเฉพาะระดับโครงการ</small>
+        </h2>
+        <div className="card pad">
+          <Bars
+            data={STRATEGIES.map((s) => ({
+              label: "ยุทธศาสตร์ที่ " + s.no + " · " + s.count + " โครงการ",
+              value: s.budget,
+              display: money(s.budget) + " บาท",
+              color: S_COLORS[Number(s.no)] || "var(--accent)",
+            }))}
+          />
+        </div>
+      </section>
+
+      <section className="block">
+        <h2>
+          เพดานงบตามแหล่งเงิน เทียบกับที่จัดสรรลงโครงการ
+          <small>7 แหล่ง · ตามมาตรา 13 และกองทุนพัฒนายางพารา มาตรา 49</small>
+        </h2>
         <div className="tablewrap">
           <table>
             <thead>
               <tr>
-                <th>ประเภท</th>
-                <th>เงื่อนไข</th>
-                <th>วิกฤต</th>
-                <th>เฝ้าระวัง</th>
+                <th>แหล่งเงิน</th>
+                <th className="num">เพดานงบ</th>
+                <th className="num">จัดสรรลงโครงการ</th>
+                <th className="num">คงเหลือ</th>
+                <th className="num">โครงการ</th>
+                <th style={{ minWidth: 120 }}>สัดส่วนที่ใช้</th>
               </tr>
             </thead>
             <tbody>
+              {FUND_ROLLUP.map((f) => {
+                const ratio = f.ceiling ? (f.used / f.ceiling) * 100 : 0;
+                const over = f.left < 0;
+                return (
+                  <tr key={f.code}>
+                    <td className="small">{f.name}</td>
+                    <td className="num">{money(f.ceiling)}</td>
+                    <td className="num">{money(f.used)}</td>
+                    <td className={"num " + (over ? "st-bad" : "")}>{money(f.left)}</td>
+                    <td className="num">{fmt(f.count)}</td>
+                    <td>
+                      <div className="bar">
+                        <i
+                          style={{
+                            width: Math.min(100, ratio) + "%",
+                            background: over ? "var(--bad)" : "var(--accent)",
+                          }}
+                        />
+                      </div>
+                      <div className="small muted">{pct(ratio)}</div>
+                    </td>
+                  </tr>
+                );
+              })}
               <tr>
-                <td>{KIND_LABEL["kpi-below"]}</td>
-                <td className="small">
-                  ตัวชี้วัดระดับองค์กร 13 ตัว เทียบผลที่รายงานกับค่าเป้าหมายปี 2570
+                <td>
+                  <b>รวม</b>
                 </td>
-                <td className="small">บรรลุ &lt; {RULES.kpiCrit}%</td>
-                <td className="small">บรรลุ {RULES.kpiCrit}–99%</td>
-              </tr>
-              <tr>
-                <td>{KIND_LABEL["kpi-noreport"]}</td>
-                <td className="small">ยังไม่กรอกผลตัวชี้วัด</td>
-                <td className="small">–</td>
-                <td className="small">ตั้งแต่ {MONTHS[RULES.kpiNoReportFrom]} เป็นต้นไป</td>
-              </tr>
-              <tr>
-                <td>{KIND_LABEL["no-report"]}</td>
-                <td className="small">
-                  เดือนที่มีแผนดำเนินงานและผ่านไปแล้ว แต่ไม่มีการรายงานผล
-                  (แผนรายเดือนม้วนมาจากกิจกรรมย่อย)
+                <td className="num">
+                  <b>{money(ceilingTotal)}</b>
                 </td>
-                <td className="small">ขาด ≥ {RULES.missedCrit} เดือน</td>
-                <td className="small">ขาด 1–{RULES.missedCrit - 1} เดือน</td>
-              </tr>
-              <tr>
-                <td>{KIND_LABEL["spend-behind"]}</td>
-                <td className="small">
-                  เบิกจ่ายสะสม เทียบกับสัดส่วนเดือนที่มีแผนซึ่งผ่านไปแล้ว
-                  (ประเมินเฉพาะโครงการที่รายงานผลมาแล้วอย่างน้อย 1 เดือน)
+                <td className="num">
+                  <b>{money(usedTotal)}</b>
                 </td>
-                <td className="small">&lt; {RULES.spendCrit}% ของที่ควรได้</td>
-                <td className="small">{RULES.spendCrit}–{RULES.spendWarn}%</td>
-              </tr>
-              <tr>
-                <td>{KIND_LABEL["status-delayed"]}</td>
-                <td className="small">ผู้รับผิดชอบระบุสถานะเอง</td>
-                <td className="small">ล่าช้า</td>
-                <td className="small">ยกเลิก</td>
-              </tr>
-              <tr>
-                <td>{KIND_LABEL["overdue-open"]}</td>
-                <td className="small">เดือนสุดท้ายที่มีแผนผ่านไปแล้ว แต่สถานะยังไม่ใช่ “แล้วเสร็จ”</td>
-                <td className="small">ทุกกรณี</td>
-                <td className="small">–</td>
+                <td className="num">
+                  <b>{money(ceilingTotal - usedTotal)}</b>
+                </td>
+                <td className="num">
+                  <b>{fmt(PROJECTS.length)}</b>
+                </td>
+                <td />
               </tr>
             </tbody>
           </table>
@@ -286,22 +240,109 @@ export default function AlertsPage() {
       </section>
 
       <section className="block">
-        <h2>ตรวจสอบยอดกับไฟล์ต้นฉบับ</h2>
-        <div className={"banner " + (checkOK ? "ok" : "bad")}>
-          {checkOK ? "ยอดตรงกับไฟล์ต้นฉบับ: " : "ยอดไม่ตรงกับไฟล์ต้นฉบับ — ตรวจสอบ data/plan-data.json: "}
-          {fmt(check.rows)} รายการ · {fmt(check.projects)} โครงการ ·
-          งบโครงการรวม {money(check.projectBudget)} บาท
-          {checkOK ? "" : " (ควรเป็น " + money(EXPECTED.projectBudget) + " บาท)"}
-        </div>
-        <div className="small muted">
-          ยอดรวมนับเฉพาะรายการระดับโครงการ (lvl 1) เท่านั้น เพราะงบของกิจกรรมย่อย
-          รวมอยู่ในงบโครงการแม่แล้ว ถ้าบวกข้ามระดับจะได้ราว 25,500 ล้านบาทแทนที่จะเป็น 12,770 ล้านบาท
+        <h2>
+          งบประมาณตามแผนงาน
+          <small>{PROGRAMS.length} แผนงาน</small>
+        </h2>
+        <div className="card pad">
+          <Bars
+            data={PROGRAMS.slice(0, 12).map((p) => ({
+              label: p.name + " · " + p.count + " โครงการ",
+              value: p.budget,
+              display: money(p.budget) + " บาท",
+            }))}
+          />
         </div>
       </section>
 
-      {openUid ? (
-        <ProjectDrawer uid={openUid} alerts={alerts} onClose={() => setOpenUid(null)} />
-      ) : null}
+      <section className="block">
+        <h2>
+          หน่วยงานที่รับผิดชอบงบสูงสุด
+          <small>แสดง 10 อันดับแรกจาก {ORGS.length} หน่วยงาน</small>
+        </h2>
+        <div className="card pad">
+          <Bars
+            data={ORGS.slice(0, 10).map((o) => ({
+              label: o.name + " · " + o.count + " โครงการ",
+              value: o.budget,
+              display: money(o.budget) + " บาท",
+            }))}
+          />
+        </div>
+      </section>
+
+      <section className="block">
+        <h2>ข้อมูลและการสำรอง</h2>
+        <div className="card pad">
+          <p style={{ marginTop: 0 }} className="small">
+            ทุกอย่างที่กรอกถูกบันทึกขึ้น <b>Supabase</b> อัตโนมัติหลังหยุดพิมพ์ประมาณ 1 วินาที
+            ทุกคนที่เข้าสู่ระบบเห็นข้อมูลชุดเดียวกัน
+          </p>
+          <div className="btnrow">
+            <button
+              className="btn"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                await saveNow();
+                setMsg("บันทึกขึ้น Supabase แล้ว");
+                setBusy(false);
+              }}
+            >
+              บันทึกเดี๋ยวนี้
+            </button>
+            <button
+              className="btn ghost"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                const ok = await refresh();
+                setMsg(ok ? "ดึงข้อมูลล่าสุดจาก Supabase แล้ว" : "ดึงข้อมูลไม่สำเร็จ");
+                setBusy(false);
+              }}
+            >
+              ดึงข้อมูลใหม่
+            </button>
+            <button className="btn ghost" disabled={busy} onClick={download}>
+              ส่งออกไฟล์สำรอง (.json)
+            </button>
+            <button
+              className="btn ghost"
+              disabled={busy}
+              onClick={() => fileRef.current && fileRef.current.click()}
+            >
+              นำเข้าไฟล์สำรอง
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/json,.json"
+              style={{ display: "none" }}
+              onChange={pickFile}
+            />
+          </div>
+          {msg ? (
+            <div className="banner" style={{ marginTop: 14, marginBottom: 0 }}>
+              {msg}
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="block">
+        <h2>ตรวจสอบยอดกับไฟล์ต้นฉบับ</h2>
+        <div className={"banner " + (checkOK ? "ok" : "bad")}>
+          {checkOK
+            ? "ยอดตรงกับไฟล์ต้นฉบับ: "
+            : "ยอดไม่ตรงกับไฟล์ต้นฉบับ — ตรวจสอบ data/plan-data.json: "}
+          {fmt(check.rows)} รายการ · {fmt(check.projects)} โครงการ · งบโครงการรวม{" "}
+          {money(check.projectBudget)} บาท
+          {checkOK ? "" : " (ควรเป็น " + money(EXPECTED.projectBudget) + " บาท)"}
+        </div>
+        <div className="small muted">
+          ยอดรวมนับเฉพาะรายการระดับโครงการ (lvl 1) เพราะงบของกิจกรรมย่อยรวมอยู่ในงบโครงการแม่แล้ว
+        </div>
+      </section>
     </>
   );
 }

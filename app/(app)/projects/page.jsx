@@ -9,13 +9,13 @@ import {
   FUNDS,
 } from "@/lib/plan";
 import { money, fmt, pct } from "@/lib/format";
-import { useResults, projectTrack } from "@/lib/store";
+import { useResults, projectTrack, monthlyOf } from "@/lib/store";
 import { buildAlerts, groupByUid, worstSev, rolledReport, SEV_LABEL } from "@/lib/alerts";
 import MonthPicker from "@/components/month-picker";
 import ProjectDrawer from "@/components/project-drawer";
 
 export default function ProjectsPage() {
-  const { results, asOf, loaded } = useResults();
+  const { results, budget, risk, asOf, loaded } = useResults();
   const [q, setQ] = useState("");
   const [sNo, setSNo] = useState("");
   const [fund, setFund] = useState("");
@@ -26,7 +26,7 @@ export default function ProjectsPage() {
   const [dir, setDir] = useState(-1);
   const [openUid, setOpenUid] = useState(null);
 
-  const alerts = useMemo(() => buildAlerts(results, asOf), [results, asOf]);
+  const alerts = useMemo(() => buildAlerts(results, asOf, risk), [results, asOf, risk]);
   const byUidAlerts = useMemo(() => groupByUid(alerts), [alerts]);
 
   const orgs = useMemo(
@@ -169,6 +169,7 @@ export default function ProjectsPage() {
                 <th className="sortable" onClick={() => sortBy("org")}>
                   หน่วยงาน
                 </th>
+                <th className="kpicell">ตัวชี้วัดผลผลิต / ผลลัพธ์</th>
                 <th className="num sortable" onClick={() => sortBy("budget")}>
                   งบประมาณ
                 </th>
@@ -192,6 +193,14 @@ export default function ProjectsPage() {
                 const spent = roll.spentTo(11);
                 const tk = projectTrack(results, p.uid);
 
+                /* ผลผลิต/ผลลัพธ์ที่รายงานล่าสุดในเดือนที่ไม่เกิน "ณ เดือน" ที่เลือก */
+                const rep = monthlyOf(results, p.uid);
+                let lastReport = null;
+                for (let i = 0; i <= asOf; i++) {
+                  const e = rep[i];
+                  if (e && ((e.o && e.o !== "") || (e.r && e.r !== ""))) lastReport = { i, e };
+                }
+
                 return (
                   <tr
                     key={p.uid}
@@ -209,6 +218,27 @@ export default function ProjectsPage() {
                       </div>
                     </td>
                     <td className="small">{p.org}</td>
+                    {/* ตัวชี้วัดตามแผน กับผลล่าสุดที่รายงาน วางคู่กันให้เทียบได้ในบรรทัดเดียว */}
+                    <td className="kpicell small">
+                      <div className="clamp2">
+                        <span className="muted">ผลผลิต: </span>
+                        {p.output || "–"}
+                      </div>
+                      <div className="clamp2">
+                        <span className="muted">ผลลัพธ์: </span>
+                        {p.outcome || "–"}
+                      </div>
+                      {lastReport ? (
+                        <div style={{ marginTop: 4, color: "var(--accent)" }}>
+                          ล่าสุด {MONTHS_SHORT[lastReport.i]}: {lastReport.e.o || "–"}
+                          {lastReport.e.r ? " / " + lastReport.e.r : ""}
+                        </div>
+                      ) : (
+                        <div className="muted" style={{ marginTop: 4 }}>
+                          ยังไม่รายงานผล
+                        </div>
+                      )}
+                    </td>
                     <td className="num">{money(p.budget)}</td>
                     <td>
                       {/* แถบเดือนแบบแกนต์: เขียว = มีแผน, เขียวเข้ม = รายงานแล้ว, แดง = ถึงกำหนดแต่ยังไม่รายงาน */}

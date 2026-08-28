@@ -7,21 +7,35 @@ import { useResults } from "@/lib/store";
 import { buildAlerts } from "@/lib/alerts";
 
 const NAV = [
-  { href: "/", label: "แจ้งเตือน" },
-  { href: "/projects", label: "โครงการ" },
-  { href: "/entry", label: "กรอกผล" },
+  { href: "/", label: "ภาพรวม" },
+  { href: "/alerts", label: "แจ้งเตือน", badge: true },
+  { href: "/strategy", label: "ยุทธศาสตร์ & ตัวชี้วัด" },
+  { href: "/projects", label: "โครงการ/กิจกรรม" },
+  { href: "/budget", label: "งบประมาณโครงการ" },
+  { href: "/linkage", label: "ความเชื่อมโยงแผน" },
+  { href: "/risk", label: "ความเสี่ยง" },
 ];
 
 export default function Shell({ children }) {
   const pathname = usePathname();
-  const { results, asOf, savedHint, loaded, loadError, saveError, userEmail, signOut, saveNow } =
-    useResults();
+  const {
+    results,
+    risk,
+    asOf,
+    savedHint,
+    loaded,
+    loadError,
+    saveError,
+    userEmail,
+    signOut,
+    saveNow,
+  } = useResults();
   const [signingOut, setSigningOut] = useState(false);
 
   const critCount = useMemo(() => {
     if (!loaded) return 0;
-    return buildAlerts(results, asOf).filter((a) => a.sev === "crit").length;
-  }, [results, asOf, loaded]);
+    return buildAlerts(results, asOf, risk).filter((a) => a.sev === "crit").length;
+  }, [results, asOf, risk, loaded]);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -74,9 +88,7 @@ export default function Shell({ children }) {
             aria-current={pathname === n.href ? "page" : undefined}
           >
             {n.label}
-            {n.href === "/" && critCount > 0 ? (
-              <span className="count">{critCount}</span>
-            ) : null}
+            {n.badge && critCount > 0 ? <span className="count">{critCount}</span> : null}
           </Link>
         ))}
       </nav>

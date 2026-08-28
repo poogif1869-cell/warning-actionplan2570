@@ -7,9 +7,17 @@
      kpi_results      no, actual
      project_results  uid, code, status, progress, note
      monthly_reports  uid, month, output, outcome, spend
+     budget_entries   id, uid, month, occurred_on, note, perdiem, lodging, travel, fuel
+     risk_reports     uid, month, level, situation, action
 
    คีย์ของโครงการใช้ uid = code + "#" + ลำดับแถว ไม่ใช่ code เปล่า ๆ
    เพราะไฟล์แผนมีรหัสซ้ำ 9 รหัส ถ้าใช้ code สองโครงการที่ชนกันจะเขียนทับกัน
+
+   **ยอดเบิกจ่ายรายเดือนเป็นค่าที่คำนวณมา ไม่ใช่ค่าที่กรอกมือ**
+   มาจากผลรวมของ budget_entries ในเดือนนั้น เพื่อให้รายงานงบประมาณโครงการ
+   กับรายงานผลการดำเนินงานรายเดือนเป็นตัวเลขเดียวกันเสมอ
+   คอลัมน์ monthly_reports.spend ยังอยู่เพื่อไม่ให้ยอดที่เคยกรอกมือไว้หาย
+   จะถูกใช้ก็ต่อเมื่อเดือนนั้นไม่มีรายการงบประมาณเลย
 
    การเขียนกลับเป็นแบบ optimistic: อัปเดตหน้าจอทันที แล้วค่อยส่งขึ้น Supabase
    แบบหน่วงเวลา เพื่อไม่ให้ยิง request ทุกตัวอักษรที่พิมพ์
@@ -26,7 +34,7 @@ const FLUSH_MS = 800;
 const emptyResults = () => ({ kpi: {}, project: {} });
 
 /* ---------- ตัวช่วยที่ใช้ทั้งหน้าแจ้งเตือนและหน้ากรอกผล ---------- */
-/* แต่ละเดือนเก็บ { o: ผลผลิต, r: ผลลัพธ์, s: เบิกจ่าย } */
+/* แต่ละเดือนเก็บ { o: ผลผลิต, r: ผลลัพธ์, s: เบิกจ่าย (คำนวณมา) } */
 export function hasReport(e) {
   return !!(
     e &&
@@ -70,13 +78,86 @@ export function kpiActual(results, no) {
   return ((results.kpi || {})[no] || {}).actual;
 }
 
+/* ---------- รายการงบประมาณ ---------- */
+export const COST_FIELDS = [
+  { key: "perdiem", label: "ค่าเบี้ยเลี้ยง" },
+  { key: "lodging", label: "ค่าที่พัก" },
+  { key: "travel", label: "ค่าเดินทาง" },
+  { key: "fuel", label: "ค่าน้ำมันเชื้อเพลิง" },
+];
+
+export function entryTotal(e) {
+  if (!e) return 0;
+  return COST_FIELDS.reduce((a, c) => a + toNum(e[c.key]), 0);
+}
+
+export function entriesOf(budget, uid, month) {
+  const list = (budget || {})[uid] || [];
+  return month == null ? list : list.filter((e) => Number(e.month) === Number(month));
+}
+
+export function entriesTotal(list) {
+  return (list || []).reduce((a, e) => a + entryTotal(e), 0);
+}
+
+/* ---------- รายงานความเสี่ยงรายเดือน ---------- */
+export function riskOf(risk, uid) {
+  return (risk || {})[uid] || {};
+}
+
+export function riskAt(risk, uid, month) {
+  return riskOf(risk, uid)[month] || null;
+}
+
+/* ---------------------------------------------------------------------
+   ผูกยอดเบิกจ่ายที่คำนวณจากรายการงบประมาณ กลับเข้าไปในผลรายเดือน
+   ทำให้โค้ดเดิมทั้งหมด (spentThrough, กลไกแจ้งเตือน) ใช้ต่อได้โดยไม่ต้องแก้
+   --------------------------------------------------------------------- */
+function applyBudget(results, budget) {
+  const next = { kpi: results.kpi, project: {} };
+
+  const uids = new Set([
+    ...Object.keys(results.project || {}),
+    ...Object.keys(budget || {}),
+  ]);
+
+  uids.forEach((uid) => {
+    const p = (results.project || {})[uid] || {};
+    const monthly = {};
+
+    for (let i = 0; i < 12; i++) {
+      const src = (p.monthly || {})[i];
+      const list = entriesOf(budget, uid, i);
+      const hasEntries = list.length > 0;
+      const derived = hasEntries ? entriesTotal(list) : null;
+
+      if (!src && !hasEntries) continue;
+
+      monthly[i] = {
+        o: src ? src.o : "",
+        r: src ? src.r : "",
+        // มีรายการงบประมาณเมื่อไหร่ ให้ถือยอดที่คำนวณเป็นหลักเสมอ
+        s: hasEntries ? String(derived) : src && src.sManual != null ? src.sManual : "",
+        sManual: src ? src.sManual : null,
+        fromEntries: hasEntries,
+      };
+    }
+
+    next.project[uid] = { ...p, monthly };
+  });
+
+  return next;
+}
+
 /* =====================================================================
    React context
    ===================================================================== */
 const Ctx = createContext(null);
 
 export function ResultsProvider({ children }) {
-  const [results, setResults] = useState(emptyResults);
+  const [raw, setRaw] = useState(emptyResults);      // ตามที่อยู่ในตาราง ยังไม่ผูกงบ
+  const [budget, setBudget] = useState({});          // budget[uid] = [entry, ...]
+  const [risk, setRiskState] = useState({});              // risk[uid][month] = { level, situation, action }
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [saveError, setSaveError] = useState("");
@@ -89,32 +170,47 @@ export function ResultsProvider({ children }) {
   const [fyStarted, setFyStarted] = useState(true);
 
   /* คิวของแถวที่ยังไม่ได้ส่งขึ้น Supabase */
-  const pending = useRef({ kpi: new Set(), project: new Set(), monthly: new Set() });
+  const pending = useRef({
+    kpi: new Set(),
+    project: new Set(),
+    monthly: new Set(),
+    budget: new Set(),
+    risk: new Set(),
+  });
   const flushTimer = useRef(null);
-  const latest = useRef(results);
-  latest.current = results;
+
+  const results = useMemo(() => applyBudget(raw, budget), [raw, budget]);
+
+  const snap = useRef({ raw, budget, risk });
+  snap.current = { raw, budget, risk };
 
   /* ---------- โหลดข้อมูลทั้งหมดจาก Supabase ---------- */
   async function loadAll() {
     const supabase = getSupabase();
 
-    const [kpiRes, projRes, monRes] = await Promise.all([
+    const [kpiRes, projRes, monRes, budRes, riskRes] = await Promise.all([
       supabase.from("kpi_results").select("no,actual"),
       supabase.from("project_results").select("uid,status,progress,note"),
       supabase.from("monthly_reports").select("uid,month,output,outcome,spend"),
+      supabase
+        .from("budget_entries")
+        .select("id,uid,month,occurred_on,note,perdiem,lodging,travel,fuel")
+        .order("occurred_on", { ascending: true }),
+      supabase.from("risk_reports").select("uid,month,level,situation,action"),
     ]);
 
-    const firstError = kpiRes.error || projRes.error || monRes.error;
+    const firstError =
+      kpiRes.error || projRes.error || monRes.error || budRes.error || riskRes.error;
     if (firstError) throw firstError;
 
-    const next = emptyResults();
+    const nextRaw = emptyResults();
 
     (kpiRes.data || []).forEach((row) => {
-      next.kpi[row.no] = { actual: row.actual == null ? "" : row.actual };
+      nextRaw.kpi[row.no] = { actual: row.actual == null ? "" : row.actual };
     });
 
     (projRes.data || []).forEach((row) => {
-      next.project[row.uid] = {
+      nextRaw.project[row.uid] = {
         status: row.status == null ? "" : row.status,
         progress: row.progress == null ? "" : row.progress,
         note: row.note == null ? "" : row.note,
@@ -123,16 +219,42 @@ export function ResultsProvider({ children }) {
     });
 
     (monRes.data || []).forEach((row) => {
-      if (!next.project[row.uid]) next.project[row.uid] = { monthly: {} };
-      if (!next.project[row.uid].monthly) next.project[row.uid].monthly = {};
-      next.project[row.uid].monthly[row.month] = {
+      if (!nextRaw.project[row.uid]) nextRaw.project[row.uid] = { monthly: {} };
+      if (!nextRaw.project[row.uid].monthly) nextRaw.project[row.uid].monthly = {};
+      nextRaw.project[row.uid].monthly[row.month] = {
         o: row.output == null ? "" : row.output,
         r: row.outcome == null ? "" : row.outcome,
-        s: row.spend == null ? "" : String(row.spend),
+        sManual: row.spend == null ? null : String(row.spend),
       };
     });
 
-    return next;
+    const nextBudget = {};
+    (budRes.data || []).forEach((row) => {
+      if (!nextBudget[row.uid]) nextBudget[row.uid] = [];
+      nextBudget[row.uid].push({
+        id: row.id,
+        uid: row.uid,
+        month: row.month,
+        occurred_on: row.occurred_on || "",
+        note: row.note || "",
+        perdiem: row.perdiem == null ? "" : String(row.perdiem),
+        lodging: row.lodging == null ? "" : String(row.lodging),
+        travel: row.travel == null ? "" : String(row.travel),
+        fuel: row.fuel == null ? "" : String(row.fuel),
+      });
+    });
+
+    const nextRisk = {};
+    (riskRes.data || []).forEach((row) => {
+      if (!nextRisk[row.uid]) nextRisk[row.uid] = {};
+      nextRisk[row.uid][row.month] = {
+        level: row.level == null ? "" : String(row.level),
+        situation: row.situation || "",
+        action: row.action || "",
+      };
+    });
+
+    return { raw: nextRaw, budget: nextBudget, risk: nextRisk };
   }
 
   useEffect(() => {
@@ -145,13 +267,17 @@ export function ResultsProvider({ children }) {
         if (alive && data && data.user) setUserEmail(data.user.email || "");
 
         const next = await loadAll();
-        if (alive) setResults(next);
+        if (alive) {
+          setRaw(next.raw);
+          setBudget(next.budget);
+          setRiskState(next.risk);
+        }
       } catch (err) {
         if (alive) {
           setLoadError(
             "โหลดข้อมูลจาก Supabase ไม่สำเร็จ: " +
               (err && err.message ? err.message : String(err)) +
-              " — ถ้าเพิ่งตั้งค่าใหม่ ให้ตรวจว่ารัน supabase/schema.sql แล้ว"
+              " — ถ้าเพิ่งเพิ่มตารางใหม่ ให้ตรวจว่ารัน supabase/schema.sql รอบล่าสุดแล้ว"
           );
         }
       }
@@ -179,23 +305,29 @@ export function ResultsProvider({ children }) {
   /* ---------- ส่งแถวที่ค้างอยู่ขึ้น Supabase ---------- */
   async function flush() {
     const queue = pending.current;
-    pending.current = { kpi: new Set(), project: new Set(), monthly: new Set() };
+    pending.current = {
+      kpi: new Set(),
+      project: new Set(),
+      monthly: new Set(),
+      budget: new Set(),
+      risk: new Set(),
+    };
 
-    const snapshot = latest.current;
+    const cur = snap.current;
     const supabase = getSupabase();
     const jobs = [];
 
     if (queue.kpi.size) {
       const rows = [...queue.kpi].map((no) => ({
         no,
-        actual: (snapshot.kpi[no] || {}).actual ?? "",
+        actual: (cur.raw.kpi[no] || {}).actual ?? "",
       }));
       jobs.push(supabase.from("kpi_results").upsert(rows, { onConflict: "no" }));
     }
 
     if (queue.project.size) {
       const rows = [...queue.project].map((uid) => {
-        const p = snapshot.project[uid] || {};
+        const p = cur.raw.project[uid] || {};
         return {
           uid,
           code: uid.split("#")[0],
@@ -208,24 +340,61 @@ export function ResultsProvider({ children }) {
     }
 
     if (queue.monthly.size) {
+      /* ไม่ส่งคอลัมน์ spend เพราะยอดเบิกจ่ายคำนวณจาก budget_entries แล้ว
+         PostgREST จะไม่แตะคอลัมน์ที่ไม่ได้ส่งมาตอน update ยอดเดิมที่เคยกรอกมือจึงไม่หาย */
       const rows = [...queue.monthly].map((key) => {
         const sep = key.lastIndexOf("|");
         const uid = key.slice(0, sep);
         const month = Number(key.slice(sep + 1));
-        const e = ((snapshot.project[uid] || {}).monthly || {})[month] || {};
-        const raw = e.s == null ? "" : String(e.s).trim();
+        const e = ((cur.raw.project[uid] || {}).monthly || {})[month] || {};
+        return { uid, month, output: e.o ?? "", outcome: e.r ?? "" };
+      });
+      jobs.push(supabase.from("monthly_reports").upsert(rows, { onConflict: "uid,month" }));
+    }
+
+    if (queue.budget.size) {
+      const rows = [];
+      [...queue.budget].forEach((id) => {
+        let found = null;
+        Object.keys(cur.budget).some((uid) => {
+          const hit = cur.budget[uid].find((e) => e.id === id);
+          if (hit) found = hit;
+          return !!hit;
+        });
+        if (!found) return;
+        rows.push({
+          id: found.id,
+          uid: found.uid,
+          month: Number(found.month),
+          occurred_on: found.occurred_on ? found.occurred_on : null,
+          note: found.note ?? "",
+          perdiem: toNum(found.perdiem),
+          lodging: toNum(found.lodging),
+          travel: toNum(found.travel),
+          fuel: toNum(found.fuel),
+        });
+      });
+      if (rows.length) {
+        jobs.push(supabase.from("budget_entries").upsert(rows, { onConflict: "id" }));
+      }
+    }
+
+    if (queue.risk.size) {
+      const rows = [...queue.risk].map((key) => {
+        const sep = key.lastIndexOf("|");
+        const uid = key.slice(0, sep);
+        const month = Number(key.slice(sep + 1));
+        const e = (cur.risk[uid] || {})[month] || {};
         return {
           uid,
           month,
-          output: e.o ?? "",
-          outcome: e.r ?? "",
-          // ช่องว่างต้องเป็น null ไม่ใช่ 0 ไม่งั้นเดือนที่ไม่ได้กรอกจะกลายเป็นเบิกจ่าย 0 บาท
-          spend: raw === "" ? null : toNum(raw),
+          // ระดับที่ยังไม่เลือกต้องเป็น null ไม่ใช่ 0 เพราะ 0 แปลว่า "ไม่มีความเสี่ยง"
+          level: e.level === "" || e.level == null ? null : Number(e.level),
+          situation: e.situation ?? "",
+          action: e.action ?? "",
         };
       });
-      jobs.push(
-        supabase.from("monthly_reports").upsert(rows, { onConflict: "uid,month" })
-      );
+      jobs.push(supabase.from("risk_reports").upsert(rows, { onConflict: "uid,month" }));
     }
 
     if (!jobs.length) return;
@@ -235,7 +404,7 @@ export function ResultsProvider({ children }) {
     if (failed) {
       setSaveError(
         "บันทึกขึ้น Supabase ไม่สำเร็จ: " + failed.error.message +
-          " — ข้อมูลที่เห็นบนจอยังอยู่ แต่ยังไม่ได้บันทึก ลองกดบันทึกซ้ำอีกครั้ง"
+          " — ข้อมูลที่เห็นบนจอยังอยู่ ลองกด “บันทึกเดี๋ยวนี้” อีกครั้ง"
       );
       return;
     }
@@ -263,6 +432,8 @@ export function ResultsProvider({ children }) {
   const api = useMemo(() => {
     return {
       results,
+      budget,
+      risk,
       loaded,
       loadError,
       saveError,
@@ -279,7 +450,7 @@ export function ResultsProvider({ children }) {
       },
 
       setKpi(no, actual) {
-        setResults((prev) => ({
+        setRaw((prev) => ({
           ...prev,
           kpi: { ...prev.kpi, [no]: { ...(prev.kpi[no] || {}), actual } },
         }));
@@ -288,7 +459,7 @@ export function ResultsProvider({ children }) {
       },
 
       setProject(uid, patch) {
-        setResults((prev) => ({
+        setRaw((prev) => ({
           ...prev,
           project: { ...prev.project, [uid]: { ...(prev.project[uid] || {}), ...patch } },
         }));
@@ -297,30 +468,101 @@ export function ResultsProvider({ children }) {
       },
 
       setMonthly(uid, i, patch) {
-        setResults((prev) => {
-          const cur = prev.project[uid] || {};
-          const monthly = { ...(cur.monthly || {}) };
+        setRaw((prev) => {
+          const curP = prev.project[uid] || {};
+          const monthly = { ...(curP.monthly || {}) };
           monthly[i] = { ...(monthly[i] || {}), ...patch };
-          return { ...prev, project: { ...prev.project, [uid]: { ...cur, monthly } } };
+          return { ...prev, project: { ...prev.project, [uid]: { ...curP, monthly } } };
         });
         pending.current.monthly.add(uid + "|" + i);
         scheduleFlush();
       },
 
+      /* ---------- รายการงบประมาณ ---------- */
+      async addBudgetEntry(uid, month) {
+        const supabase = getSupabase();
+        const { data, error } = await supabase
+          .from("budget_entries")
+          .insert({ uid, month, perdiem: 0, lodging: 0, travel: 0, fuel: 0 })
+          .select("id,uid,month,occurred_on,note,perdiem,lodging,travel,fuel")
+          .single();
+
+        if (error) {
+          setSaveError("เพิ่มรายการงบประมาณไม่สำเร็จ: " + error.message);
+          return null;
+        }
+
+        const entry = {
+          id: data.id,
+          uid: data.uid,
+          month: data.month,
+          occurred_on: data.occurred_on || "",
+          note: data.note || "",
+          perdiem: "",
+          lodging: "",
+          travel: "",
+          fuel: "",
+        };
+        setBudget((prev) => ({ ...prev, [uid]: [...(prev[uid] || []), entry] }));
+        return entry.id;
+      },
+
+      updateBudgetEntry(uid, id, patch) {
+        setBudget((prev) => ({
+          ...prev,
+          [uid]: (prev[uid] || []).map((e) => (e.id === id ? { ...e, ...patch } : e)),
+        }));
+        pending.current.budget.add(id);
+        scheduleFlush();
+      },
+
+      async deleteBudgetEntry(uid, id) {
+        setBudget((prev) => ({
+          ...prev,
+          [uid]: (prev[uid] || []).filter((e) => e.id !== id),
+        }));
+        pending.current.budget.delete(id);
+        const { error } = await getSupabase().from("budget_entries").delete().eq("id", id);
+        if (error) setSaveError("ลบรายการงบประมาณไม่สำเร็จ: " + error.message);
+      },
+
+      /* ---------- รายงานความเสี่ยงรายเดือน ---------- */
+      setRisk(uid, month, patch) {
+        setRiskState((prev) => {
+          const cur = prev[uid] || {};
+          return { ...prev, [uid]: { ...cur, [month]: { ...(cur[month] || {}), ...patch } } };
+        });
+        pending.current.risk.add(uid + "|" + month);
+        scheduleFlush();
+      },
+
       /* ล้างข้อมูลของโครงการเดียว — ลบออกจากฐานข้อมูลจริง ทุกคนจะเห็นผล */
       async clearProject(uid) {
-        setResults((prev) => {
+        setRaw((prev) => {
           const project = { ...prev.project };
           delete project[uid];
           return { ...prev, project };
         });
+        setBudget((prev) => {
+          const next = { ...prev };
+          delete next[uid];
+          return next;
+        });
+        setRiskState((prev) => {
+          const next = { ...prev };
+          delete next[uid];
+          return next;
+        });
+
         const supabase = getSupabase();
-        const [a, b] = await Promise.all([
+        const done = await Promise.all([
           supabase.from("monthly_reports").delete().eq("uid", uid),
+          supabase.from("budget_entries").delete().eq("uid", uid),
+          supabase.from("risk_reports").delete().eq("uid", uid),
           supabase.from("project_results").delete().eq("uid", uid),
         ]);
-        const err = (a && a.error) || (b && b.error);
-        if (err) setSaveError("ลบไม่สำเร็จ: " + err.message);
+        const failed = done.find((r) => r && r.error);
+        if (failed) setSaveError("ลบไม่สำเร็จ: " + failed.error.message);
       },
 
       /* บันทึกทันทีโดยไม่รอหน่วงเวลา */
@@ -334,7 +576,9 @@ export function ResultsProvider({ children }) {
         setLoadError("");
         try {
           const next = await loadAll();
-          setResults(next);
+          setRaw(next.raw);
+          setBudget(next.budget);
+          setRiskState(next.risk);
           return true;
         } catch (err) {
           setLoadError("ดึงข้อมูลใหม่ไม่สำเร็จ: " + (err.message || String(err)));
@@ -342,10 +586,16 @@ export function ResultsProvider({ children }) {
         }
       },
 
-      /* ส่งออกเป็นไฟล์สำรอง — รูปแบบเดียวกับที่ importJson รับ */
+      /* ส่งออกเป็นไฟล์สำรอง */
       exportJson() {
         return JSON.stringify(
-          { kpi: results.kpi, project: results.project, savedAt: new Date().toISOString() },
+          {
+            kpi: raw.kpi,
+            project: raw.project,
+            budget,
+            risk,
+            savedAt: new Date().toISOString(),
+          },
           null,
           2
         );
@@ -376,13 +626,42 @@ export function ResultsProvider({ children }) {
           });
           Object.keys(p.monthly || {}).forEach((i) => {
             const e = p.monthly[i] || {};
-            const raw = e.s == null ? "" : String(e.s).trim();
             monRows.push({
               uid,
               month: Number(i),
               output: e.o ?? "",
               outcome: e.r ?? "",
-              spend: raw === "" ? null : toNum(raw),
+            });
+          });
+        });
+
+        const budRows = [];
+        Object.keys(parsed.budget || {}).forEach((uid) => {
+          (parsed.budget[uid] || []).forEach((e) => {
+            budRows.push({
+              id: e.id,
+              uid,
+              month: Number(e.month),
+              occurred_on: e.occurred_on ? e.occurred_on : null,
+              note: e.note ?? "",
+              perdiem: toNum(e.perdiem),
+              lodging: toNum(e.lodging),
+              travel: toNum(e.travel),
+              fuel: toNum(e.fuel),
+            });
+          });
+        });
+
+        const riskRows = [];
+        Object.keys(parsed.risk || {}).forEach((uid) => {
+          Object.keys(parsed.risk[uid] || {}).forEach((i) => {
+            const e = parsed.risk[uid][i] || {};
+            riskRows.push({
+              uid,
+              month: Number(i),
+              level: e.level === "" || e.level == null ? null : Number(e.level),
+              situation: e.situation ?? "",
+              action: e.action ?? "",
             });
           });
         });
@@ -391,14 +670,20 @@ export function ResultsProvider({ children }) {
         if (kpiRows.length) jobs.push(supabase.from("kpi_results").upsert(kpiRows, { onConflict: "no" }));
         if (projRows.length) jobs.push(supabase.from("project_results").upsert(projRows, { onConflict: "uid" }));
         if (monRows.length) jobs.push(supabase.from("monthly_reports").upsert(monRows, { onConflict: "uid,month" }));
+        if (budRows.length) jobs.push(supabase.from("budget_entries").upsert(budRows, { onConflict: "id" }));
+        if (riskRows.length) jobs.push(supabase.from("risk_reports").upsert(riskRows, { onConflict: "uid,month" }));
 
         const done = await Promise.all(jobs);
         const failed = done.find((r) => r && r.error);
         if (failed) throw new Error(failed.error.message);
 
         const next = await loadAll();
-        setResults(next);
-        return { rows: kpiRows.length + projRows.length + monRows.length };
+        setRaw(next.raw);
+        setBudget(next.budget);
+        setRiskState(next.risk);
+        return {
+          rows: kpiRows.length + projRows.length + monRows.length + budRows.length + riskRows.length,
+        };
       },
 
       async signOut() {
@@ -408,7 +693,7 @@ export function ResultsProvider({ children }) {
         window.location.href = "/login";
       },
     };
-  }, [results, loaded, loadError, saveError, savedHint, userEmail, asOf, fyStarted]);
+  }, [results, raw, budget, risk, loaded, loadError, saveError, savedHint, userEmail, asOf, fyStarted]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

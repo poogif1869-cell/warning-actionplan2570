@@ -63,12 +63,16 @@ powershell -File check\verify-imports.ps1   # ตรวจ import/export แล�
 | ที่อยู่ | ทำอะไร |
 |---|---|
 | `lib/plan.js` | แปลง `data/plan-data.json` เป็น `ITEMS` / `PROJECTS`, `monthsOf()`, `achievement()` |
-| `lib/alerts.js` | กลไกแจ้งเตือน 6 กฎ เกณฑ์ตัวเลขอยู่ที่ `RULES` |
+| `lib/rollup.js` | รวมยอดตามยุทธศาสตร์/แหล่งเงิน/แผนงาน + นิยามความเชื่อมโยงแผนและความเสี่ยง |
+| `lib/alerts.js` | กลไกแจ้งเตือน 8 กฎ เกณฑ์ตัวเลขอยู่ที่ `RULES` |
 | `lib/store.jsx` | โหลด/บันทึกผลการดำเนินงานกับ Supabase |
 | `lib/supabase/` | อ่าน env + สร้าง browser client |
 | `middleware.js` | ต่ออายุเซสชัน Supabase + กันคนที่ยังไม่ล็อกอิน |
-| `supabase/schema.sql` | 3 ตาราง + trigger + Row Level Security |
-| `app/(app)/` | สามหน้า: แจ้งเตือน / โครงการ / กรอกผล |
+| `supabase/schema.sql` | 5 ตาราง + trigger + Row Level Security |
+| `app/(app)/` | 7 หน้า: ภาพรวม / แจ้งเตือน / ยุทธศาสตร์&ตัวชี้วัด / โครงการ / งบประมาณ / ความเชื่อมโยงแผน / ความเสี่ยง |
+
+> **หลังอัปเดตรอบนี้ต้องรัน `supabase/schema.sql` ใหม่อีกครั้ง** เพื่อสร้างตาราง
+> `budget_entries` กับ `risk_reports` — รันซ้ำได้ ข้อมูลเดิมไม่หาย
 
 **อย่าแก้ `data/plan-data.json` ด้วยมือ** — เป็นผลลัพธ์ที่แตกจาก `แผนปฏิบัติการ.xlsx`
 ด้วยสคริปต์ในโปรเจกต์เดิมที่ `Desktop\Gif\build\`
