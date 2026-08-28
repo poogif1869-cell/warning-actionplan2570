@@ -100,6 +100,49 @@ export function entriesTotal(list) {
   return (list || []).reduce((a, e) => a + entryTotal(e), 0);
 }
 
+/* ยอดแยกตามหมวดค่าใช้จ่าย 4 หมวด ของรายการชุดหนึ่ง */
+export function entriesByCost(list) {
+  const sums = {};
+  COST_FIELDS.forEach((c) => (sums[c.key] = 0));
+  (list || []).forEach((e) => COST_FIELDS.forEach((c) => (sums[c.key] += toNum(e[c.key]))));
+  return sums;
+}
+
+/* ---------------------------------------------------------------------
+   รวมยอดงบของโครงการ = รายการของตัวเอง + รายการของกิจกรรมลูกทุกชั้น
+
+   ต่างจากงบ "ตามแผน" ที่ห้ามบวกข้ามระดับ (งบกิจกรรมรวมอยู่ในงบโครงการแม่แล้ว)
+   ส่วนงบ "ที่ใช้จริง" เป็นสิ่งที่ผู้ใช้กรอกเอง จะกรอกที่ระดับไหนก็ได้
+   จึงต้องบวกทุกระดับ ไม่งั้นเงินที่กรอกไว้ที่กิจกรรมจะหายไปจากยอดโครงการ
+
+   ข้อควรระวัง: อย่ากรอกยอดเดียวกันทั้งที่โครงการและที่กิจกรรม จะกลายเป็นนับซ้ำ
+   --------------------------------------------------------------------- */
+export function budgetRollup(budget, item, month) {
+  const own = entriesOf(budget, item.uid, month);
+  const byActivity = [];
+
+  function walk(node) {
+    (node._kids || []).forEach((k) => {
+      const list = entriesOf(budget, k.uid, month);
+      if (list.length) byActivity.push({ item: k, list, total: entriesTotal(list) });
+      walk(k);
+    });
+  }
+  walk(item);
+
+  const ownTotal = entriesTotal(own);
+  const kidsTotal = byActivity.reduce((a, x) => a + x.total, 0);
+
+  return {
+    own,
+    ownTotal,
+    byActivity,
+    kidsTotal,
+    total: ownTotal + kidsTotal,
+    count: own.length + byActivity.reduce((a, x) => a + x.list.length, 0),
+  };
+}
+
 /* ---------- รายงานความเสี่ยงรายเดือน ---------- */
 export function riskOf(risk, uid) {
   return (risk || {})[uid] || {};
@@ -228,7 +271,7 @@ export function ResultsProvider({ children }) {
       supabase.from("monthly_reports").select("uid,month,output,outcome,spend"),
       supabase
         .from("budget_entries")
-        .select("id,uid,month,occurred_on,note,perdiem,lodging,travel,fuel")
+        .select("id,uid,month,occurred_on,note,perdiem,lodging,travel,fuel,saved")
         .order("occurred_on", { ascending: true }),
       supabase.from("risk_reports").select("uid,month,level,situation,action"),
     ]);
@@ -275,6 +318,7 @@ export function ResultsProvider({ children }) {
         lodging: row.lodging == null ? "" : String(row.lodging),
         travel: row.travel == null ? "" : String(row.travel),
         fuel: row.fuel == null ? "" : String(row.fuel),
+        saved: row.saved === true,
       });
     });
 
@@ -400,6 +444,7 @@ export function ResultsProvider({ children }) {
           lodging: toNum(found.lodging),
           travel: toNum(found.travel),
           fuel: toNum(found.fuel),
+          saved: found.saved === true,
         });
       });
       if (rows.length) {
@@ -515,8 +560,8 @@ export function ResultsProvider({ children }) {
         const supabase = getSupabase();
         const { data, error } = await supabase
           .from("budget_entries")
-          .insert({ uid, month, perdiem: 0, lodging: 0, travel: 0, fuel: 0 })
-          .select("id,uid,month,occurred_on,note,perdiem,lodging,travel,fuel")
+          .insert({ uid, month, perdiem: 0, lodging: 0, travel: 0, fuel: 0, saved: false })
+          .select("id,uid,month,occurred_on,note,perdiem,lodging,travel,fuel,saved")
           .single();
 
         if (error) {
@@ -546,6 +591,43 @@ export function ResultsProvider({ children }) {
         }));
         pending.current.budget.add(id);
         scheduleFlush();
+      },
+
+      /* ล็อก/ปลดล็อกรายการที่รายงานเสร็จแล้ว
+
+         ยิง update ตรงไม่ผ่านคิว flush เพราะ flush อ่านค่าจาก snapshot ของ render ล่าสุด
+         ซึ่งยังไม่มีค่า saved ที่เพิ่งตั้งไป (setState ยังไม่ทัน re-render)
+         แต่ต้อง flush ค่าที่พิมพ์ค้างไว้ก่อน ไม่งั้นตัวเลขที่เพิ่งกรอกจะยังไม่ถูกบันทึก */
+      async setEntriesSaved(uid, ids, saved) {
+        if (!ids || !ids.length) return true;
+
+        clearTimeout(flushTimer.current);
+        await flush();
+
+        const idSet = new Set(ids);
+        setBudget((prev) => ({
+          ...prev,
+          [uid]: (prev[uid] || []).map((e) => (idSet.has(e.id) ? { ...e, saved } : e)),
+        }));
+
+        const { error } = await getSupabase()
+          .from("budget_entries")
+          .update({ saved })
+          .in("id", ids);
+
+        if (error) {
+          setSaveError((saved ? "บันทึก" : "ปลดล็อก") + "รายการไม่สำเร็จ: " + error.message);
+          return false;
+        }
+
+        setSaveError("");
+        const d = new Date();
+        setSavedHint(
+          (saved ? "บันทึกแล้ว " : "ปลดล็อกแล้ว ") +
+            String(d.getHours()).padStart(2, "0") + ":" +
+            String(d.getMinutes()).padStart(2, "0")
+        );
+        return true;
       },
 
       async deleteBudgetEntry(uid, id) {

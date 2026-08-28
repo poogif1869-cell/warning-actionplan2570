@@ -11,17 +11,21 @@ import {
   COST_FIELDS,
 } from "@/lib/store";
 
-/* ตารางรายการงบประมาณของโครงการหนึ่งในเดือนหนึ่ง
-   ใช้ทั้งในหน้ารายงานงบประมาณ และในลิ้นชักรายละเอียดโครงการ
+/* ตารางรายการงบประมาณของรายการหนึ่ง (โครงการหรือกิจกรรม) ในเดือนหนึ่ง
 
-   หนึ่งเดือนมีได้หลายรายการ (เช่น เดินทางหลายครั้ง) แก้ไขได้ทุกรายการ
-   ผลรวมของทุกรายการในเดือนนั้น = ยอด "เบิกจ่าย" ในรายงานผลการดำเนินงานรายเดือน */
-export default function BudgetEntries({ uid, month, compact }) {
-  const { budget, addBudgetEntry, updateBudgetEntry, deleteBudgetEntry } = useResults();
-  const [adding, setAdding] = useState(false);
+   วงจรการทำงาน:
+     เพิ่มรายการ -> กรอก (บันทึกร่างอัตโนมัติ) -> กด "บันทึกรายงาน" -> ล็อก
+     ถ้าจะแก้ต้องกด "แก้ไข" ก่อน จึงจะพิมพ์ได้อีกครั้ง
+   ล็อกไว้เพื่อกันการเผลอแก้ตัวเลขที่รายงานไปแล้ว */
+export default function BudgetEntries({ uid, month, title }) {
+  const { budget, addBudgetEntry, updateBudgetEntry, deleteBudgetEntry, setEntriesSaved } =
+    useResults();
+  const [busy, setBusy] = useState(false);
 
   const list = entriesOf(budget, uid, month);
   const total = entriesTotal(list);
+  const draft = list.filter((e) => !e.saved);
+  const locked = list.filter((e) => e.saved);
 
   const cell = {
     width: "100%",
@@ -34,25 +38,45 @@ export default function BudgetEntries({ uid, month, compact }) {
   };
 
   async function add() {
-    setAdding(true);
+    setBusy(true);
     await addBudgetEntry(uid, month);
-    setAdding(false);
+    setBusy(false);
+  }
+
+  async function saveAll() {
+    setBusy(true);
+    await setEntriesSaved(uid, draft.map((e) => e.id), true);
+    setBusy(false);
+  }
+
+  async function unlockAll() {
+    setBusy(true);
+    await setEntriesSaved(uid, locked.map((e) => e.id), false);
+    setBusy(false);
+  }
+
+  async function unlockOne(id) {
+    setBusy(true);
+    await setEntriesSaved(uid, [id], false);
+    setBusy(false);
   }
 
   return (
     <div>
-      {!compact ? (
-        <div className="small muted" style={{ marginBottom: 8 }}>
-          รายการงบประมาณเดือน <b>{MONTHS[month]}</b> — {list.length} รายการ รวม{" "}
-          <b>{money(total)}</b> บาท
-        </div>
-      ) : null}
+      <div className="small muted" style={{ marginBottom: 8 }}>
+        {title ? <b>{title} — </b> : null}
+        รายการงบประมาณเดือน <b>{MONTHS[month]}</b> · {list.length} รายการ รวม{" "}
+        <b>{money(total)}</b> บาท
+        {locked.length ? " · บันทึกแล้ว " + locked.length + " รายการ" : ""}
+        {draft.length ? " · ยังไม่บันทึก " + draft.length + " รายการ" : ""}
+      </div>
 
       {list.length ? (
         <div className="tablewrap">
           <table className="mrep">
             <thead>
               <tr>
+                <th style={{ width: 34 }}>สถานะ</th>
                 <th style={{ minWidth: 120 }}>วันที่</th>
                 <th style={{ minWidth: 170 }}>รายละเอียด</th>
                 {COST_FIELDS.map((c) => (
@@ -61,60 +85,86 @@ export default function BudgetEntries({ uid, month, compact }) {
                   </th>
                 ))}
                 <th className="num">รวม</th>
-                <th style={{ width: 40 }} />
+                <th style={{ width: 80 }} />
               </tr>
             </thead>
             <tbody>
-              {list.map((e) => (
-                <tr key={e.id}>
-                  <td>
-                    <input
-                      type="date"
-                      value={e.occurred_on || ""}
-                      onChange={(ev) =>
-                        updateBudgetEntry(uid, e.id, { occurred_on: ev.target.value })
-                      }
-                      style={{ ...cell, textAlign: "start" }}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      placeholder="เช่น เดินทางไปตรวจแปลง จ.สุราษฎร์ธานี"
-                      value={e.note || ""}
-                      onChange={(ev) => updateBudgetEntry(uid, e.id, { note: ev.target.value })}
-                      style={{ ...cell, textAlign: "start" }}
-                    />
-                  </td>
-                  {COST_FIELDS.map((c) => (
-                    <td key={c.key}>
-                      <input
-                        inputMode="decimal"
-                        value={e[c.key] == null ? "" : e[c.key]}
-                        onChange={(ev) =>
-                          updateBudgetEntry(uid, e.id, { [c.key]: ev.target.value })
-                        }
-                        style={cell}
+              {list.map((e) => {
+                const ro = e.saved === true;
+                return (
+                  <tr key={e.id} className={ro ? "locked" : ""}>
+                    <td className="nowrap">
+                      <span
+                        className={"dot bg-" + (ro ? "ok" : "warn")}
+                        title={ro ? "บันทึกแล้ว" : "ยังไม่บันทึก"}
                       />
                     </td>
-                  ))}
-                  <td className="num mono">
-                    <b>{money(entryTotal(e))}</b>
-                  </td>
-                  <td>
-                    <button
-                      className="iconbtn"
-                      title="ลบรายการนี้"
-                      onClick={() => {
-                        if (confirm("ลบรายการงบประมาณนี้?")) deleteBudgetEntry(uid, e.id);
-                      }}
-                    >
-                      ลบ
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    <td>
+                      <input
+                        type="date"
+                        readOnly={ro}
+                        disabled={ro}
+                        value={e.occurred_on || ""}
+                        onChange={(ev) =>
+                          updateBudgetEntry(uid, e.id, { occurred_on: ev.target.value })
+                        }
+                        style={{ ...cell, textAlign: "start" }}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        placeholder="เช่น เดินทางไปตรวจแปลง จ.สุราษฎร์ธานี"
+                        readOnly={ro}
+                        disabled={ro}
+                        value={e.note || ""}
+                        onChange={(ev) => updateBudgetEntry(uid, e.id, { note: ev.target.value })}
+                        style={{ ...cell, textAlign: "start" }}
+                      />
+                    </td>
+                    {COST_FIELDS.map((c) => (
+                      <td key={c.key}>
+                        <input
+                          inputMode="decimal"
+                          readOnly={ro}
+                          disabled={ro}
+                          value={e[c.key] == null ? "" : e[c.key]}
+                          onChange={(ev) =>
+                            updateBudgetEntry(uid, e.id, { [c.key]: ev.target.value })
+                          }
+                          style={cell}
+                        />
+                      </td>
+                    ))}
+                    <td className="num mono">
+                      <b>{money(entryTotal(e))}</b>
+                    </td>
+                    <td className="nowrap">
+                      {ro ? (
+                        <button
+                          className="iconbtn"
+                          disabled={busy}
+                          onClick={() => unlockOne(e.id)}
+                          title="ปลดล็อกเพื่อแก้ไขรายการนี้"
+                        >
+                          แก้ไข
+                        </button>
+                      ) : (
+                        <button
+                          className="iconbtn"
+                          disabled={busy}
+                          onClick={() => {
+                            if (confirm("ลบรายการงบประมาณนี้?")) deleteBudgetEntry(uid, e.id);
+                          }}
+                        >
+                          ลบ
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
               <tr>
-                <td colSpan={2}>
+                <td colSpan={3}>
                   <b>รวมเดือน {MONTHS[month]}</b>
                 </td>
                 {COST_FIELDS.map((c) => {
@@ -143,10 +193,28 @@ export default function BudgetEntries({ uid, month, compact }) {
       )}
 
       <div className="btnrow">
-        <button className="btn ghost" onClick={add} disabled={adding}>
-          {adding ? "กำลังเพิ่ม…" : "+ เพิ่มรายการ"}
+        <button className="btn ghost" onClick={add} disabled={busy}>
+          + เพิ่มรายการ
         </button>
+
+        <button className="btn" onClick={saveAll} disabled={busy || !draft.length}>
+          {draft.length
+            ? "บันทึกรายงาน (" + draft.length + " รายการ)"
+            : "บันทึกรายงาน"}
+        </button>
+
+        {locked.length ? (
+          <button className="btn ghost" onClick={unlockAll} disabled={busy}>
+            แก้ไขทั้งหมด ({locked.length})
+          </button>
+        ) : null}
       </div>
+
+      {!draft.length && locked.length ? (
+        <div className="small muted" style={{ marginTop: 6 }}>
+          ทุกรายการในเดือนนี้บันทึกแล้วและถูกล็อกไว้ กด “แก้ไข” ที่แถวที่ต้องการก่อนจึงจะพิมพ์ได้
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -336,3 +336,85 @@ tr.exp-body > td{background:var(--surface2); padding:0}
 
 /* ---------- ช่องตัวชี้วัดในตารางโครงการ ---------- */
 .kpicell{min-width:220px; max-width:340px}
+
+/* ---------- กราฟโดนัท ---------- */
+.donutwrap{display:flex; gap:22px; align-items:center; flex-wrap:wrap}
+.donutwrap svg{flex:none}
+.donutlegend{flex:1; min-width:250px}
+.donuttotal{margin-bottom:10px}
+.donuttotal .lab{display:block; font-size:12px; color:var(--muted)}
+.donuttotal b{font-size:20px; font-variant-numeric:tabular-nums; letter-spacing:-.02em}
+.donuttotal .unit{font-size:12.5px; color:var(--muted); margin-inline-start:4px}
+.donutlegend table{font-size:12.5px}
+.donutlegend th,.donutlegend td{padding:3px 6px; border-bottom:none}
+.donutlegend tbody tr:hover{background:none}
+.swatch{width:11px; height:11px; border-radius:3px; display:inline-block; flex:none}
+
+/* ---------- รายการงบประมาณที่บันทึกแล้ว (ล็อกไว้) ---------- */
+.mrep tr.locked td{background:var(--surface2)}
+.mrep tr.locked input{background:transparent; border-color:transparent; color:var(--muted); cursor:default}
+
+/* =====================================================================
+   หน้าพิมพ์ A4 — ใช้ทำ PDF ผ่าน "Save as PDF" ของเบราว์เซอร์
+   ไม่ต้องพึ่งไลบรารี PDF ใด ๆ และได้ฟอนต์ไทยถูกต้องเสมอ
+   ===================================================================== */
+#print-report{display:none}
+
+@page{size:A4 portrait; margin:14mm 12mm}
+
+@media print{
+  :root{
+    --bg:#fff; --surface:#fff; --surface2:#f2f2f2; --border:#999;
+    --text:#000; --muted:#333; --faint:#555;
+  }
+  body{background:#fff; font-size:10.5pt; line-height:1.5}
+
+  /* ซ่อนทุกอย่างที่ไม่ใช่ตัวรายงาน */
+  body.printing-report .topbar,
+  body.printing-report .tabs,
+  body.printing-report .scrim,
+  body.printing-report .drawer,
+  body.printing-report .toast,
+  body.printing-report .filters,
+  body.printing-report .btnrow,
+  body.printing-report .monthpick,
+  body.printing-report .segmented,
+  .noprint{display:none !important}
+  body.printing-report main > section.block{display:none !important}
+  main{padding:0; max-width:none}
+
+  body.printing-report #print-report{display:block !important}
+
+  #print-report h1{font-size:17pt; margin-bottom:2mm}
+  #print-report h2{
+    font-size:12pt; margin:6mm 0 2mm; padding-inline-start:3mm;
+    border-inline-start:3px solid #b8892b;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
+  }
+  .rpt-head{text-align:center; border-bottom:2px solid #0a4227; padding-bottom:4mm; margin-bottom:5mm}
+  .rpt-head h1{color:#0a4227}
+  .rpt-org{font-size:11pt; font-weight:600}
+  .rpt-plan{font-size:10pt; color:#333}
+
+  #print-report table{width:100%; border-collapse:collapse; font-size:9pt; margin-bottom:2mm}
+  #print-report th,#print-report td{border:1px solid #999; padding:1.6mm 2mm; text-align:start; vertical-align:top}
+  #print-report th{background:#eee !important; -webkit-print-color-adjust:exact; print-color-adjust:exact}
+  #print-report td.num,#print-report th.num{text-align:end; font-variant-numeric:tabular-nums; white-space:nowrap}
+  #print-report .mono{font-variant-numeric:tabular-nums}
+
+  .rpt-meta th{width:32mm; white-space:nowrap}
+  .rpt-sum th{width:auto}
+  .rpt-sum td.num{width:34mm}
+  .rpt-sum td.unit{width:12mm; border-inline-start:none}
+  .rpt-sum tr.over td{color:#bf3b2c; font-weight:700}
+  .rpt-sub{font-size:8pt; color:#555}
+  .rpt-note{font-size:8.5pt; color:#444; margin:1mm 0 3mm}
+
+  .rpt-foot{
+    margin-top:8mm; padding-top:2mm; border-top:1px solid #999;
+    display:flex; justify-content:space-between; font-size:8.5pt; color:#444;
+  }
+
+  tr{break-inside:avoid; page-break-inside:avoid}
+  thead{display:table-header-group}
+}

@@ -267,3 +267,25 @@ grant select, insert, update, delete on public.risk_reports     to authenticated
 -- ตั้ง default privileges ไว้ด้วย เผื่อเพิ่มตารางใหม่ในอนาคตจะได้ไม่ติดปัญหาเดิมอีก
 alter default privileges in schema public
   grant select, insert, update, delete on tables to authenticated;
+
+
+-- =====================================================================
+-- เพิ่มเมื่อ 29 ส.ค. 2569 — สถานะ "บันทึกแล้ว" ของรายการงบประมาณ
+--
+-- รายการที่กดบันทึกแล้วจะถูกล็อก แก้ไม่ได้จนกว่าจะกดปุ่มแก้ไข
+-- ป้องกันการเผลอแก้ตัวเลขที่รายงานไปแล้ว
+--
+-- ใช้ add column if not exists จึงรันซ้ำได้ ข้อมูลเดิมไม่หาย
+-- แถวเก่าที่มีอยู่แล้วจะได้ค่า true (ถือว่ารายงานไปแล้ว) ตามที่ตกลงไว้
+-- =====================================================================
+
+-- เพิ่มคอลัมน์ด้วย default true ก่อน เพื่อให้แถวที่มีอยู่แล้วได้ค่า true
+-- (ถือว่ารายงานเสร็จไปแล้ว จึงล็อกไว้)
+alter table public.budget_entries
+  add column if not exists saved boolean not null default true;
+
+-- แล้วเปลี่ยน default เป็น false เพื่อให้แถวที่เพิ่มใหม่เริ่มต้นแบบยังแก้ได้
+-- ทำสองขั้นแบบนี้เพราะรันไฟล์ซ้ำแล้วต้องไม่ไปล็อกรายการที่ใครกำลังกรอกค้างอยู่
+-- (ถ้าใช้ update ... set saved = true จะพังตรงนี้)
+alter table public.budget_entries
+  alter column saved set default false;

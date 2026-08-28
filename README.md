@@ -71,8 +71,10 @@ powershell -File check\verify-imports.ps1   # ตรวจ import/export แล�
 | `supabase/schema.sql` | 5 ตาราง + trigger + Row Level Security |
 | `app/(app)/` | 7 หน้า: ภาพรวม / แจ้งเตือน / ยุทธศาสตร์&ตัวชี้วัด / โครงการ / งบประมาณ / ความเชื่อมโยงแผน / ความเสี่ยง |
 
-> **หลังอัปเดตรอบนี้ต้องรัน `supabase/schema.sql` ใหม่อีกครั้ง** เพื่อสร้างตาราง
-> `budget_entries` กับ `risk_reports` — รันซ้ำได้ ข้อมูลเดิมไม่หาย
+> **ทุกครั้งที่ดึงโค้ดใหม่ ให้รัน `supabase/schema.sql` ทั้งไฟล์อีกรอบ**
+> รอบล่าสุดเพิ่มคอลัมน์ `budget_entries.saved` (สถานะล็อกรายการที่บันทึกแล้ว)
+> ก่อนหน้านั้นเพิ่มตาราง `budget_entries` / `risk_reports` และคำสั่ง `grant`
+> ไฟล์นี้ออกแบบให้**รันซ้ำได้ ข้อมูลเดิมไม่หาย**
 
 **อย่าแก้ `data/plan-data.json` ด้วยมือ** — เป็นผลลัพธ์ที่แตกจาก `แผนปฏิบัติการ.xlsx`
 ด้วยสคริปต์ในโปรเจกต์เดิมที่ `Desktop\Gif\build\`
