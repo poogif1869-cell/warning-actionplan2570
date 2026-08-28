@@ -149,6 +149,40 @@ function applyBudget(results, budget) {
   return next;
 }
 
+/* ---------------------------------------------------------------------
+   แปลข้อความ error ของ Postgres ให้บอกวิธีแก้ตรงจุด
+
+   สองอาการนี้หน้าตาคล้ายกันแต่คนละสาเหตุ และแก้คนละที่:
+   - permission denied  = role authenticated ไม่มีสิทธิ์ระดับตาราง (ขาด GRANT)
+                          RLS ยังไม่ทันทำงานด้วยซ้ำ
+   - RLS ไม่ผ่าน        = ได้ผลลัพธ์ว่าง 0 แถว ไม่ใช่ error
+   --------------------------------------------------------------------- */
+function explainError(err) {
+  const msg = err && err.message ? err.message : String(err);
+
+  if (/permission denied/i.test(msg)) {
+    return (
+      "โหลดข้อมูลจาก Supabase ไม่สำเร็จ: " + msg +
+      " — สาเหตุคือ role authenticated ยังไม่มีสิทธิ์ระดับตาราง (GRANT) ไม่ใช่เรื่อง RLS " +
+      "ให้เปิด Supabase > SQL Editor แล้วรัน supabase/schema.sql ทั้งไฟล์อีกครั้ง " +
+      "(ส่วนท้ายไฟล์มีคำสั่ง grant อยู่)"
+    );
+  }
+
+  if (/does not exist|schema cache|Could not find the table/i.test(msg)) {
+    return (
+      "โหลดข้อมูลจาก Supabase ไม่สำเร็จ: " + msg +
+      " — ยังไม่มีตารางนี้ในฐานข้อมูล ให้รัน supabase/schema.sql ใน SQL Editor ให้ครบทั้งไฟล์"
+    );
+  }
+
+  if (/JWT|not authenticated|invalid claim/i.test(msg)) {
+    return "เซสชันหมดอายุ กรุณาออกจากระบบแล้วเข้าใหม่อีกครั้ง (" + msg + ")";
+  }
+
+  return "โหลดข้อมูลจาก Supabase ไม่สำเร็จ: " + msg;
+}
+
 /* =====================================================================
    React context
    ===================================================================== */
@@ -273,13 +307,7 @@ export function ResultsProvider({ children }) {
           setRiskState(next.risk);
         }
       } catch (err) {
-        if (alive) {
-          setLoadError(
-            "โหลดข้อมูลจาก Supabase ไม่สำเร็จ: " +
-              (err && err.message ? err.message : String(err)) +
-              " — ถ้าเพิ่งเพิ่มตารางใหม่ ให้ตรวจว่ารัน supabase/schema.sql รอบล่าสุดแล้ว"
-          );
-        }
+        if (alive) setLoadError(explainError(err));
       }
 
       const fm = currentFiscalMonth();
@@ -403,8 +431,12 @@ export function ResultsProvider({ children }) {
     const failed = done.find((r) => r && r.error);
     if (failed) {
       setSaveError(
-        "บันทึกขึ้น Supabase ไม่สำเร็จ: " + failed.error.message +
-          " — ข้อมูลที่เห็นบนจอยังอยู่ ลองกด “บันทึกเดี๋ยวนี้” อีกครั้ง"
+        /permission denied/i.test(failed.error.message)
+          ? "บันทึกไม่สำเร็จ: " + failed.error.message +
+            " — role authenticated ยังไม่มีสิทธิ์ระดับตาราง (GRANT) " +
+            "ให้รัน supabase/schema.sql ทั้งไฟล์อีกครั้งใน SQL Editor"
+          : "บันทึกขึ้น Supabase ไม่สำเร็จ: " + failed.error.message +
+            " — ข้อมูลที่เห็นบนจอยังอยู่ ลองกด “บันทึกเดี๋ยวนี้” อีกครั้ง"
       );
       return;
     }
@@ -581,7 +613,7 @@ export function ResultsProvider({ children }) {
           setRiskState(next.risk);
           return true;
         } catch (err) {
-          setLoadError("ดึงข้อมูลใหม่ไม่สำเร็จ: " + (err.message || String(err)));
+          setLoadError(explainError(err));
           return false;
         }
       },

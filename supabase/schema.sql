@@ -238,3 +238,32 @@ create policy risk_reports_read   on public.risk_reports for select to authentic
 create policy risk_reports_write  on public.risk_reports for insert to authenticated with check (true);
 create policy risk_reports_update on public.risk_reports for update to authenticated using (true) with check (true);
 create policy risk_reports_delete on public.risk_reports for delete to authenticated using (true);
+
+
+-- =====================================================================
+-- สิทธิ์ระดับตาราง (GRANT) — เพิ่มเมื่อ 28 ส.ค. 2569
+--
+-- ทำไมต้องมี: Row Level Security กรอง "แถวไหนเห็นได้" ก็จริง
+-- แต่ก่อนจะถึงชั้นนั้น Postgres ตรวจ "สิทธิ์ระดับตาราง" ก่อน
+-- ถ้า role authenticated ไม่มีสิทธิ์ระดับตารางเลย จะได้ error
+--     permission denied for table kpi_results
+-- ซึ่งต่างจากกรณี RLS ไม่ผ่าน (กรณีนั้นจะได้ผลลัพธ์ว่าง 0 แถว ไม่ใช่ error)
+--
+-- ปกติ Supabase ตั้ง default privileges ให้ตารางที่สร้างใหม่ในสคีมา public
+-- อัตโนมัติ แต่บางโปรเจกต์ไม่ได้ตั้งมา จึงต้องเขียนให้ชัดเจนตรงนี้
+-- คำสั่ง grant รันซ้ำได้ ไม่มีผลข้างเคียง
+--
+-- ให้สิทธิ์เฉพาะ authenticated เท่านั้น — anon (ยังไม่ล็อกอิน) ไม่ได้อะไรเลย
+-- =====================================================================
+
+grant usage on schema public to anon, authenticated;
+
+grant select, insert, update, delete on public.kpi_results      to authenticated;
+grant select, insert, update, delete on public.project_results  to authenticated;
+grant select, insert, update, delete on public.monthly_reports  to authenticated;
+grant select, insert, update, delete on public.budget_entries   to authenticated;
+grant select, insert, update, delete on public.risk_reports     to authenticated;
+
+-- ตั้ง default privileges ไว้ด้วย เผื่อเพิ่มตารางใหม่ในอนาคตจะได้ไม่ติดปัญหาเดิมอีก
+alter default privileges in schema public
+  grant select, insert, update, delete on tables to authenticated;
