@@ -252,6 +252,11 @@ export function ResultsProvider({ children }) {
   const [saveError, setSaveError] = useState("");
   const [savedHint, setSavedHint] = useState("");
   const [userEmail, setUserEmail] = useState("");
+  // ฐานข้อมูลที่ยังไม่ได้รัน schema.sql รอบล่าสุดจะไม่มีคอลัมน์ saved
+  // ปิดเฉพาะฟีเจอร์ล็อกรายการ ส่วนที่เหลือยังใช้ได้ตามปกติ
+  const [budgetHasSaved, setBudgetHasSaved] = useState(true);
+  const hasSavedRef = useRef(true);
+  hasSavedRef.current = budgetHasSaved;
 
   /* "ณ เดือน" ที่ใช้เป็นฐานคำนวณการแจ้งเตือน — ใช้ร่วมกันทุกหน้า
      ค่าเริ่มต้นต้องคงที่ตอน render แรก ไม่งั้น hydration ฝั่งเซิร์ฟเวอร์กับเบราว์เซอร์ไม่ตรงกัน */
@@ -277,16 +282,32 @@ export function ResultsProvider({ children }) {
   async function loadAll() {
     const supabase = getSupabase();
 
-    const [kpiRes, projRes, monRes, budRes, riskRes] = await Promise.all([
+    const [kpiRes, projRes, monRes, riskRes] = await Promise.all([
       supabase.from("kpi_results").select("no,actual"),
       supabase.from("project_results").select("uid,status,progress,note"),
       supabase.from("monthly_reports").select("uid,month,output,outcome,spend"),
-      supabase
-        .from("budget_entries")
-        .select("id,uid,month,occurred_on,note,perdiem,lodging,travel,fuel,saved")
-        .order("occurred_on", { ascending: true }),
       supabase.from("risk_reports").select("uid,month,level,situation,action"),
     ]);
+
+    /* ---------------------------------------------------------------
+       คอลัมน์ saved เพิ่มทีหลัง ฐานข้อมูลที่ยังไม่ได้รัน schema.sql รอบล่าสุด
+       จะยังไม่มี — ถ้าปล่อยให้ throw ทั้งเว็บจะใช้ไม่ได้เลยทั้งที่ขาดแค่ฟีเจอร์เดียว
+       จึงลองใหม่โดยไม่เอาคอลัมน์นั้น แล้วปิดเฉพาะฟีเจอร์ล็อกรายการแทน
+       --------------------------------------------------------------- */
+    const BUD_COLS = "id,uid,month,occurred_on,note,perdiem,lodging,travel,fuel";
+    let hasSaved = true;
+    let budRes = await supabase
+      .from("budget_entries")
+      .select(BUD_COLS + ",saved")
+      .order("occurred_on", { ascending: true });
+
+    if (budRes.error && /saved/i.test(budRes.error.message || "")) {
+      hasSaved = false;
+      budRes = await supabase
+        .from("budget_entries")
+        .select(BUD_COLS)
+        .order("occurred_on", { ascending: true });
+    }
 
     const firstError =
       kpiRes.error || projRes.error || monRes.error || budRes.error || riskRes.error;
@@ -330,7 +351,8 @@ export function ResultsProvider({ children }) {
         lodging: row.lodging == null ? "" : String(row.lodging),
         travel: row.travel == null ? "" : String(row.travel),
         fuel: row.fuel == null ? "" : String(row.fuel),
-        saved: row.saved === true,
+        // ถ้าฐานข้อมูลยังไม่มีคอลัมน์ saved ให้ถือว่าทุกแถวยังแก้ได้
+        saved: hasSaved ? row.saved === true : false,
       });
     });
 
@@ -344,7 +366,7 @@ export function ResultsProvider({ children }) {
       };
     });
 
-    return { raw: nextRaw, budget: nextBudget, risk: nextRisk };
+    return { raw: nextRaw, budget: nextBudget, risk: nextRisk, hasSaved };
   }
 
   useEffect(() => {
@@ -360,6 +382,7 @@ export function ResultsProvider({ children }) {
         if (alive) {
           setRaw(next.raw);
           setBudget(next.budget);
+          setBudgetHasSaved(next.hasSaved !== false);
           setRiskState(next.risk);
         }
       } catch (err) {
@@ -456,7 +479,8 @@ export function ResultsProvider({ children }) {
           lodging: toNum(found.lodging),
           travel: toNum(found.travel),
           fuel: toNum(found.fuel),
-          saved: found.saved === true,
+          // ส่งคอลัมน์ saved เฉพาะเมื่อฐานข้อมูลมีจริง ไม่งั้น PostgREST จะปฏิเสธทั้งคำสั่ง
+          ...(hasSavedRef.current ? { saved: found.saved === true } : {}),
         });
       });
       if (rows.length) {
@@ -528,6 +552,7 @@ export function ResultsProvider({ children }) {
       saveError,
       savedHint,
       userEmail,
+      budgetHasSaved,
       asOf,
       fyStarted,
 
@@ -570,10 +595,19 @@ export function ResultsProvider({ children }) {
       /* ---------- รายการงบประมาณ ---------- */
       async addBudgetEntry(uid, month) {
         const supabase = getSupabase();
+        const cols = "id,uid,month,occurred_on,note,perdiem,lodging,travel,fuel";
         const { data, error } = await supabase
           .from("budget_entries")
-          .insert({ uid, month, perdiem: 0, lodging: 0, travel: 0, fuel: 0, saved: false })
-          .select("id,uid,month,occurred_on,note,perdiem,lodging,travel,fuel,saved")
+          .insert({
+            uid,
+            month,
+            perdiem: 0,
+            lodging: 0,
+            travel: 0,
+            fuel: 0,
+            ...(budgetHasSaved ? { saved: false } : {}),
+          })
+          .select(budgetHasSaved ? cols + ",saved" : cols)
           .single();
 
         if (error) {
@@ -612,6 +646,15 @@ export function ResultsProvider({ children }) {
          แต่ต้อง flush ค่าที่พิมพ์ค้างไว้ก่อน ไม่งั้นตัวเลขที่เพิ่งกรอกจะยังไม่ถูกบันทึก */
       async setEntriesSaved(uid, ids, saved) {
         if (!ids || !ids.length) return true;
+
+        if (!budgetHasSaved) {
+          setSaveError(
+            "ยังใช้การล็อกรายการไม่ได้ เพราะฐานข้อมูลไม่มีคอลัมน์ budget_entries.saved — " +
+              "ให้รัน supabase/schema.sql ทั้งไฟล์ใน SQL Editor ก่อน " +
+              "(ตัวเลขที่กรอกไว้ยังถูกบันทึกตามปกติ)"
+          );
+          return false;
+        }
 
         clearTimeout(flushTimer.current);
         await flush();
@@ -704,6 +747,7 @@ export function ResultsProvider({ children }) {
           const next = await loadAll();
           setRaw(next.raw);
           setBudget(next.budget);
+          setBudgetHasSaved(next.hasSaved !== false);
           setRiskState(next.risk);
           return true;
         } catch (err) {
@@ -806,6 +850,7 @@ export function ResultsProvider({ children }) {
         const next = await loadAll();
         setRaw(next.raw);
         setBudget(next.budget);
+        setBudgetHasSaved(next.hasSaved !== false);
         setRiskState(next.risk);
         return {
           rows: kpiRows.length + projRows.length + monRows.length + budRows.length + riskRows.length,
@@ -819,7 +864,7 @@ export function ResultsProvider({ children }) {
         window.location.href = "/login";
       },
     };
-  }, [results, raw, budget, risk, loaded, loadError, saveError, savedHint, userEmail, asOf, fyStarted]);
+  }, [results, raw, budget, risk, loaded, loadError, saveError, savedHint, userEmail, budgetHasSaved, asOf, fyStarted]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

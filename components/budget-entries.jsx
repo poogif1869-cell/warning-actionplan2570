@@ -18,14 +18,23 @@ import {
      ถ้าจะแก้ต้องกด "แก้ไข" ก่อน จึงจะพิมพ์ได้อีกครั้ง
    ล็อกไว้เพื่อกันการเผลอแก้ตัวเลขที่รายงานไปแล้ว */
 export default function BudgetEntries({ uid, month, title }) {
-  const { budget, addBudgetEntry, updateBudgetEntry, deleteBudgetEntry, setEntriesSaved } =
-    useResults();
+  const {
+    budget,
+    budgetHasSaved,
+    addBudgetEntry,
+    updateBudgetEntry,
+    deleteBudgetEntry,
+    setEntriesSaved,
+  } = useResults();
   const [busy, setBusy] = useState(false);
 
   const list = entriesOf(budget, uid, month);
   const total = entriesTotal(list);
-  const draft = list.filter((e) => !e.saved);
-  const locked = list.filter((e) => e.saved);
+
+  /* ถ้าฐานข้อมูลยังไม่มีคอลัมน์ saved ให้ถือว่าทุกแถวแก้ได้ และซ่อนปุ่มล็อก
+     กรอกตัวเลขยังบันทึกได้ตามปกติ ขาดแค่ความสามารถล็อกรายการเท่านั้น */
+  const draft = budgetHasSaved ? list.filter((e) => !e.saved) : list;
+  const locked = budgetHasSaved ? list.filter((e) => e.saved) : [];
 
   const cell = {
     width: "100%",
@@ -67,8 +76,8 @@ export default function BudgetEntries({ uid, month, title }) {
         {title ? <b>{title} — </b> : null}
         รายการงบประมาณเดือน <b>{MONTHS[month]}</b> · {list.length} รายการ รวม{" "}
         <b>{money(total)}</b> บาท
-        {locked.length ? " · บันทึกแล้ว " + locked.length + " รายการ" : ""}
-        {draft.length ? " · ยังไม่บันทึก " + draft.length + " รายการ" : ""}
+        {budgetHasSaved && locked.length ? " · บันทึกแล้ว " + locked.length + " รายการ" : ""}
+        {budgetHasSaved && draft.length ? " · ยังไม่บันทึก " + draft.length + " รายการ" : ""}
       </div>
 
       {list.length ? (
@@ -90,13 +99,13 @@ export default function BudgetEntries({ uid, month, title }) {
             </thead>
             <tbody>
               {list.map((e) => {
-                const ro = e.saved === true;
+                const ro = budgetHasSaved && e.saved === true;
                 return (
                   <tr key={e.id} className={ro ? "locked" : ""}>
                     <td className="nowrap">
                       <span
-                        className={"dot bg-" + (ro ? "ok" : "warn")}
-                        title={ro ? "บันทึกแล้ว" : "ยังไม่บันทึก"}
+                        className={"dot bg-" + (!budgetHasSaved ? "none" : ro ? "ok" : "warn")}
+                        title={!budgetHasSaved ? "ยังไม่เปิดใช้การล็อก" : ro ? "บันทึกแล้ว" : "ยังไม่บันทึก"}
                       />
                     </td>
                     <td>
@@ -197,20 +206,26 @@ export default function BudgetEntries({ uid, month, title }) {
           + เพิ่มรายการ
         </button>
 
-        <button className="btn" onClick={saveAll} disabled={busy || !draft.length}>
-          {draft.length
-            ? "บันทึกรายงาน (" + draft.length + " รายการ)"
-            : "บันทึกรายงาน"}
-        </button>
+        {budgetHasSaved ? (
+          <button className="btn" onClick={saveAll} disabled={busy || !draft.length}>
+            {draft.length ? "บันทึกรายงาน (" + draft.length + " รายการ)" : "บันทึกรายงาน"}
+          </button>
+        ) : null}
 
-        {locked.length ? (
+        {budgetHasSaved && locked.length ? (
           <button className="btn ghost" onClick={unlockAll} disabled={busy}>
             แก้ไขทั้งหมด ({locked.length})
           </button>
         ) : null}
       </div>
 
-      {!draft.length && locked.length ? (
+      {!budgetHasSaved ? (
+        <div className="small muted" style={{ marginTop: 6 }}>
+          ยังใช้การล็อกรายการไม่ได้ เพราะฐานข้อมูลไม่มีคอลัมน์{" "}
+          <code>budget_entries.saved</code> — ตัวเลขที่กรอกยังบันทึกตามปกติ
+          ถ้าต้องการฟีเจอร์นี้ให้รัน <code>supabase/schema.sql</code> ใน SQL Editor
+        </div>
+      ) : !draft.length && locked.length ? (
         <div className="small muted" style={{ marginTop: 6 }}>
           ทุกรายการในเดือนนี้บันทึกแล้วและถูกล็อกไว้ กด “แก้ไข” ที่แถวที่ต้องการก่อนจึงจะพิมพ์ได้
         </div>
