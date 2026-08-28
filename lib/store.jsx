@@ -7,7 +7,7 @@
      kpi_results      no, actual
      project_results  uid, code, status, progress, note
      monthly_reports  uid, month, output, outcome, spend
-     budget_entries   id, uid, month, occurred_on, note, perdiem, lodging, travel, fuel
+     budget_entries   id, uid, month, occurred_on, note, perdiem, lodging, travel, fuel, saved
      risk_reports     uid, month, level, situation, action
 
    คีย์ของโครงการใช้ uid = code + "#" + ลำดับแถว ไม่ใช่ code เปล่า ๆ
@@ -200,22 +200,34 @@ function applyBudget(results, budget) {
                           RLS ยังไม่ทันทำงานด้วยซ้ำ
    - RLS ไม่ผ่าน        = ได้ผลลัพธ์ว่าง 0 แถว ไม่ใช่ error
    --------------------------------------------------------------------- */
-function explainError(err) {
+export function explainError(err) {
   const msg = err && err.message ? err.message : String(err);
 
   if (/permission denied/i.test(msg)) {
     return (
-      "โหลดข้อมูลจาก Supabase ไม่สำเร็จ: " + msg +
+      msg +
       " — สาเหตุคือ role authenticated ยังไม่มีสิทธิ์ระดับตาราง (GRANT) ไม่ใช่เรื่อง RLS " +
       "ให้เปิด Supabase > SQL Editor แล้วรัน supabase/schema.sql ทั้งไฟล์อีกครั้ง " +
       "(ส่วนท้ายไฟล์มีคำสั่ง grant อยู่)"
     );
   }
 
+  /* ขาดคอลัมน์ กับ ขาดตาราง แก้คนละแบบ จึงต้องแยกข้อความ
+     ถ้าเหมารวมว่า "ยังไม่มีตารางนี้" ทั้งที่ตารางมีแล้ว จะพาไปหาผิดที่
+     ต้องเช็คก่อน does not exist ทั่วไป เพราะข้อความคอลัมน์ก็มีคำนั้นอยู่ */
+  const missingColumn = msg.match(/column ([\w.]+) does not exist/i);
+  if (missingColumn || /Could not find the '.+' column/i.test(msg)) {
+    const col = missingColumn ? missingColumn[1] : (msg.match(/'(.+?)' column/i) || [])[1];
+    return (
+      "โครงสร้างฐานข้อมูลยังไม่ตรงกับเว็บ — ไม่พบคอลัมน์ " + (col || "ที่ต้องการ") +
+      " (ตารางมีแล้วแต่ยังขาดคอลัมน์) ให้รัน supabase/schema.sql ทั้งไฟล์ใน SQL Editor " +
+      "แล้วสั่ง notify pgrst, 'reload schema'; ปิดท้าย เพื่อให้ Supabase โหลดโครงสร้างใหม่"
+    );
+  }
+
   if (/does not exist|schema cache|Could not find the table/i.test(msg)) {
     return (
-      "โหลดข้อมูลจาก Supabase ไม่สำเร็จ: " + msg +
-      " — ยังไม่มีตารางนี้ในฐานข้อมูล ให้รัน supabase/schema.sql ใน SQL Editor ให้ครบทั้งไฟล์"
+      msg + " — ยังไม่มีตารางนี้ในฐานข้อมูล ให้รัน supabase/schema.sql ใน SQL Editor ให้ครบทั้งไฟล์"
     );
   }
 
@@ -223,7 +235,7 @@ function explainError(err) {
     return "เซสชันหมดอายุ กรุณาออกจากระบบแล้วเข้าใหม่อีกครั้ง (" + msg + ")";
   }
 
-  return "โหลดข้อมูลจาก Supabase ไม่สำเร็จ: " + msg;
+  return msg;
 }
 
 /* =====================================================================
@@ -351,7 +363,7 @@ export function ResultsProvider({ children }) {
           setRiskState(next.risk);
         }
       } catch (err) {
-        if (alive) setLoadError(explainError(err));
+        if (alive) setLoadError("โหลดข้อมูลจาก Supabase ไม่สำเร็จ — " + explainError(err));
       }
 
       const fm = currentFiscalMonth();
@@ -565,7 +577,7 @@ export function ResultsProvider({ children }) {
           .single();
 
         if (error) {
-          setSaveError("เพิ่มรายการงบประมาณไม่สำเร็จ: " + error.message);
+          setSaveError("เพิ่มรายการงบประมาณไม่สำเร็จ — " + explainError(error));
           return null;
         }
 
@@ -695,7 +707,7 @@ export function ResultsProvider({ children }) {
           setRiskState(next.risk);
           return true;
         } catch (err) {
-          setLoadError(explainError(err));
+          setLoadError("ดึงข้อมูลใหม่ไม่สำเร็จ — " + explainError(err));
           return false;
         }
       },

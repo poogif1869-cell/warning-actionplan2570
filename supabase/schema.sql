@@ -289,3 +289,8 @@ alter table public.budget_entries
 -- (ถ้าใช้ update ... set saved = true จะพังตรงนี้)
 alter table public.budget_entries
   alter column saved set default false;
+
+-- บอก PostgREST ให้โหลดโครงสร้างตารางใหม่ทันที
+-- ไม่งั้นเว็บจะยังขึ้น "Could not find the ... column in the schema cache"
+-- อยู่อีกพักหนึ่งกว่าจะรีเฟรชเอง
+notify pgrst, 'reload schema';
