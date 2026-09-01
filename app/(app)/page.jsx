@@ -218,7 +218,7 @@ export default function OverviewPage() {
           <small>7 แหล่ง · ตามมาตรา 13 และกองทุนพัฒนายางพารา มาตรา 49</small>
         </h2>
         <div className="tablewrap">
-          <table>
+          <table className="stack">
             <thead>
               <tr>
                 <th>แหล่งเงิน</th>
@@ -235,11 +235,11 @@ export default function OverviewPage() {
                 const over = f.left < 0;
                 return (
                   <tr key={f.code}>
-                    <td className="small">{f.name}</td>
-                    <td className="num">{money(f.ceiling)}</td>
-                    <td className="num">{money(f.used)}</td>
-                    <td className={"num " + (over ? "st-bad" : "")}>{money(f.left)}</td>
-                    <td className="num">
+                    <td className="lead small">{f.name}</td>
+                    <td className="num" data-label="เพดานงบ">{money(f.ceiling)}</td>
+                    <td className="num" data-label="จัดสรรแล้ว">{money(f.used)}</td>
+                    <td className={"num " + (over ? "st-bad" : "")} data-label="คงเหลือ">{money(f.left)}</td>
+                    <td className="num" data-label="โครงการ">
                       {f.count ? (
                         <button
                           className="exp-toggle"
@@ -257,7 +257,7 @@ export default function OverviewPage() {
                         "–"
                       )}
                     </td>
-                    <td>
+                    <td className="wide" data-label="สัดส่วนที่ใช้">
                       <div className="bar">
                         <i
                           style={{

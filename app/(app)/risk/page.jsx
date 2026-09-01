@@ -232,7 +232,7 @@ export default function RiskPage() {
         </div>
 
         <div className="tablewrap">
-          <table>
+          <table className="stack">
             <thead>
               <tr>
                 <th>โครงการ</th>
@@ -250,7 +250,7 @@ export default function RiskPage() {
                 const info = riskLevelInfo(cur.level === "" ? null : cur.level);
                 return (
                   <tr key={p.uid}>
-                    <td>
+                    <td className="lead">
                       {p.sNo ? <span className={"chip s" + p.sNo}>{p.tNo || p.sNo}</span> : null}{" "}
                       <button
                         className="exp-toggle"
@@ -266,7 +266,7 @@ export default function RiskPage() {
                           : ""}
                       </div>
                     </td>
-                    <td className="small">
+                    <td className="small wide" data-label="ปัจจัยเสี่ยงตามทะเบียน">
                       {inRegister ? (
                         <>
                           {p.rFactor || "–"}
@@ -278,10 +278,10 @@ export default function RiskPage() {
                         <span className="muted">ไม่อยู่ในทะเบียน</span>
                       )}
                     </td>
-                    <td className="num small">
+                    <td className="num small" data-label="คุมภายใน">
                       {p.rSum ? p.rSum + " / 9" : "–"}
                     </td>
-                    <td>
+                    <td className="wide" data-label="ระดับความเสี่ยง">
                       {/* โหมด "ทั้งปี" ไม่มีเดือนปลายทางที่ชัดเจน ถ้าปล่อยให้กรอก
                           ข้อมูลจะถูกเขียนลงเดือน ก.ย. 70 เงียบ ๆ จึงล็อกไว้ก่อน */}
                       <select
@@ -309,7 +309,7 @@ export default function RiskPage() {
                         {info.label}
                       </div>
                     </td>
-                    <td>
+                    <td className="wide" data-label="สถานการณ์ / มาตรการ">
                       <input
                         disabled={allMonths}
                         placeholder="สถานการณ์ที่พบ"

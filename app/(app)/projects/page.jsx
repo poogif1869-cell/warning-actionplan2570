@@ -160,7 +160,7 @@ export default function ProjectsPage() {
         </div>
 
         <div className="tablewrap">
-          <table>
+          <table className="stack">
             <thead>
               <tr>
                 <th className="sortable" onClick={() => sortBy("name")}>
@@ -207,7 +207,7 @@ export default function ProjectsPage() {
                     onClick={() => setOpenUid(p.uid)}
                     style={{ cursor: "pointer" }}
                   >
-                    <td>
+                    <td className="lead">
                       {p.sNo ? (
                         <span className={"chip s" + p.sNo}>{p.tNo || p.sNo}</span>
                       ) : null}{" "}
@@ -217,9 +217,9 @@ export default function ProjectsPage() {
                         {tk.status ? " · " + tk.status : ""}
                       </div>
                     </td>
-                    <td className="small">{p.org}</td>
+                    <td className="small" data-label="หน่วยงาน">{p.org}</td>
                     {/* ตัวชี้วัดตามแผน กับผลล่าสุดที่รายงาน วางคู่กันให้เทียบได้ในบรรทัดเดียว */}
-                    <td className="kpicell small">
+                    <td className="kpicell small wide" data-label="ตัวชี้วัดผลผลิต / ผลลัพธ์">
                       <div className="clamp2">
                         <span className="muted">ผลผลิต: </span>
                         {p.output || "–"}
@@ -239,8 +239,8 @@ export default function ProjectsPage() {
                         </div>
                       )}
                     </td>
-                    <td className="num">{money(p.budget)}</td>
-                    <td>
+                    <td className="num" data-label="งบประมาณ">{money(p.budget)}</td>
+                    <td className="wide" data-label="แผน / ผลรายเดือน">
                       {/* แถบเดือนแบบแกนต์: เขียว = มีแผน, เขียวเข้ม = รายงานแล้ว, แดง = ถึงกำหนดแต่ยังไม่รายงาน */}
                       <table className="gantt" style={{ width: "auto" }}>
                         <tbody>
@@ -264,16 +264,16 @@ export default function ProjectsPage() {
                         </tbody>
                       </table>
                     </td>
-                    <td className="num small">
+                    <td className="num small" data-label="รายงานแล้ว">
                       {nPlanned ? nRep + " / " + nPlanned : nRep ? nRep : "–"}
                     </td>
-                    <td className="num small">
+                    <td className="num small" data-label="เบิกจ่าย">
                       {spent ? money(spent) : "–"}
                       {spent && p.budget ? (
                         <div className="muted">{pct((spent / p.budget) * 100)}</div>
                       ) : null}
                     </td>
-                    <td>
+                    <td data-label="แจ้งเตือน">
                       {sev ? (
                         <span className={"chip"} style={{ color: sev === "crit" ? "var(--bad)" : "var(--warn)" }}>
                           {SEV_LABEL[sev]} {list.length}

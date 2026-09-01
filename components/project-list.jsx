@@ -63,7 +63,7 @@ export default function ProjectList({ title, subtitle, items, onClose }) {
 
           {rows.length ? (
             <div className="tablewrap">
-              <table>
+              <table className="stack">
                 <thead>
                   <tr>
                     <th>โครงการ</th>
@@ -77,7 +77,7 @@ export default function ProjectList({ title, subtitle, items, onClose }) {
                       onClick={() => setOpenUid(p.uid)}
                       style={{ cursor: "pointer" }}
                     >
-                      <td>
+                      <td className="lead">
                         {p.sNo ? <span className={"chip s" + p.sNo}>{p.tNo || p.sNo}</span> : null}{" "}
                         {p.name}
                         <div className="small muted">
@@ -85,7 +85,7 @@ export default function ProjectList({ title, subtitle, items, onClose }) {
                           {p.org ? " · " + p.org : ""}
                         </div>
                       </td>
-                      <td className="num">{money(p.budget)}</td>
+                      <td className="num" data-label="งบประมาณ">{money(p.budget)}</td>
                     </tr>
                   ))}
                 </tbody>

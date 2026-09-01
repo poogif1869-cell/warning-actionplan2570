@@ -10,6 +10,11 @@ export const metadata = {
 export const viewport = {
   width: "device-width",
   initialScale: 1,
+  /* ไม่ล็อกการซูม ผู้ใช้ที่สายตาไม่ดีต้องขยายอ่านตัวเลขในตารางได้ */
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#0a4227" },
+    { media: "(prefers-color-scheme: dark)", color: "#08301d" },
+  ],
 };
 
 export default function RootLayout({ children }) {

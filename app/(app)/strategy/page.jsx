@@ -105,7 +105,7 @@ export default function StrategyPage() {
             {s.so ? <div className="small muted" style={{ marginBottom: 10 }}>{s.so}</div> : null}
 
             <div className="tablewrap" style={{ marginBottom: 14 }}>
-              <table>
+              <table className="stack">
                 <thead>
                   <tr>
                     <th>กลยุทธ์</th>
@@ -116,9 +116,9 @@ export default function StrategyPage() {
                 <tbody>
                   {s.tactics.map((t) => (
                     <tr key={t.no || t.name}>
-                      <td className="small">{t.name || "(ไม่ระบุกลยุทธ์)"}</td>
-                      <td className="num">{fmt(t.count)}</td>
-                      <td className="num">{money(t.budget)}</td>
+                      <td className="lead small">{t.name || "(ไม่ระบุกลยุทธ์)"}</td>
+                      <td className="num" data-label="โครงการ">{fmt(t.count)}</td>
+                      <td className="num" data-label="งบประมาณ">{money(t.budget)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -127,7 +127,7 @@ export default function StrategyPage() {
 
             {kpis.length ? (
               <div className="tablewrap">
-                <table>
+                <table className="stack">
                   <thead>
                     <tr>
                       <th style={{ width: 46 }}>ที่</th>
@@ -148,8 +148,8 @@ export default function StrategyPage() {
                       const st = statusOf(p);
                       return (
                         <tr key={k.no}>
-                          <td className="mono small">{k.no}</td>
-                          <td>
+                          <td className="mono small" data-label="ตัวชี้วัดที่">{k.no}</td>
+                          <td className="lead">
                             {k.name}
                             {k.dir === "down" ? (
                               <span className="chip" style={{ marginInlineStart: 6 }}>
@@ -160,9 +160,9 @@ export default function StrategyPage() {
                               <div className="small muted">ค่าสะสมตาม .xlsx: {k.cum}</div>
                             ) : null}
                           </td>
-                          <td className="small">{k.unit}</td>
-                          <td className="num">{fmt(k.target)}</td>
-                          <td className="num">
+                          <td className="small" data-label="หน่วยนับ">{k.unit}</td>
+                          <td className="num" data-label="เป้าหมาย 2570">{fmt(k.target)}</td>
+                          <td className="num wide" data-label="ผลการดำเนินงาน">
                             <input
                               className="mono"
                               inputMode="decimal"
@@ -178,8 +178,8 @@ export default function StrategyPage() {
                               onChange={(e) => setKpi(k.no, e.target.value)}
                             />
                           </td>
-                          <td className="num">{p == null ? "–" : pct(p)}</td>
-                          <td className="nowrap small">
+                          <td className="num" data-label="บรรลุ">{p == null ? "–" : pct(p)}</td>
+                          <td className="nowrap small" data-label="สถานะ">
                             <span className={"dot bg-" + st.cls} />
                             <span className={"st-" + st.cls}>{st.label}</span>
                           </td>

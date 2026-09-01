@@ -237,7 +237,7 @@ export default function BudgetPage() {
         </div>
 
         <div className="tablewrap">
-          <table>
+          <table className="stack">
             <thead>
               <tr>
                 <th>โครงการ</th>
@@ -255,7 +255,7 @@ export default function BudgetPage() {
                 const left = (p.budget || 0) - yearRoll.total;
                 return [
                   <tr key={p.uid}>
-                    <td>
+                    <td className="lead">
                       {p.sNo ? <span className={"chip s" + p.sNo}>{p.tNo || p.sNo}</span> : null}{" "}
                       {p.name}
                       <div className="small muted">
@@ -265,11 +265,11 @@ export default function BudgetPage() {
                           : ""}
                       </div>
                     </td>
-                    <td className="num">{money(p.budget)}</td>
-                    <td className="num">{roll.total ? money(roll.total) : "–"}</td>
-                    <td className={"num " + (left < 0 ? "st-bad" : "")}>{money(left)}</td>
-                    <td className="num">{roll.count ? fmt(roll.count) : "–"}</td>
-                    <td className="nowrap">
+                    <td className="num" data-label="งบตามแผน">{money(p.budget)}</td>
+                    <td className="num" data-label="เบิกจ่าย">{roll.total ? money(roll.total) : "–"}</td>
+                    <td className={"num " + (left < 0 ? "st-bad" : "")} data-label="คงเหลือ">{money(left)}</td>
+                    <td className="num" data-label="จำนวนรายการ">{roll.count ? fmt(roll.count) : "–"}</td>
+                    <td className="nowrap wide" data-label="">
                       <button
                         className="btn ghost"
                         onClick={() => setOpenUid(open ? null : p.uid)}

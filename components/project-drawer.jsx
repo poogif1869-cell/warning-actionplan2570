@@ -182,7 +182,7 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
               {/* คอลัมน์แผนรายเดือนในไฟล์ต้นฉบับใช้ปนกันระหว่างจำนวนเงินกับจำนวนครั้ง/หน่วย
                   จึงแสดงตามที่มีมา ไม่นำมารวมเป็นยอดเงิน */}
               <div className="tablewrap">
-                <table className="mrep">
+                <table className="mrep stack">
                   <thead>
                     <tr>
                       <th>เดือน</th>
@@ -203,7 +203,7 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
 
                       return [
                         <tr key={i} className={reported ? "reported" : missed ? "missed" : ""}>
-                          <td className="nowrap">
+                          <td className="lead nowrap">
                             {label}
                             {i === asOfMonth ? (
                               <span className="chip" style={{ marginInlineStart: 6 }}>
@@ -211,24 +211,24 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
                               </span>
                             ) : null}
                           </td>
-                          <td className="plan">
+                          <td className="plan" data-label="แผน">
                             {plan[i] ? (plan[i] > 1000 ? money(plan[i]) : "มีแผน") : "–"}
                           </td>
-                          <td>
+                          <td className="wide" data-label="ผลผลิต (Output)">
                             <input
                               value={e.o == null ? "" : e.o}
                               onChange={(ev) => setMonthly(uid, i, { o: ev.target.value })}
                               style={{ ...inputStyle, textAlign: "start" }}
                             />
                           </td>
-                          <td>
+                          <td className="wide" data-label="ผลลัพธ์ (Outcome)">
                             <input
                               value={e.r == null ? "" : e.r}
                               onChange={(ev) => setMonthly(uid, i, { r: ev.target.value })}
                               style={{ ...inputStyle, textAlign: "start" }}
                             />
                           </td>
-                          <td className="num">
+                          <td className="num wide" data-label="เบิกจ่าย (บาท)">
                             {/* ยอดนี้คำนวณจากรายการงบประมาณ ไม่ให้กรอกมือ
                                 เพื่อให้ตรงกับหน้ารายงานงบประมาณโครงการเสมอ */}
                             <button
@@ -307,7 +307,7 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
 
               <h4>รายงานความเสี่ยงรายเดือน</h4>
               <div className="tablewrap">
-                <table className="mrep">
+                <table className="mrep stack">
                   <thead>
                     <tr>
                       <th>เดือน</th>
@@ -322,7 +322,7 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
                       const info = riskLevelInfo(cur.level === "" ? null : cur.level);
                       return (
                         <tr key={i}>
-                          <td className="nowrap">
+                          <td className="lead nowrap">
                             {label}
                             {i === asOfMonth ? (
                               <span className="chip" style={{ marginInlineStart: 6 }}>
@@ -334,7 +334,7 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
                               {info.label}
                             </div>
                           </td>
-                          <td>
+                          <td className="wide" data-label="ระดับความเสี่ยง">
                             <select
                               value={cur.level == null ? "" : cur.level}
                               onChange={(ev) => setRisk(uid, i, { level: ev.target.value })}
@@ -348,14 +348,14 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
                               ))}
                             </select>
                           </td>
-                          <td>
+                          <td className="wide" data-label="สถานการณ์ที่พบ">
                             <input
                               value={cur.situation || ""}
                               onChange={(ev) => setRisk(uid, i, { situation: ev.target.value })}
                               style={{ ...inputStyle, textAlign: "start" }}
                             />
                           </td>
-                          <td>
+                          <td className="wide" data-label="มาตรการจัดการ">
                             <input
                               value={cur.action || ""}
                               onChange={(ev) => setRisk(uid, i, { action: ev.target.value })}

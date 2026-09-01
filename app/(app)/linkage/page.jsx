@@ -162,7 +162,7 @@ export default function LinkagePage() {
           </div>
         ) : (
           <div className="tablewrap">
-            <table>
+            <table className="stack">
               <thead>
                 <tr>
                   <th>{level.label}</th>
@@ -177,8 +177,8 @@ export default function LinkagePage() {
                   const open = q ? true : expanded === g.value;
                   return [
                     <tr key={g.value}>
-                      <td className="small">{g.value}</td>
-                      <td className="num">
+                      <td className="lead small">{g.value}</td>
+                      <td className="num" data-label="โครงการ">
                         <button
                           className="exp-toggle"
                           onClick={() => setExpanded(open ? null : g.value)}
@@ -186,8 +186,8 @@ export default function LinkagePage() {
                           {fmt(g.list.length)} โครงการ {open ? "▾" : "▸"}
                         </button>
                       </td>
-                      <td className="num">{money(g.budget)}</td>
-                      <td className="num">
+                      <td className="num" data-label="งบประมาณ">{money(g.budget)}</td>
+                      <td className="num" data-label="สัดส่วน">
                         {pct(totalBudget ? (g.budget / totalBudget) * 100 : 0)}
                       </td>
                     </tr>,

@@ -82,7 +82,7 @@ export default function BudgetEntries({ uid, month, title }) {
 
       {list.length ? (
         <div className="tablewrap">
-          <table className="mrep">
+          <table className="mrep stack">
             <thead>
               <tr>
                 <th style={{ width: 34 }}>สถานะ</th>
@@ -102,13 +102,13 @@ export default function BudgetEntries({ uid, month, title }) {
                 const ro = budgetHasSaved && e.saved === true;
                 return (
                   <tr key={e.id} className={ro ? "locked" : ""}>
-                    <td className="nowrap">
+                    <td className="nowrap" data-label="สถานะ">
                       <span
                         className={"dot bg-" + (!budgetHasSaved ? "none" : ro ? "ok" : "warn")}
                         title={!budgetHasSaved ? "ยังไม่เปิดใช้การล็อก" : ro ? "บันทึกแล้ว" : "ยังไม่บันทึก"}
                       />
                     </td>
-                    <td>
+                    <td className="wide" data-label="วันที่">
                       <input
                         type="date"
                         readOnly={ro}
@@ -120,7 +120,7 @@ export default function BudgetEntries({ uid, month, title }) {
                         style={{ ...cell, textAlign: "start" }}
                       />
                     </td>
-                    <td>
+                    <td className="wide" data-label="รายละเอียด">
                       <input
                         placeholder="เช่น เดินทางไปตรวจแปลง จ.สุราษฎร์ธานี"
                         readOnly={ro}
@@ -131,7 +131,7 @@ export default function BudgetEntries({ uid, month, title }) {
                       />
                     </td>
                     {COST_FIELDS.map((c) => (
-                      <td key={c.key}>
+                      <td key={c.key} className="wide" data-label={c.label}>
                         <input
                           inputMode="decimal"
                           readOnly={ro}
@@ -144,10 +144,10 @@ export default function BudgetEntries({ uid, month, title }) {
                         />
                       </td>
                     ))}
-                    <td className="num mono">
+                    <td className="num mono" data-label="รวมรายการนี้">
                       <b>{money(entryTotal(e))}</b>
                     </td>
-                    <td className="nowrap">
+                    <td className="nowrap" data-label="">
                       {ro ? (
                         <button
                           className="iconbtn"
@@ -173,7 +173,7 @@ export default function BudgetEntries({ uid, month, title }) {
                 );
               })}
               <tr>
-                <td colSpan={3}>
+                <td colSpan={3} className="lead">
                   <b>รวมเดือน {MONTHS[month]}</b>
                 </td>
                 {COST_FIELDS.map((c) => {
@@ -182,12 +182,12 @@ export default function BudgetEntries({ uid, month, title }) {
                     return a + (isFinite(v) ? v : 0);
                   }, 0);
                   return (
-                    <td className="num mono" key={c.key}>
+                    <td className="num mono" key={c.key} data-label={c.label}>
                       {money(sum)}
                     </td>
                   );
                 })}
-                <td className="num mono">
+                <td className="num mono" data-label="รวมทั้งเดือน">
                   <b>{money(total)}</b>
                 </td>
                 <td />
