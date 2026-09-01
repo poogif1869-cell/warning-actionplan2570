@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   ITEMS,
@@ -123,6 +124,13 @@ export default function ProjectsPage() {
             }
           />
         </h2>
+
+        <div className="hint">
+          คอลัมน์ <b>เบิกจ่าย</b> ดึงยอดมาจากหน้า{" "}
+          <Link href="/budget">งบประมาณโครงการ</Link> ซึ่งเป็นที่เดียวที่บันทึกงบได้
+          หน้านี้กับลิ้นชักรายละเอียดแสดงยอดอย่างเดียว ไม่ให้กรอก
+          เพื่อไม่ให้มีสองแหล่งที่กรอกเงินแล้วตัวเลขขัดกัน
+        </div>
 
         <div className="filters">
           <div className="field">

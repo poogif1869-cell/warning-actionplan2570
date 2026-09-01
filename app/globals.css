@@ -631,3 +631,62 @@ th{box-shadow:inset 0 -1px 0 var(--border)}
 @media (max-width:820px){
   .groupbar{padding:8px 11px}
 }
+
+/* ---------------------------------------------------------------------
+   โหมดพิมพ์ "เฉพาะลิ้นชัก" — ปุ่ม PDF ในลิ้นชักรายละเอียดโครงการ
+   ซ่อนหน้าเบื้องหลังทิ้ง แล้วคลี่ลิ้นชักให้เป็นเอกสารเต็มหน้ากระดาษ
+   --------------------------------------------------------------------- */
+@media print{
+  body.printing-drawer .topbar,
+  body.printing-drawer .tabs,
+  body.printing-drawer main,
+  body.printing-drawer .scrim,
+  body.printing-drawer .toast{display:none !important}
+
+  body.printing-drawer::before{
+    content:attr(data-print-title) "\A" attr(data-print-sub);
+    white-space:pre-line;
+    display:block; font-size:13pt; font-weight:700; color:#0a4227;
+    text-align:center; line-height:1.5;
+    padding:2mm 0 3mm; margin-bottom:4mm; border-bottom:2px solid #0a4227;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
+  }
+
+  /* คลี่ลิ้นชักจากแผงลอยด้านข้าง ให้เป็นเนื้อหาปกติที่ไหลลงกระดาษได้ */
+  body.printing-drawer .drawer{
+    position:static; width:auto; border:none; display:block;
+    transform:none; box-shadow:none;
+  }
+  body.printing-drawer .drawer header{display:none}
+  body.printing-drawer .drawer .dbody{overflow:visible; padding:0; display:block}
+
+  body.printing-drawer .segmented,
+  body.printing-drawer .btnrow,
+  body.printing-drawer .alerts{display:none !important}
+
+  body.printing-drawer h4{
+    font-size:11.5pt; margin:5mm 0 2mm; padding-inline-start:3mm;
+    border-inline-start:3px solid #b8892b;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
+  }
+  body.printing-drawer .tiles{grid-template-columns:repeat(3,1fr); gap:3mm}
+  body.printing-drawer .tile{border:1px solid #999; box-shadow:none}
+  body.printing-drawer .tablewrap{border:1px solid #999; box-shadow:none}
+  body.printing-drawer table{font-size:8.5pt}
+  body.printing-drawer th,body.printing-drawer td{padding:1.4mm 2mm; border:1px solid #999}
+  body.printing-drawer th{
+    background:#eee !important;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
+  }
+  body.printing-drawer input,body.printing-drawer select,body.printing-drawer textarea{
+    border:none !important; background:none !important; padding:0 !important;
+    -webkit-appearance:none; appearance:none;
+  }
+  /* ตาราง stack ตอนพิมพ์กลับเป็นตารางปกติ */
+  body.printing-drawer table.stack thead{display:table-header-group}
+  body.printing-drawer table.stack tbody{display:table-row-group}
+  body.printing-drawer table.stack tr{display:table-row; padding:0}
+  body.printing-drawer table.stack td{display:table-cell}
+  body.printing-drawer table.stack td::before{display:none}
+  body.printing-drawer tr{break-inside:avoid; page-break-inside:avoid}
+}

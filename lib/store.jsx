@@ -6,7 +6,7 @@
    ตาราง (ดู supabase/schema.sql):
      kpi_results      no, actual
      project_results  uid, code, status, progress, note
-     monthly_reports  uid, month, output, outcome, spend
+     monthly_reports  uid, month, output, outcome, issue, solution, spend
      budget_entries   id, uid, month, occurred_on, note, perdiem, lodging, travel, fuel, saved
      risk_reports     uid, month, level, situation, action
 
@@ -33,15 +33,18 @@ const FLUSH_MS = 800;
 
 const emptyResults = () => ({ kpi: {}, project: {} });
 
-/* ---------- ตัวช่วยที่ใช้ทั้งหน้าแจ้งเตือนและหน้ากรอกผล ---------- */
-/* แต่ละเดือนเก็บ { o: ผลผลิต, r: ผลลัพธ์, s: เบิกจ่าย (คำนวณมา) } */
+/* ---------- ตัวช่วยที่ใช้ทั้งหน้าแจ้งเตือนและหน้ากรอกผล ----------
+   แต่ละเดือนเก็บ
+     o        ผลผลิต (Output)
+     r        ผลลัพธ์ (Outcome) — ใช้เฉพาะโครงการที่ไม่มีกิจกรรมย่อย
+     issue    ปัญหาอุปสรรค
+     solution วิธีการแก้ปัญหา
+     s        เบิกจ่าย (คำนวณจากรายการงบประมาณ ไม่ได้กรอกที่นี่) */
+const REPORT_FIELDS = ["o", "r", "issue", "solution", "s"];
+
 export function hasReport(e) {
-  return !!(
-    e &&
-    ((e.o != null && e.o !== "") ||
-      (e.r != null && e.r !== "") ||
-      (e.s != null && e.s !== ""))
-  );
+  if (!e) return false;
+  return REPORT_FIELDS.some((k) => e[k] != null && e[k] !== "");
 }
 
 export function monthlyOf(results, uid) {
@@ -179,6 +182,8 @@ function applyBudget(results, budget) {
       monthly[i] = {
         o: src ? src.o : "",
         r: src ? src.r : "",
+        issue: src ? src.issue : "",
+        solution: src ? src.solution : "",
         // มีรายการงบประมาณเมื่อไหร่ ให้ถือยอดที่คำนวณเป็นหลักเสมอ
         s: hasEntries ? String(derived) : src && src.sManual != null ? src.sManual : "",
         sManual: src ? src.sManual : null,
@@ -317,7 +322,7 @@ export function ResultsProvider({ children }) {
     const [kpiRes, projRes, monRes, riskRes] = await Promise.all([
       supabase.from("kpi_results").select("no,actual"),
       supabase.from("project_results").select("uid,status,progress,note"),
-      supabase.from("monthly_reports").select("uid,month,output,outcome,spend"),
+      supabase.from("monthly_reports").select("uid,month,output,outcome,spend,issue,solution"),
       supabase.from("risk_reports").select("uid,month,level,situation,action"),
     ]);
 
@@ -366,6 +371,8 @@ export function ResultsProvider({ children }) {
       nextRaw.project[row.uid].monthly[row.month] = {
         o: row.output == null ? "" : row.output,
         r: row.outcome == null ? "" : row.outcome,
+        issue: row.issue == null ? "" : row.issue,
+        solution: row.solution == null ? "" : row.solution,
         sManual: row.spend == null ? null : String(row.spend),
       };
     });
@@ -487,7 +494,14 @@ export function ResultsProvider({ children }) {
         const uid = key.slice(0, sep);
         const month = Number(key.slice(sep + 1));
         const e = ((cur.raw.project[uid] || {}).monthly || {})[month] || {};
-        return { uid, month, output: e.o ?? "", outcome: e.r ?? "" };
+        return {
+          uid,
+          month,
+          output: e.o ?? "",
+          outcome: e.r ?? "",
+          issue: e.issue ?? "",
+          solution: e.solution ?? "",
+        };
       });
       jobs.push(supabase.from("monthly_reports").upsert(rows, { onConflict: "uid,month" }));
     }
@@ -841,6 +855,8 @@ export function ResultsProvider({ children }) {
               month: Number(i),
               output: e.o ?? "",
               outcome: e.r ?? "",
+              issue: e.issue ?? "",
+              solution: e.solution ?? "",
             });
           });
         });

@@ -1,28 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MONTHS, STATUSES, monthsOf, byUid } from "@/lib/plan";
+import { MONTHS, byUid } from "@/lib/plan";
 import { RISK_TYPES, RISK_LEVELS, CONTROL_FIELDS, riskLevelInfo } from "@/lib/rollup";
 import { money, pct } from "@/lib/format";
-import {
-  useResults,
-  hasReport,
-  monthlyOf,
-  projectTrack,
-  spentTotal,
-  entriesOf,
-  entriesTotal,
-  riskAt,
-} from "@/lib/store";
+import { useResults, riskAt } from "@/lib/store";
 import { KIND_LABEL, SEV_LABEL } from "@/lib/alerts";
-import MonthBudget from "@/components/month-budget";
+import ReportTab from "@/components/report-tab";
+import PrintButton from "@/components/print-button";
 
 /* ลิ้นชักรายละเอียดโครงการ — ใช้ร่วมกันทุกหน้า
    รวมรายงานผลรายเดือน (ผลผลิต/ผลลัพธ์), รายการงบประมาณ และรายงานความเสี่ยงรายเดือน */
 export default function ProjectDrawer({ uid, alerts, onClose }) {
-  const { results, budget, risk, asOfMonth, setProject, setMonthly, setRisk, clearProject } =
-    useResults();
-  const [openMonth, setOpenMonth] = useState(null);
+  const { risk, asOfMonth, setRisk, clearProject } = useResults();
   const [tab, setTab] = useState("report");
 
   // ปิดด้วย Esc
@@ -37,10 +27,6 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
   const p = byUid.get(uid);
   if (!p) return null;
 
-  const plan = monthsOf(p);
-  const rep = monthlyOf(results, uid);
-  const tk = projectTrack(results, uid);
-  const spent = spentTotal(results, uid);
   const mine = (alerts || []).filter((a) => a.uid === uid);
 
   const rows = [
@@ -88,7 +74,21 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
       <div className="scrim" onClick={onClose} />
       <aside className="drawer" role="dialog" aria-modal="true" aria-label={p.name}>
         <header>
-          <h3>{p.name}</h3>
+          <h3>
+            {p.name}
+            <div className="small muted" style={{ fontWeight: 400 }}>
+              {p.code}
+              {p.org ? " · " + p.org : ""}
+            </div>
+          </h3>
+          {/* พิมพ์เฉพาะเนื้อในลิ้นชัก โดยซ่อนหน้าเบื้องหลังทิ้ง (ดู body.printing-drawer) */}
+          <PrintButton
+            className="iconbtn"
+            label="PDF"
+            mode="drawer"
+            title={"รายงานโครงการ " + p.name}
+            subtitle={p.code + (p.org ? " · " + p.org : "")}
+          />
           <button className="iconbtn" onClick={onClose}>
             ปิด
           </button>
@@ -119,154 +119,10 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
             ))}
           </div>
 
-          {/* ---------------- รายงานผลรายเดือน ---------------- */}
-          {tab === "report" ? (
-            <>
-              <h4>สถานะการดำเนินงาน</h4>
-              <div className="trackgrid">
-                <div>
-                  <label className="small muted" htmlFor={"st-" + uid}>
-                    สถานะ
-                  </label>
-                  <select
-                    id={"st-" + uid}
-                    value={tk.status || ""}
-                    onChange={(e) => setProject(uid, { status: e.target.value })}
-                  >
-                    <option value="">— ยังไม่ระบุ —</option>
-                    {STATUSES.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="small muted" htmlFor={"pg-" + uid}>
-                    ความก้าวหน้า (%)
-                  </label>
-                  <input
-                    id={"pg-" + uid}
-                    inputMode="decimal"
-                    value={tk.progress == null ? "" : tk.progress}
-                    onChange={(e) => setProject(uid, { progress: e.target.value })}
-                  />
-                </div>
-              </div>
-              <textarea
-                placeholder="หมายเหตุ / ปัญหาอุปสรรค"
-                value={tk.note || ""}
-                onChange={(e) => setProject(uid, { note: e.target.value })}
-                style={{ width: "100%", marginBottom: 12 }}
-              />
-
-              {/* ตัวชี้วัดความสำเร็จตามแผน วางไว้เหนือช่องกรอกเพื่อให้กรอกเทียบได้ */}
-              <h4>ตัวชี้วัดความสำเร็จตามแผน</h4>
-              <dl className="dl">
-                <dt>ผลผลิต (Output)</dt>
-                <dd>{p.output || "–"}</dd>
-                <dt>ผลลัพธ์ (Outcome)</dt>
-                <dd>{p.outcome || "–"}</dd>
-              </dl>
-
-              <h4>
-                รายงานผลการดำเนินงานรายเดือน
-                <span className="muted small" style={{ fontWeight: 400, marginInlineStart: 8 }}>
-                  เบิกจ่ายรวม {money(spent)} บาท
-                  {p.budget
-                    ? " จาก " + money(p.budget) + " บาท (" + pct((spent / p.budget) * 100) + ")"
-                    : ""}
-                </span>
-              </h4>
-
-              {/* คอลัมน์แผนรายเดือนในไฟล์ต้นฉบับใช้ปนกันระหว่างจำนวนเงินกับจำนวนครั้ง/หน่วย
-                  จึงแสดงตามที่มีมา ไม่นำมารวมเป็นยอดเงิน */}
-              <div className="tablewrap">
-                <table className="mrep stack">
-                  <thead>
-                    <tr>
-                      <th>เดือน</th>
-                      <th className="num">แผน</th>
-                      <th>ผลผลิต (Output)</th>
-                      <th>ผลลัพธ์ (Outcome)</th>
-                      <th className="num">เบิกจ่าย (บาท)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {MONTHS.map((label, i) => {
-                      const e = rep[i] || {};
-                      const reported = hasReport(e);
-                      const missed = plan[i] && i <= asOfMonth && !reported;
-                      const list = entriesOf(budget, uid, i);
-                      const monthSpend = entriesTotal(list);
-                      const open = openMonth === i;
-
-                      return [
-                        <tr key={i} className={reported ? "reported" : missed ? "missed" : ""}>
-                          <td className="lead nowrap">
-                            {label}
-                            {i === asOfMonth ? (
-                              <span className="chip" style={{ marginInlineStart: 6 }}>
-                                ณ เดือนนี้
-                              </span>
-                            ) : null}
-                          </td>
-                          <td className="plan" data-label="แผน">
-                            {plan[i] ? (plan[i] > 1000 ? money(plan[i]) : "มีแผน") : "–"}
-                          </td>
-                          <td className="wide" data-label="ผลผลิต (Output)">
-                            <input
-                              value={e.o == null ? "" : e.o}
-                              onChange={(ev) => setMonthly(uid, i, { o: ev.target.value })}
-                              style={{ ...inputStyle, textAlign: "start" }}
-                            />
-                          </td>
-                          <td className="wide" data-label="ผลลัพธ์ (Outcome)">
-                            <input
-                              value={e.r == null ? "" : e.r}
-                              onChange={(ev) => setMonthly(uid, i, { r: ev.target.value })}
-                              style={{ ...inputStyle, textAlign: "start" }}
-                            />
-                          </td>
-                          <td className="num wide" data-label="เบิกจ่าย (บาท)">
-                            {/* ยอดนี้คำนวณจากรายการงบประมาณ ไม่ให้กรอกมือ
-                                เพื่อให้ตรงกับหน้ารายงานงบประมาณโครงการเสมอ */}
-                            <button
-                              className="exp-toggle"
-                              onClick={() => setOpenMonth(open ? null : i)}
-                            >
-                              {list.length ? money(monthSpend) : "เพิ่มรายการ"}{" "}
-                              {open ? "▾" : "▸"}
-                            </button>
-                            <div className="small muted">
-                              {list.length
-                                ? list.length + " รายการ"
-                                : e.s
-                                ? "ยอดเดิม " + money(Number(e.s))
-                                : ""}
-                            </div>
-                          </td>
-                        </tr>,
-                        open ? (
-                          <tr className="exp-body" key={i + "/entries"}>
-                            <td colSpan={5}>
-                              <div style={{ padding: "10px 12px" }}>
-                                <MonthBudget item={p} month={i} />
-                              </div>
-                            </td>
-                          </tr>
-                        ) : null,
-                      ];
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <div className="small muted" style={{ marginTop: 7 }}>
-                ยอดเบิกจ่ายมาจากรายการงบประมาณของเดือนนั้น กดที่ตัวเลขเพื่อเพิ่ม/แก้ไขรายการ
-                แต่ละรายการแยก {["ค่าเบี้ยเลี้ยง", "ค่าที่พัก", "ค่าเดินทาง", "ค่าน้ำมันเชื้อเพลิง"].join(" · ")}
-              </div>
-            </>
-          ) : null}
+          {/* ---------------- รายงานผลรายเดือน ----------------
+              แยกไปไว้ใน report-tab.jsx เพราะกติกาต่างกันระหว่างโครงการที่มี
+              กิจกรรมย่อยกับที่ไม่มี และลิ้นชักตัวนี้ยาวเกินไปแล้ว */}
+          {tab === "report" ? <ReportTab item={p} /> : null}
 
           {/* ---------------- ความเสี่ยง ---------------- */}
           {tab === "risk" ? (

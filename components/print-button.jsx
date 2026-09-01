@@ -15,8 +15,12 @@ import { META } from "@/lib/plan";
    เคล็ดลับ: เบราว์เซอร์ตั้งชื่อไฟล์ PDF จาก document.title
    จึงเปลี่ยนชื่อชั่วคราวก่อนพิมพ์ ผู้ใช้จะได้ไฟล์ที่ชื่อสื่อความหมายทันที
    ไม่ใช่ "ระบบแจ้งเตือน..." เหมือนกันทุกไฟล์ */
-export default function PrintButton({ title, subtitle, label, className }) {
+export default function PrintButton({ title, subtitle, label, className, mode }) {
   const [printing, setPrinting] = useState(false);
+
+  /* mode "drawer" = พิมพ์เฉพาะเนื้อในลิ้นชัก โดยซ่อนหน้าเบื้องหลัง
+     mode ปกติ    = พิมพ์เนื้อหาของหน้าปัจจุบัน */
+  const cls = mode === "drawer" ? "printing-drawer" : "printing-page";
 
   useEffect(() => {
     if (!printing) return;
@@ -25,7 +29,7 @@ export default function PrintButton({ title, subtitle, label, className }) {
     const stamp = new Date().toLocaleDateString("th-TH").replace(/\//g, "-");
     document.title = (title || "รายงาน") + " " + stamp;
 
-    document.body.classList.add("printing-page");
+    document.body.classList.add(cls);
     document.body.setAttribute("data-print-title", title || "รายงาน");
     document.body.setAttribute(
       "data-print-sub",
@@ -41,12 +45,12 @@ export default function PrintButton({ title, subtitle, label, className }) {
     return () => {
       clearTimeout(t);
       window.removeEventListener("afterprint", done);
-      document.body.classList.remove("printing-page");
+      document.body.classList.remove(cls);
       document.body.removeAttribute("data-print-title");
       document.body.removeAttribute("data-print-sub");
       document.title = prevTitle;
     };
-  }, [printing, title, subtitle]);
+  }, [printing, title, subtitle, cls]);
 
   return (
     <button
