@@ -22,7 +22,8 @@ import {
    **ไม่มีช่องกรอกงบประมาณที่นี่** งบบันทึกที่หน้า "งบประมาณโครงการ" ที่เดียว
    หน้านี้แค่ดึงยอดมาแสดง เพื่อไม่ให้มีสองแหล่งที่กรอกเงินแล้วตัวเลขขัดกัน */
 export default function ReportTab({ item }) {
-  const { results, budget, asOfMonth, setProject, setMonthly, saveNow } = useResults();
+  const { results, budget, asOfMonth, monthlyHasIssue, setProject, setMonthly, saveNow } =
+    useResults();
   const [actUid, setActUid] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -219,7 +220,8 @@ export default function ReportTab({ item }) {
                       ) : null}
                       <td className="wide" data-label="ปัญหาอุปสรรค">
                         <input
-                          placeholder="ติดปัญหาอะไร"
+                          disabled={!monthlyHasIssue}
+                          placeholder={monthlyHasIssue ? "ติดปัญหาอะไร" : "ยังไม่พร้อมใช้"}
                           value={e.issue == null ? "" : e.issue}
                           onChange={(ev) =>
                             setMonthly(target.uid, i, { issue: ev.target.value })
@@ -229,7 +231,8 @@ export default function ReportTab({ item }) {
                       </td>
                       <td className="wide" data-label="วิธีการแก้ปัญหา">
                         <input
-                          placeholder="แก้ไขอย่างไร"
+                          disabled={!monthlyHasIssue}
+                          placeholder={monthlyHasIssue ? "แก้ไขอย่างไร" : "ยังไม่พร้อมใช้"}
                           value={e.solution == null ? "" : e.solution}
                           onChange={(ev) =>
                             setMonthly(target.uid, i, { solution: ev.target.value })
@@ -243,6 +246,15 @@ export default function ReportTab({ item }) {
               </tbody>
             </table>
           </div>
+
+          {!monthlyHasIssue ? (
+            <div className="banner" style={{ marginTop: 12 }}>
+              ช่อง <b>ปัญหาอุปสรรค</b> และ <b>วิธีการแก้ปัญหา</b> ยังใช้ไม่ได้
+              เพราะฐานข้อมูลไม่มีคอลัมน์ <code>monthly_reports.issue</code> และ{" "}
+              <code>solution</code> — ให้รัน <code>supabase/schema.sql</code> ใน SQL Editor ก่อน
+              (ช่องผลผลิตและผลลัพธ์ยังบันทึกได้ตามปกติ)
+            </div>
+          ) : null}
 
           <div className="btnrow">
             <button className="btn" onClick={save} disabled={saving}>

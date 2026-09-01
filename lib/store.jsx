@@ -278,8 +278,12 @@ export function ResultsProvider({ children }) {
   // ฐานข้อมูลที่ยังไม่ได้รัน schema.sql รอบล่าสุดจะไม่มีคอลัมน์ saved
   // ปิดเฉพาะฟีเจอร์ล็อกรายการ ส่วนที่เหลือยังใช้ได้ตามปกติ
   const [budgetHasSaved, setBudgetHasSaved] = useState(true);
+  // ฐานข้อมูลที่ยังไม่ได้รัน schema.sql รอบล่าสุดจะไม่มี issue/solution
+  const [monthlyHasIssue, setMonthlyHasIssue] = useState(true);
   const hasSavedRef = useRef(true);
   hasSavedRef.current = budgetHasSaved;
+  const hasIssueRef = useRef(true);
+  hasIssueRef.current = monthlyHasIssue;
 
   /* "ณ เดือน" ที่ใช้เป็นฐานคำนวณการแจ้งเตือน — ใช้ร่วมกันทุกหน้า
      ค่าเริ่มต้นต้องคงที่ตอน render แรก ไม่งั้น hydration ฝั่งเซิร์ฟเวอร์กับเบราว์เซอร์ไม่ตรงกัน */
@@ -319,32 +323,52 @@ export function ResultsProvider({ children }) {
   async function loadAll() {
     const supabase = getSupabase();
 
-    const [kpiRes, projRes, monRes, riskRes] = await Promise.all([
+    /* ---------------------------------------------------------------
+       คอลัมน์ที่เพิ่มทีหลังจะยังไม่มีในฐานข้อมูลที่ยังไม่ได้รัน schema.sql รอบล่าสุด
+       ถ้าปล่อยให้ throw ทั้งเว็บจะใช้ไม่ได้เลย ทั้งที่ขาดแค่ฟีเจอร์เดียว
+
+       จึงลอง select แบบเต็มก่อน ถ้าพังเพราะคอลัมน์ใหม่ ค่อยถอยไป select แบบเดิม
+       แล้วปิดเฉพาะฟีเจอร์ที่ต้องใช้คอลัมน์นั้น
+       --------------------------------------------------------------- */
+    async function selectOptional(table, baseCols, optionalCols, order) {
+      const build = (cols) => {
+        const q = supabase.from(table).select(cols);
+        return order ? q.order(order, { ascending: true }) : q;
+      };
+
+      let res = await build(baseCols + "," + optionalCols.join(","));
+      if (res.error) {
+        const msg = res.error.message || "";
+        // พังเพราะคอลัมน์ที่เพิ่มทีหลังหรือเปล่า ถ้าใช่ค่อยถอย
+        if (optionalCols.some((c) => new RegExp(c, "i").test(msg))) {
+          return { res: await build(baseCols), supported: false };
+        }
+      }
+      return { res, supported: true };
+    }
+
+    const [kpiRes, projRes, riskRes] = await Promise.all([
       supabase.from("kpi_results").select("no,actual"),
       supabase.from("project_results").select("uid,status,progress,note"),
-      supabase.from("monthly_reports").select("uid,month,output,outcome,spend,issue,solution"),
       supabase.from("risk_reports").select("uid,month,level,situation,action"),
     ]);
 
-    /* ---------------------------------------------------------------
-       คอลัมน์ saved เพิ่มทีหลัง ฐานข้อมูลที่ยังไม่ได้รัน schema.sql รอบล่าสุด
-       จะยังไม่มี — ถ้าปล่อยให้ throw ทั้งเว็บจะใช้ไม่ได้เลยทั้งที่ขาดแค่ฟีเจอร์เดียว
-       จึงลองใหม่โดยไม่เอาคอลัมน์นั้น แล้วปิดเฉพาะฟีเจอร์ล็อกรายการแทน
-       --------------------------------------------------------------- */
-    const BUD_COLS = "id,uid,month,occurred_on,note,perdiem,lodging,travel,fuel";
-    let hasSaved = true;
-    let budRes = await supabase
-      .from("budget_entries")
-      .select(BUD_COLS + ",saved")
-      .order("occurred_on", { ascending: true });
+    const mon = await selectOptional(
+      "monthly_reports",
+      "uid,month,output,outcome,spend",
+      ["issue", "solution"]
+    );
+    const monRes = mon.res;
+    const hasIssue = mon.supported;
 
-    if (budRes.error && /saved/i.test(budRes.error.message || "")) {
-      hasSaved = false;
-      budRes = await supabase
-        .from("budget_entries")
-        .select(BUD_COLS)
-        .order("occurred_on", { ascending: true });
-    }
+    const bud = await selectOptional(
+      "budget_entries",
+      "id,uid,month,occurred_on,note,perdiem,lodging,travel,fuel",
+      ["saved"],
+      "occurred_on"
+    );
+    const budRes = bud.res;
+    const hasSaved = bud.supported;
 
     const firstError =
       kpiRes.error || projRes.error || monRes.error || budRes.error || riskRes.error;
@@ -371,8 +395,8 @@ export function ResultsProvider({ children }) {
       nextRaw.project[row.uid].monthly[row.month] = {
         o: row.output == null ? "" : row.output,
         r: row.outcome == null ? "" : row.outcome,
-        issue: row.issue == null ? "" : row.issue,
-        solution: row.solution == null ? "" : row.solution,
+        issue: hasIssue && row.issue != null ? row.issue : "",
+        solution: hasIssue && row.solution != null ? row.solution : "",
         sManual: row.spend == null ? null : String(row.spend),
       };
     });
@@ -405,7 +429,7 @@ export function ResultsProvider({ children }) {
       };
     });
 
-    return { raw: nextRaw, budget: nextBudget, risk: nextRisk, hasSaved };
+    return { raw: nextRaw, budget: nextBudget, risk: nextRisk, hasSaved, hasIssue };
   }
 
   useEffect(() => {
@@ -422,6 +446,7 @@ export function ResultsProvider({ children }) {
           setRaw(next.raw);
           setBudget(next.budget);
           setBudgetHasSaved(next.hasSaved !== false);
+          setMonthlyHasIssue(next.hasIssue !== false);
           setRiskState(next.risk);
         }
       } catch (err) {
@@ -499,8 +524,8 @@ export function ResultsProvider({ children }) {
           month,
           output: e.o ?? "",
           outcome: e.r ?? "",
-          issue: e.issue ?? "",
-          solution: e.solution ?? "",
+          // ส่ง issue/solution เฉพาะเมื่อฐานข้อมูลมีคอลัมน์จริง ไม่งั้น PostgREST ปฏิเสธทั้งคำสั่ง
+          ...(hasIssueRef.current ? { issue: e.issue ?? "", solution: e.solution ?? "" } : {}),
         };
       });
       jobs.push(supabase.from("monthly_reports").upsert(rows, { onConflict: "uid,month" }));
@@ -600,6 +625,7 @@ export function ResultsProvider({ children }) {
       savedHint,
       userEmail,
       budgetHasSaved,
+      monthlyHasIssue,
 
       /* asOf เป็นค่าที่ผู้ใช้เลือก (-1 = ทั้งปี)
          asOfMonth คือเดือนที่ใช้คำนวณจริง ทั้งปีนับเสมือนถึงสิ้นปีงบ
@@ -802,6 +828,7 @@ export function ResultsProvider({ children }) {
           setRaw(next.raw);
           setBudget(next.budget);
           setBudgetHasSaved(next.hasSaved !== false);
+          setMonthlyHasIssue(next.hasIssue !== false);
           setRiskState(next.risk);
           return true;
         } catch (err) {
@@ -855,8 +882,7 @@ export function ResultsProvider({ children }) {
               month: Number(i),
               output: e.o ?? "",
               outcome: e.r ?? "",
-              issue: e.issue ?? "",
-              solution: e.solution ?? "",
+              ...(hasIssueRef.current ? { issue: e.issue ?? "", solution: e.solution ?? "" } : {}),
             });
           });
         });
@@ -907,6 +933,7 @@ export function ResultsProvider({ children }) {
         setRaw(next.raw);
         setBudget(next.budget);
         setBudgetHasSaved(next.hasSaved !== false);
+        setMonthlyHasIssue(next.hasIssue !== false);
         setRiskState(next.risk);
         return {
           rows: kpiRows.length + projRows.length + monRows.length + budRows.length + riskRows.length,
@@ -920,7 +947,7 @@ export function ResultsProvider({ children }) {
         window.location.href = "/login";
       },
     };
-  }, [results, raw, budget, risk, loaded, loadError, saveError, savedHint, userEmail, budgetHasSaved, asOf, fyStarted]);
+  }, [results, raw, budget, risk, loaded, loadError, saveError, savedHint, userEmail, budgetHasSaved, monthlyHasIssue, asOf, fyStarted]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
