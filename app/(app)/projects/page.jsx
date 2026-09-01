@@ -9,10 +9,12 @@ import {
   FUNDS,
 } from "@/lib/plan";
 import { money, fmt, pct } from "@/lib/format";
+import { ORG_UNITS, inUnit } from "@/lib/rollup";
 import { useResults, projectTrack, monthlyOf } from "@/lib/store";
 import { buildAlerts, groupByUid, worstSev, rolledReport, SEV_LABEL } from "@/lib/alerts";
 import MonthPicker from "@/components/month-picker";
 import ProjectDrawer from "@/components/project-drawer";
+import PrintButton from "@/components/print-button";
 
 export default function ProjectsPage() {
   const { results, budget, risk, asOfMonth, loaded } = useResults();
@@ -29,11 +31,6 @@ export default function ProjectsPage() {
   const alerts = useMemo(() => buildAlerts(results, asOfMonth, risk), [results, asOfMonth, risk]);
   const byUidAlerts = useMemo(() => groupByUid(alerts), [alerts]);
 
-  const orgs = useMemo(
-    () => [...new Set(PROJECTS.map((p) => p.org).filter(Boolean))].sort((a, b) => a.localeCompare(b, "th")),
-    []
-  );
-
   const rows = useMemo(() => {
     const needle = q.toLowerCase().trim();
     const pool = showActs ? ITEMS.filter((x) => x.lvl >= 1) : PROJECTS;
@@ -41,7 +38,7 @@ export default function ProjectsPage() {
     let out = pool.filter((p) => {
       if (sNo && p.sNo !== sNo) return false;
       if (fund && p.fund !== fund) return false;
-      if (org && p.org !== org) return false;
+      if (org && !inUnit(p, org)) return false;
       if (only) {
         const list = byUidAlerts.get(p.uid);
         if (!list || !list.length) return false;
@@ -81,6 +78,27 @@ export default function ProjectsPage() {
 
   const shownBudget = rows.reduce((a, p) => a + (p.lvl === 1 ? p.budget || 0 : 0), 0);
 
+  /* เมื่อเลือกยุทธศาสตร์ ให้แบ่งกลุ่มตามกลยุทธ์ จะได้เห็นชัดว่าโครงการไหนอยู่กลยุทธ์ไหน
+     ไม่เลือกยุทธศาสตร์ก็แสดงรวดเดียวเหมือนเดิม เพราะข้ามยุทธศาสตร์แล้วกลุ่มจะเยอะเกินอ่าน */
+  const grouped = useMemo(() => {
+    if (!sNo) return null;
+
+    const m = new Map();
+    rows.forEach((p) => {
+      const key = p.tNo || "(ไม่ระบุกลยุทธ์)";
+      if (!m.has(key)) {
+        m.set(key, { no: p.tNo, name: p.tactic || "(ไม่ระบุกลยุทธ์)", list: [], budget: 0 });
+      }
+      const g = m.get(key);
+      g.list.push(p);
+      if (p.lvl === 1) g.budget += p.budget || 0;
+    });
+
+    return [...m.entries()]
+      .sort((a, b) => String(a[0]).localeCompare(String(b[0]), "th"))
+      .map(([, g]) => g);
+  }, [rows, sNo]);
+
   if (!loaded) return <div className="muted">กำลังโหลดข้อมูลแผน…</div>;
 
   return (
@@ -92,7 +110,18 @@ export default function ProjectsPage() {
           โครงการและกิจกรรม
           <small>
             แสดง {fmt(rows.length)} รายการ · งบระดับโครงการที่แสดง {money(shownBudget)} บาท
+            {grouped ? " · แบ่งตามกลยุทธ์ " + grouped.length + " กลุ่ม" : ""}
           </small>
+          <PrintButton
+            className="iconbtn"
+            label="ดาวน์โหลด PDF"
+            title="รายงานโครงการและกิจกรรม"
+            subtitle={
+              (sNo ? "ยุทธศาสตร์ที่ " + sNo : "ทุกยุทธศาสตร์") +
+              (org ? " · " + org : "") +
+              " · " + rows.length + " รายการ"
+            }
+          />
         </h2>
 
         <div className="filters">
@@ -129,11 +158,13 @@ export default function ProjectsPage() {
           </div>
           <div className="field">
             <label htmlFor="p-o">หน่วยงาน</label>
+            {/* เลือกหน่วยงานตัวหน้า แล้วได้โครงการของหน่วยงานย่อยใต้สายนั้นมาด้วย
+                เช่นเลือก ฝยศ. จะได้ ฝยศ./กนผ. ฝยศ./กบค. ฯลฯ ครบ */}
             <select id="p-o" value={org} onChange={(e) => setOrg(e.target.value)}>
-              <option value="">ทั้งหมด</option>
-              {orgs.map((o) => (
-                <option key={o} value={o}>
-                  {o}
+              <option value="">ทุกหน่วยงาน</option>
+              {ORG_UNITS.map((u) => (
+                <option key={u.key} value={u.key}>
+                  {u.name} ({u.count})
                 </option>
               ))}
             </select>
@@ -182,7 +213,45 @@ export default function ProjectsPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((p) => {
+              {(grouped
+                ? /* แบ่งกลุ่มตามกลยุทธ์ โดยแทรกแถวหัวกลุ่มคั่นก่อนแต่ละชุด */
+                  grouped.flatMap((g) => [
+                    <tr className="exp-body" key={"grp/" + g.name}>
+                      <td colSpan={8}>
+                        <div className="groupbar">
+                          <span className={"chip s" + (sNo || "")}>
+                            {g.no ? "กลยุทธ์ที่ " + g.no : "ไม่ระบุกลยุทธ์"}
+                          </span>
+                          <b>{g.name}</b>
+                          <span className="small muted">
+                            {fmt(g.list.length)} รายการ · {money(g.budget)} บาท
+                          </span>
+                        </div>
+                      </td>
+                    </tr>,
+                    ...g.list.map(renderRow),
+                  ])
+                : rows.map(renderRow))}
+            </tbody>
+          </table>
+        </div>
+
+        {rows.length === 0 ? (
+          <div className="banner" style={{ marginTop: 14 }}>
+            ไม่มีรายการที่ตรงกับตัวกรองที่เลือก
+          </div>
+        ) : null}
+      </section>
+
+      {openUid ? (
+        <ProjectDrawer uid={openUid} alerts={alerts} onClose={() => setOpenUid(null)} />
+      ) : null}
+    </>
+  );
+
+  /* แยกการวาดแถวออกมาเป็นฟังก์ชัน เพราะต้องเรียกทั้งแบบแบนและแบบแบ่งกลุ่มตามกลยุทธ์ */
+  function renderRow(p) {
+    /* eslint-disable-next-line */
                 const list = byUidAlerts.get(p.uid) || [];
                 const sev = worstSev(list);
                 const plan = monthsOf(p);
@@ -284,21 +353,5 @@ export default function ProjectsPage() {
                     </td>
                   </tr>
                 );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {rows.length === 0 ? (
-          <div className="banner" style={{ marginTop: 14 }}>
-            ไม่มีรายการที่ตรงกับตัวกรองที่เลือก
-          </div>
-        ) : null}
-      </section>
-
-      {openUid ? (
-        <ProjectDrawer uid={openUid} alerts={alerts} onClose={() => setOpenUid(null)} />
-      ) : null}
-    </>
-  );
+  }
 }

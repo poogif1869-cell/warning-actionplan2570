@@ -10,6 +10,7 @@ import { money, mb, fmt, pct } from "@/lib/format";
 import MonthPicker from "@/components/month-picker";
 import Bars from "@/components/bars";
 import ProjectList from "@/components/project-list";
+import PrintButton from "@/components/print-button";
 
 const S_COLORS = ["", "var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)"];
 
@@ -84,6 +85,7 @@ export default function OverviewPage() {
         <h2>
           สถานะการแจ้งเตือน
           <small>{asOfLabel}</small>
+          <PrintButton className="iconbtn" title="รายงานภาพรวมแผนปฏิบัติการ" subtitle={asOfLabel} />
         </h2>
         <div className="tiles">
           <div className="tile crit">

@@ -4,9 +4,11 @@ import { useMemo, useState } from "react";
 import { useResults } from "@/lib/store";
 import { buildAlerts, summarize, SEV_LABEL, KIND_LABEL, RULES } from "@/lib/alerts";
 import { PROJECTS, MONTHS, EXPECTED, reconcile } from "@/lib/plan";
+import { ORG_UNITS, inUnit } from "@/lib/rollup";
 import { money, mb, fmt, pct } from "@/lib/format";
 import MonthPicker from "@/components/month-picker";
 import ProjectDrawer from "@/components/project-drawer";
+import PrintButton from "@/components/print-button";
 
 const KINDS = Object.keys(KIND_LABEL);
 
@@ -22,18 +24,14 @@ export default function AlertsPage() {
   const alerts = useMemo(() => buildAlerts(results, asOfMonth, risk), [results, asOfMonth, risk]);
   const stats = useMemo(() => summarize(alerts), [alerts]);
 
-  const orgs = useMemo(
-    () => [...new Set(PROJECTS.map((p) => p.org).filter(Boolean))].sort((a, b) => a.localeCompare(b, "th")),
-    []
-  );
-
   const shown = useMemo(() => {
     const needle = q.toLowerCase().trim();
     return alerts.filter((a) => {
       if (sev && a.sev !== sev) return false;
       if (kind && a.kind !== kind) return false;
       if (sNo && String(a.sNo || "") !== sNo) return false;
-      if (org && a.org !== org) return false;
+      // เทียบแบบสายหน่วยงาน เลือกตัวหน้าแล้วได้หน่วยงานย่อยใต้สายนั้นด้วย
+      if (org && !inUnit({ org: a.org }, org)) return false;
       if (needle) {
         const hay = ((a.title || "") + " " + (a.detail || "") + " " + (a.code || "") + " " + (a.org || "")).toLowerCase();
         if (!hay.includes(needle)) return false;
@@ -64,6 +62,7 @@ export default function AlertsPage() {
         <h2>
           สรุปการแจ้งเตือน
           <small>{asOfLabel}</small>
+          <PrintButton className="iconbtn" title="รายงานการแจ้งเตือน" subtitle={asOfLabel} />
         </h2>
 
         <div className="tiles">
@@ -173,10 +172,10 @@ export default function AlertsPage() {
           <div className="field">
             <label htmlFor="f-org">หน่วยงาน</label>
             <select id="f-org" value={org} onChange={(e) => setOrg(e.target.value)}>
-              <option value="">ทั้งหมด</option>
-              {orgs.map((o) => (
-                <option key={o} value={o}>
-                  {o}
+              <option value="">ทุกหน่วยงาน</option>
+              {ORG_UNITS.map((u) => (
+                <option key={u.key} value={u.key}>
+                  {u.name} ({u.count})
                 </option>
               ))}
             </select>

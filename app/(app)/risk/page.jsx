@@ -15,6 +15,7 @@ import { buildAlerts, RISK_KINDS, KIND_LABEL, SEV_LABEL } from "@/lib/alerts";
 import MonthPicker from "@/components/month-picker";
 import ProjectDrawer from "@/components/project-drawer";
 import Bars from "@/components/bars";
+import PrintButton from "@/components/print-button";
 
 export default function RiskPage() {
   const { results, risk, asOfMonth, asOfLabel, allMonths, loaded, setRisk } = useResults();
@@ -101,6 +102,7 @@ export default function RiskPage() {
         <h2>
           แดชบอร์ดความเสี่ยง
           <small>อิงรายงานล่าสุดของ{asOfLabel}</small>
+          <PrintButton className="iconbtn" title="รายงานความเสี่ยง" subtitle={asOfLabel} />
         </h2>
 
         <div className="tiles">

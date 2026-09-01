@@ -26,7 +26,7 @@ export default function MonthPicker({ hint }) {
           <option value={-1}>ทั้งปีงบประมาณ (ทั้งหมด)</option>
           {MONTHS.map((m, i) => (
             <option key={m} value={i}>
-              ณ สิ้นเดือน {m}
+              ณ เดือน {m}
             </option>
           ))}
         </select>
@@ -37,7 +37,7 @@ export default function MonthPicker({ hint }) {
         <div className="small muted" style={{ paddingBlock: 7 }}>
           {allMonths
             ? "แสดงข้อมูลทั้งปีงบประมาณ 2570 (ต.ค. 69 – ก.ย. 70)"
-            : "คำนวณผลและการแจ้งเตือนถึงสิ้นเดือนที่เลือก"}
+            : "คำนวณผลและการแจ้งเตือนถึงเดือนที่เลือก"}
           {!fyStarted ? " · ปีงบประมาณ 2570 ยังไม่เริ่ม เลือกเดือนเพื่อจำลองได้" : ""}
           {hint ? " · " + hint : ""}
         </div>
