@@ -312,3 +312,31 @@ alter table public.monthly_reports
 
 -- ให้ PostgREST เห็นคอลัมน์ใหม่ทันที ไม่ต้องรอ cache หมดอายุ
 notify pgrst, 'reload schema';
+
+
+-- =====================================================================
+-- เพิ่มเมื่อ 1 ก.ย. 2569 — รายงานผลรายตัวชี้วัด (ไม่ใช่รายเดือน)
+--
+-- แยกจาก monthly_reports เพราะเป็นคนละอย่าง:
+--   monthly_reports  = ผลของแต่ละเดือน (12 แถวต่อรายการ)
+--   คอลัมน์ชุดนี้    = สรุปผลของตัวชี้วัดทั้งปี 1 ชุดต่อรายการ
+--
+-- ตัวชี้วัดผลผลิต (output) กับผลลัพธ์ (outcome) มีช่องรายงานผลและ
+-- ปัญหาอุปสรรคแยกกัน เพราะสองตัวนี้ติดปัญหาคนละเรื่องกันได้
+--
+-- กิจกรรมย่อยใช้เฉพาะคู่ output_* เพราะผลลัพธ์เป็นตัวชี้วัดระดับโครงการ
+-- =====================================================================
+
+alter table public.project_results
+  add column if not exists output_result text;    -- ผลที่รายงานของตัวชี้วัดผลผลิต
+
+alter table public.project_results
+  add column if not exists output_issue text;     -- ปัญหาอุปสรรคของผลผลิต
+
+alter table public.project_results
+  add column if not exists outcome_result text;   -- ผลที่รายงานของตัวชี้วัดผลลัพธ์
+
+alter table public.project_results
+  add column if not exists outcome_issue text;    -- ปัญหาอุปสรรคของผลลัพธ์
+
+notify pgrst, 'reload schema';

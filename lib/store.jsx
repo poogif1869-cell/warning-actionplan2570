@@ -5,7 +5,8 @@
 
    ตาราง (ดู supabase/schema.sql):
      kpi_results      no, actual
-     project_results  uid, code, status, progress, note
+     project_results  uid, code, status, progress, note, output_result, output_issue,
+                      outcome_result, outcome_issue
      monthly_reports  uid, month, output, outcome, issue, solution, spend
      budget_entries   id, uid, month, occurred_on, note, perdiem, lodging, travel, fuel, saved
      risk_reports     uid, month, level, situation, action
@@ -280,10 +281,13 @@ export function ResultsProvider({ children }) {
   const [budgetHasSaved, setBudgetHasSaved] = useState(true);
   // ฐานข้อมูลที่ยังไม่ได้รัน schema.sql รอบล่าสุดจะไม่มี issue/solution
   const [monthlyHasIssue, setMonthlyHasIssue] = useState(true);
+  const [hasIndicatorCols, setHasIndicatorCols] = useState(true);
   const hasSavedRef = useRef(true);
   hasSavedRef.current = budgetHasSaved;
   const hasIssueRef = useRef(true);
   hasIssueRef.current = monthlyHasIssue;
+  const hasIndicatorRef = useRef(true);
+  hasIndicatorRef.current = hasIndicatorCols;
 
   /* "ณ เดือน" ที่ใช้เป็นฐานคำนวณการแจ้งเตือน — ใช้ร่วมกันทุกหน้า
      ค่าเริ่มต้นต้องคงที่ตอน render แรก ไม่งั้น hydration ฝั่งเซิร์ฟเวอร์กับเบราว์เซอร์ไม่ตรงกัน */
@@ -347,11 +351,19 @@ export function ResultsProvider({ children }) {
       return { res, supported: true };
     }
 
-    const [kpiRes, projRes, riskRes] = await Promise.all([
+    const [kpiRes, riskRes] = await Promise.all([
       supabase.from("kpi_results").select("no,actual"),
-      supabase.from("project_results").select("uid,status,progress,note"),
       supabase.from("risk_reports").select("uid,month,level,situation,action"),
     ]);
+
+    const proj = await selectOptional("project_results", "uid,status,progress,note", [
+      "output_result",
+      "output_issue",
+      "outcome_result",
+      "outcome_issue",
+    ]);
+    const projRes = proj.res;
+    const hasIndicator = proj.supported;
 
     const mon = await selectOptional(
       "monthly_reports",
@@ -385,6 +397,11 @@ export function ResultsProvider({ children }) {
         status: row.status == null ? "" : row.status,
         progress: row.progress == null ? "" : row.progress,
         note: row.note == null ? "" : row.note,
+        // สี่ช่องนี้เพิ่มทีหลัง ฐานข้อมูลที่ยังไม่ได้อัปเดตจะไม่มี
+        outputResult: hasIndicator && row.output_result != null ? row.output_result : "",
+        outputIssue: hasIndicator && row.output_issue != null ? row.output_issue : "",
+        outcomeResult: hasIndicator && row.outcome_result != null ? row.outcome_result : "",
+        outcomeIssue: hasIndicator && row.outcome_issue != null ? row.outcome_issue : "",
         monthly: {},
       };
     });
@@ -429,7 +446,7 @@ export function ResultsProvider({ children }) {
       };
     });
 
-    return { raw: nextRaw, budget: nextBudget, risk: nextRisk, hasSaved, hasIssue };
+    return { raw: nextRaw, budget: nextBudget, risk: nextRisk, hasSaved, hasIssue, hasIndicator };
   }
 
   useEffect(() => {
@@ -447,6 +464,7 @@ export function ResultsProvider({ children }) {
           setBudget(next.budget);
           setBudgetHasSaved(next.hasSaved !== false);
           setMonthlyHasIssue(next.hasIssue !== false);
+          setHasIndicatorCols(next.hasIndicator !== false);
           setRiskState(next.risk);
         }
       } catch (err) {
@@ -506,6 +524,15 @@ export function ResultsProvider({ children }) {
           status: p.status ?? "",
           progress: p.progress ?? "",
           note: p.note ?? "",
+          // ส่งสี่ช่องนี้เฉพาะเมื่อฐานข้อมูลมีคอลัมน์จริง ไม่งั้น PostgREST ปฏิเสธทั้งคำสั่ง
+          ...(hasIndicatorRef.current
+            ? {
+                output_result: p.outputResult ?? "",
+                output_issue: p.outputIssue ?? "",
+                outcome_result: p.outcomeResult ?? "",
+                outcome_issue: p.outcomeIssue ?? "",
+              }
+            : {}),
         };
       });
       jobs.push(supabase.from("project_results").upsert(rows, { onConflict: "uid" }));
@@ -626,6 +653,7 @@ export function ResultsProvider({ children }) {
       userEmail,
       budgetHasSaved,
       monthlyHasIssue,
+      hasIndicatorCols,
 
       /* asOf เป็นค่าที่ผู้ใช้เลือก (-1 = ทั้งปี)
          asOfMonth คือเดือนที่ใช้คำนวณจริง ทั้งปีนับเสมือนถึงสิ้นปีงบ
@@ -829,6 +857,7 @@ export function ResultsProvider({ children }) {
           setBudget(next.budget);
           setBudgetHasSaved(next.hasSaved !== false);
           setMonthlyHasIssue(next.hasIssue !== false);
+          setHasIndicatorCols(next.hasIndicator !== false);
           setRiskState(next.risk);
           return true;
         } catch (err) {
@@ -874,6 +903,14 @@ export function ResultsProvider({ children }) {
             status: p.status ?? "",
             progress: p.progress ?? "",
             note: p.note ?? "",
+            ...(hasIndicatorRef.current
+              ? {
+                  output_result: p.outputResult ?? "",
+                  output_issue: p.outputIssue ?? "",
+                  outcome_result: p.outcomeResult ?? "",
+                  outcome_issue: p.outcomeIssue ?? "",
+                }
+              : {}),
           });
           Object.keys(p.monthly || {}).forEach((i) => {
             const e = p.monthly[i] || {};
@@ -934,6 +971,7 @@ export function ResultsProvider({ children }) {
         setBudget(next.budget);
         setBudgetHasSaved(next.hasSaved !== false);
         setMonthlyHasIssue(next.hasIssue !== false);
+        setHasIndicatorCols(next.hasIndicator !== false);
         setRiskState(next.risk);
         return {
           rows: kpiRows.length + projRows.length + monRows.length + budRows.length + riskRows.length,
@@ -947,7 +985,7 @@ export function ResultsProvider({ children }) {
         window.location.href = "/login";
       },
     };
-  }, [results, raw, budget, risk, loaded, loadError, saveError, savedHint, userEmail, budgetHasSaved, monthlyHasIssue, asOf, fyStarted]);
+  }, [results, raw, budget, risk, loaded, loadError, saveError, savedHint, userEmail, budgetHasSaved, monthlyHasIssue, hasIndicatorCols, asOf, fyStarted]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

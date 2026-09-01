@@ -13,45 +13,54 @@ import {
 
 /* แท็บ "รายงานผลรายเดือน" ในลิ้นชักรายละเอียด
 
-   กติกาที่ต่างกันตามระดับรายการ:
-   - โครงการที่**มีกิจกรรมย่อย** → เลือกกิจกรรมก่อน แล้วรายงานเฉพาะ
-     ผลผลิต / ปัญหาอุปสรรค / วิธีแก้ปัญหา
-     (ผลลัพธ์เป็นของระดับโครงการ ไม่ได้วัดรายกิจกรรม)
-   - โครงการที่**ไม่มีกิจกรรมย่อย** → รายงานที่ตัวโครงการเอง ครบทั้ง 4 ช่อง
+   โครงสร้าง:
+   1. งบประมาณของโครงการ (จัดสรร / ใช้ไป / คงเหลือ) — อ่านอย่างเดียว
+   2. สถานะ + ความก้าวหน้า
+   3. ตัวชี้วัดผลผลิต  พร้อมช่องรายงานผล + ปัญหาอุปสรรค
+   4. ตัวชี้วัดผลลัพธ์ พร้อมช่องรายงานผล + ปัญหาอุปสรรค
+   5. ตารางรายงานผลรายเดือน 12 เดือน
+   6. ถ้ามีกิจกรรมย่อย — เลือกกิจกรรม แล้วดูงบของกิจกรรมนั้น
+      พร้อมตัวชี้วัดผลผลิตและช่องรายงานผล + ปัญหาอุปสรรคของกิจกรรม
 
-   **ไม่มีช่องกรอกงบประมาณที่นี่** งบบันทึกที่หน้า "งบประมาณโครงการ" ที่เดียว
-   หน้านี้แค่ดึงยอดมาแสดง เพื่อไม่ให้มีสองแหล่งที่กรอกเงินแล้วตัวเลขขัดกัน */
+   **รายงานหลักอยู่ที่ระดับโครงการเสมอ** กิจกรรมเป็นส่วนเพิ่ม ไม่ใช่ตัวแทน
+   กิจกรรมไม่มีช่องผลลัพธ์ เพราะผลลัพธ์ (Outcome) เป็นตัวชี้วัดของทั้งโครงการ
+
+   **ไม่มีช่องกรอกงบประมาณที่นี่** งบบันทึกที่หน้า "งบประมาณโครงการ" ที่เดียว */
 export default function ReportTab({ item }) {
-  const { results, budget, asOfMonth, monthlyHasIssue, setProject, setMonthly, saveNow } =
-    useResults();
-  const [actUid, setActUid] = useState(null);
+  const {
+    results,
+    budget,
+    asOfMonth,
+    monthlyHasIssue,
+    hasIndicatorCols,
+    setProject,
+    setMonthly,
+    saveNow,
+  } = useResults();
+  const [actUid, setActUid] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   const kids = item._kids || [];
-  const hasKids = kids.length > 0;
-
-  /* เป้าหมายที่กำลังกรอก: กิจกรรมที่เลือก หรือตัวโครงการเองถ้าไม่มีกิจกรรม */
-  const target = hasKids ? kids.find((k) => k.uid === actUid) || null : item;
+  const activity = kids.find((k) => k.uid === actUid) || null;
 
   const tk = projectTrack(results, item.uid);
   const roll = budgetRollup(budget, item, null);
-  const planned = item.budget || 0;
-  const used = roll.total;
-  const left = planned - used;
+  const plan = monthsOf(item);
+  const rep = monthlyOf(results, item.uid);
 
-  const plan = target ? monthsOf(target) : [];
-  const rep = target ? monthlyOf(results, target.uid) : {};
-
-  const inputStyle = {
+  const area = {
     width: "100%",
     background: "var(--surface)",
     border: "1px solid var(--border)",
-    borderRadius: 6,
-    padding: "4px 7px",
-    fontSize: 12.5,
-    textAlign: "start",
+    borderRadius: 8,
+    padding: "7px 10px",
+    fontSize: 13.5,
+    minHeight: 62,
+    resize: "vertical",
+    fontFamily: "inherit",
   };
+  const cell = { ...area, minHeight: 0, padding: "4px 7px", fontSize: 12.5 };
 
   async function save() {
     setSaving(true);
@@ -62,35 +71,90 @@ export default function ReportTab({ item }) {
     setTimeout(() => setSaved(false), 2500);
   }
 
-  return (
-    <>
-      {/* ---------- งบประมาณ อ่านอย่างเดียว เชื่อมจากหน้างบประมาณโครงการ ---------- */}
-      <h4>งบประมาณโครงการ</h4>
-      <div className="tiles" style={{ marginBottom: 6 }}>
-        <div className="tile">
-          <span className="lab">ได้รับจัดสรรตามแผน</span>
-          <div className="val">{money(planned)}</div>
-          <div className="note">บาท</div>
-        </div>
-        <div className="tile">
-          <span className="lab">ใช้ไปแล้ว</span>
-          <div className="val">{used ? money(used) : "–"}</div>
-          <div className="note">
-            {planned ? pct((used / planned) * 100) + " ของที่จัดสรร" : "บาท"}
+  /* ไทล์งบ 3 ช่อง ใช้ทั้งระดับโครงการและระดับกิจกรรม */
+  function BudgetTiles({ target, note }) {
+    const r = budgetRollup(budget, target, null);
+    const planned = target.budget || 0;
+    const left = planned - r.total;
+    return (
+      <>
+        <div className="tiles" style={{ marginBottom: 6 }}>
+          <div className="tile">
+            <span className="lab">ได้รับจัดสรรตามแผน</span>
+            <div className="val">{money(planned)}</div>
+            <div className="note">บาท</div>
+          </div>
+          <div className="tile">
+            <span className="lab">ใช้ไปแล้ว</span>
+            <div className="val">{r.total ? money(r.total) : "–"}</div>
+            <div className="note">
+              {planned ? pct((r.total / planned) * 100) + " ของที่จัดสรร" : "บาท"}
+            </div>
+          </div>
+          <div className={"tile " + (left < 0 ? "crit" : "ok")}>
+            <span className="lab">คงเหลือ</span>
+            <div className={"val " + (left < 0 ? "st-bad" : "")}>{money(left)}</div>
+            <div className="note">บาท</div>
           </div>
         </div>
-        <div className={"tile " + (left < 0 ? "crit" : "ok")}>
-          <span className="lab">คงเหลือ</span>
-          <div className={"val " + (left < 0 ? "st-bad" : "")}>{money(left)}</div>
-          <div className="note">บาท</div>
-        </div>
-      </div>
-      <div className="small muted" style={{ marginBottom: 16 }}>
-        ยอดนี้ดึงมาจากหน้า <b>งบประมาณโครงการ</b> ซึ่งเป็นที่เดียวที่บันทึกงบได้
-        {roll.kidsTotal ? " · รวมที่บันทึกจากกิจกรรม " + money(roll.kidsTotal) + " บาท" : ""}
-      </div>
+        {note ? (
+          <div className="small muted" style={{ marginBottom: 16 }}>
+            {note}
+          </div>
+        ) : null}
+      </>
+    );
+  }
 
-      {/* ---------- สถานะภาพรวมของโครงการ ---------- */}
+  /* บล็อกตัวชี้วัด: ค่าตามแผน + ช่องรายงานผล + ช่องปัญหาอุปสรรค */
+  function Indicator({ label, planValue, uid, resultKey, issueKey }) {
+    const t = projectTrack(results, uid);
+    return (
+      <>
+        <h4>{label}</h4>
+        <dl className="dl">
+          <dt>ค่าตามแผน</dt>
+          <dd>{planValue || "–"}</dd>
+        </dl>
+        <div className="trackgrid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+          <div>
+            <label className="small muted">รายงานผล</label>
+            <textarea
+              value={t[resultKey] == null ? "" : t[resultKey]}
+              disabled={!hasIndicatorCols}
+              placeholder={hasIndicatorCols ? "ผลที่ทำได้จริง" : "ยังไม่พร้อมใช้"}
+              onChange={(e) => setProject(uid, { [resultKey]: e.target.value })}
+              style={area}
+            />
+          </div>
+          <div>
+            <label className="small muted">ปัญหาอุปสรรค</label>
+            <textarea
+              value={t[issueKey] == null ? "" : t[issueKey]}
+              disabled={!hasIndicatorCols}
+              placeholder={hasIndicatorCols ? "ติดปัญหาอะไร" : "ยังไม่พร้อมใช้"}
+              onChange={(e) => setProject(uid, { [issueKey]: e.target.value })}
+              style={area}
+            />
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {/* ---------- 1. งบประมาณของโครงการ ---------- */}
+      <h4>งบประมาณโครงการ</h4>
+      <BudgetTiles
+        target={item}
+        note={
+          "ยอดนี้ดึงมาจากหน้า งบประมาณโครงการ ซึ่งเป็นที่เดียวที่บันทึกงบได้" +
+          (roll.kidsTotal ? " · รวมที่บันทึกจากกิจกรรม " + money(roll.kidsTotal) + " บาท" : "")
+        }
+      />
+
+      {/* ---------- 2. สถานะและความก้าวหน้า ---------- */}
       <h4>สถานะการดำเนินงาน</h4>
       <div className="trackgrid">
         <div>
@@ -123,30 +187,122 @@ export default function ReportTab({ item }) {
         </div>
       </div>
 
-      {/* ---------- ตัวชี้วัดตามแผน วางเหนือช่องกรอกให้เทียบได้ ---------- */}
-      <h4>ตัวชี้วัดความสำเร็จตามแผน</h4>
-      <dl className="dl">
-        <dt>ผลผลิต (Output)</dt>
-        <dd>{(target || item).output || "–"}</dd>
-        {!hasKids ? (
-          <>
-            <dt>ผลลัพธ์ (Outcome)</dt>
-            <dd>{item.outcome || "–"}</dd>
-          </>
-        ) : null}
-      </dl>
+      {!hasIndicatorCols ? (
+        <div className="banner" style={{ marginTop: 14 }}>
+          ช่องรายงานผลและปัญหาอุปสรรคของตัวชี้วัดยังใช้ไม่ได้ เพราะฐานข้อมูลไม่มีคอลัมน์{" "}
+          <code>project_results.output_result</code> และอีก 3 ช่อง —
+          ให้รัน <code>supabase/schema.sql</code> ใน SQL Editor ก่อน
+        </div>
+      ) : null}
 
-      {/* ---------- เลือกกิจกรรมก่อน ถ้าโครงการมีกิจกรรมย่อย ---------- */}
-      {hasKids ? (
+      {/* ---------- 3-4. ตัวชี้วัดผลผลิตและผลลัพธ์ ---------- */}
+      <Indicator
+        label="ตัวชี้วัดผลผลิต (Output)"
+        planValue={item.output}
+        uid={item.uid}
+        resultKey="outputResult"
+        issueKey="outputIssue"
+      />
+      <Indicator
+        label="ตัวชี้วัดผลลัพธ์ (Outcome)"
+        planValue={item.outcome}
+        uid={item.uid}
+        resultKey="outcomeResult"
+        issueKey="outcomeIssue"
+      />
+
+      {/* ---------- 5. ตารางรายเดือน 12 เดือน ที่ระดับโครงการ ---------- */}
+      <h4>รายงานผลการดำเนินงานรายเดือน</h4>
+      <div className="tablewrap">
+        <table className="mrep stack">
+          <thead>
+            <tr>
+              <th>เดือน</th>
+              <th className="num">แผน</th>
+              <th>ผลผลิต</th>
+              <th>ผลลัพธ์</th>
+              <th>ปัญหาอุปสรรค</th>
+              <th>วิธีการแก้ปัญหา</th>
+            </tr>
+          </thead>
+          <tbody>
+            {MONTHS.map((label, i) => {
+              const e = rep[i] || {};
+              const reported = hasReport(e);
+              const missed = plan[i] && i <= asOfMonth && !reported;
+
+              return (
+                <tr key={i} className={reported ? "reported" : missed ? "missed" : ""}>
+                  <td className="lead nowrap">
+                    {label}
+                    {i === asOfMonth ? (
+                      <span className="chip" style={{ marginInlineStart: 6 }}>
+                        ณ เดือนนี้
+                      </span>
+                    ) : null}
+                  </td>
+                  <td className="plan" data-label="แผน">
+                    {plan[i] ? (plan[i] > 1000 ? money(plan[i]) : "มีแผน") : "–"}
+                  </td>
+                  <td className="wide" data-label="ผลผลิต">
+                    <input
+                      value={e.o == null ? "" : e.o}
+                      onChange={(ev) => setMonthly(item.uid, i, { o: ev.target.value })}
+                      style={cell}
+                    />
+                  </td>
+                  <td className="wide" data-label="ผลลัพธ์">
+                    <input
+                      value={e.r == null ? "" : e.r}
+                      onChange={(ev) => setMonthly(item.uid, i, { r: ev.target.value })}
+                      style={cell}
+                    />
+                  </td>
+                  <td className="wide" data-label="ปัญหาอุปสรรค">
+                    <input
+                      disabled={!monthlyHasIssue}
+                      value={e.issue == null ? "" : e.issue}
+                      onChange={(ev) => setMonthly(item.uid, i, { issue: ev.target.value })}
+                      style={cell}
+                    />
+                  </td>
+                  <td className="wide" data-label="วิธีการแก้ปัญหา">
+                    <input
+                      disabled={!monthlyHasIssue}
+                      value={e.solution == null ? "" : e.solution}
+                      onChange={(ev) => setMonthly(item.uid, i, { solution: ev.target.value })}
+                      style={cell}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {!monthlyHasIssue ? (
+        <div className="banner" style={{ marginTop: 12 }}>
+          ช่องปัญหาอุปสรรคและวิธีแก้ในตารางรายเดือนยังใช้ไม่ได้ เพราะฐานข้อมูลไม่มีคอลัมน์{" "}
+          <code>monthly_reports.issue</code> และ <code>solution</code>
+        </div>
+      ) : null}
+
+      {/* ---------- 6. กิจกรรมย่อย (ถ้ามี) ---------- */}
+      {kids.length ? (
         <>
-          <h4>เลือกกิจกรรมที่จะรายงาน</h4>
-          <div className="field" style={{ marginBottom: 12 }}>
+          <h4>รายงานผลรายกิจกรรม ({kids.length} กิจกรรม)</h4>
+          <div className="field" style={{ marginBottom: 14 }}>
+            <label className="small muted" htmlFor={"act-" + item.uid}>
+              เลือกกิจกรรม
+            </label>
             <select
-              value={actUid || ""}
-              onChange={(e) => setActUid(e.target.value || null)}
+              id={"act-" + item.uid}
+              value={actUid}
+              onChange={(e) => setActUid(e.target.value)}
               style={{ width: "100%", maxWidth: "none" }}
             >
-              <option value="">— เลือกกิจกรรม ({kids.length} กิจกรรม) —</option>
+              <option value="">— เลือกกิจกรรม —</option>
               {kids.map((k) => (
                 <option key={k.uid} value={k.uid}>
                   {k.code} {k.name}
@@ -154,120 +310,49 @@ export default function ReportTab({ item }) {
               ))}
             </select>
           </div>
-          <div className="small muted" style={{ marginBottom: 14 }}>
-            โครงการนี้มีกิจกรรมย่อย จึงรายงานผลที่ระดับกิจกรรม
-            แต่ละกิจกรรมกรอก <b>ผลผลิต · ปัญหาอุปสรรค · วิธีแก้ปัญหา</b>
-          </div>
+
+          {activity ? (
+            <div
+              style={{
+                borderInlineStart: "3px solid var(--gold)",
+                paddingInlineStart: 14,
+                marginBottom: 10,
+              }}
+            >
+              <div className="small muted" style={{ marginBottom: 10 }}>
+                <b>{activity.code}</b> {activity.name}
+              </div>
+
+              <BudgetTiles target={activity} />
+
+              <Indicator
+                label="ตัวชี้วัดผลผลิตของกิจกรรม"
+                planValue={activity.output}
+                uid={activity.uid}
+                resultKey="outputResult"
+                issueKey="outputIssue"
+              />
+              <div className="small muted" style={{ marginTop: 8 }}>
+                กิจกรรมไม่มีช่องผลลัพธ์ เพราะผลลัพธ์ (Outcome) เป็นตัวชี้วัดของทั้งโครงการ
+                ไม่ได้วัดรายกิจกรรม
+              </div>
+            </div>
+          ) : (
+            <div className="small muted" style={{ marginBottom: 10 }}>
+              เลือกกิจกรรมด้านบนเพื่อดูงบประมาณและรายงานผลผลิตของกิจกรรมนั้น
+            </div>
+          )}
         </>
       ) : null}
 
-      {/* ---------- ตารางรายงาน 12 เดือน ---------- */}
-      {target ? (
-        <>
-          <h4>
-            รายงานผลการดำเนินงานรายเดือน
-            <span className="muted small" style={{ fontWeight: 400, marginInlineStart: 8 }}>
-              {hasKids ? target.name : "ระดับโครงการ"}
-            </span>
-          </h4>
-
-          <div className="tablewrap">
-            <table className="mrep stack">
-              <thead>
-                <tr>
-                  <th>เดือน</th>
-                  <th className="num">แผน</th>
-                  <th>ผลผลิต (Output)</th>
-                  {!hasKids ? <th>ผลลัพธ์ (Outcome)</th> : null}
-                  <th>ปัญหาอุปสรรค</th>
-                  <th>วิธีการแก้ปัญหา</th>
-                </tr>
-              </thead>
-              <tbody>
-                {MONTHS.map((label, i) => {
-                  const e = rep[i] || {};
-                  const reported = hasReport(e);
-                  const missed = plan[i] && i <= asOfMonth && !reported;
-
-                  return (
-                    <tr key={i} className={reported ? "reported" : missed ? "missed" : ""}>
-                      <td className="lead nowrap">
-                        {label}
-                        {i === asOfMonth ? (
-                          <span className="chip" style={{ marginInlineStart: 6 }}>
-                            ณ เดือนนี้
-                          </span>
-                        ) : null}
-                      </td>
-                      <td className="plan" data-label="แผน">
-                        {plan[i] ? (plan[i] > 1000 ? money(plan[i]) : "มีแผน") : "–"}
-                      </td>
-                      <td className="wide" data-label="ผลผลิต (Output)">
-                        <input
-                          value={e.o == null ? "" : e.o}
-                          onChange={(ev) => setMonthly(target.uid, i, { o: ev.target.value })}
-                          style={inputStyle}
-                        />
-                      </td>
-                      {!hasKids ? (
-                        <td className="wide" data-label="ผลลัพธ์ (Outcome)">
-                          <input
-                            value={e.r == null ? "" : e.r}
-                            onChange={(ev) => setMonthly(target.uid, i, { r: ev.target.value })}
-                            style={inputStyle}
-                          />
-                        </td>
-                      ) : null}
-                      <td className="wide" data-label="ปัญหาอุปสรรค">
-                        <input
-                          disabled={!monthlyHasIssue}
-                          placeholder={monthlyHasIssue ? "ติดปัญหาอะไร" : "ยังไม่พร้อมใช้"}
-                          value={e.issue == null ? "" : e.issue}
-                          onChange={(ev) =>
-                            setMonthly(target.uid, i, { issue: ev.target.value })
-                          }
-                          style={inputStyle}
-                        />
-                      </td>
-                      <td className="wide" data-label="วิธีการแก้ปัญหา">
-                        <input
-                          disabled={!monthlyHasIssue}
-                          placeholder={monthlyHasIssue ? "แก้ไขอย่างไร" : "ยังไม่พร้อมใช้"}
-                          value={e.solution == null ? "" : e.solution}
-                          onChange={(ev) =>
-                            setMonthly(target.uid, i, { solution: ev.target.value })
-                          }
-                          style={inputStyle}
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {!monthlyHasIssue ? (
-            <div className="banner" style={{ marginTop: 12 }}>
-              ช่อง <b>ปัญหาอุปสรรค</b> และ <b>วิธีการแก้ปัญหา</b> ยังใช้ไม่ได้
-              เพราะฐานข้อมูลไม่มีคอลัมน์ <code>monthly_reports.issue</code> และ{" "}
-              <code>solution</code> — ให้รัน <code>supabase/schema.sql</code> ใน SQL Editor ก่อน
-              (ช่องผลผลิตและผลลัพธ์ยังบันทึกได้ตามปกติ)
-            </div>
-          ) : null}
-
-          <div className="btnrow">
-            <button className="btn" onClick={save} disabled={saving}>
-              {saving ? "กำลังบันทึก…" : saved ? "บันทึกแล้ว ✓" : "บันทึกรายงาน"}
-            </button>
-          </div>
-          <div className="small muted" style={{ marginTop: 6 }}>
-            ระบบบันทึกอัตโนมัติหลังหยุดพิมพ์อยู่แล้ว ปุ่มนี้ไว้กดยืนยันให้แน่ใจว่าขึ้นครบ
-          </div>
-        </>
-      ) : (
-        <div className="banner">เลือกกิจกรรมด้านบนก่อน จึงจะกรอกรายงานผลรายเดือนได้</div>
-      )}
+      <div className="btnrow">
+        <button className="btn" onClick={save} disabled={saving}>
+          {saving ? "กำลังบันทึก…" : saved ? "บันทึกแล้ว ✓" : "บันทึกรายงาน"}
+        </button>
+      </div>
+      <div className="small muted" style={{ marginTop: 6 }}>
+        ระบบบันทึกอัตโนมัติหลังหยุดพิมพ์อยู่แล้ว ปุ่มนี้ไว้กดยืนยันให้แน่ใจว่าขึ้นครบ
+      </div>
     </>
   );
 }
