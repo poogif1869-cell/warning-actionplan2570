@@ -15,7 +15,7 @@ import MonthPicker from "@/components/month-picker";
 import ProjectDrawer from "@/components/project-drawer";
 
 export default function ProjectsPage() {
-  const { results, budget, risk, asOf, loaded } = useResults();
+  const { results, budget, risk, asOfMonth, loaded } = useResults();
   const [q, setQ] = useState("");
   const [sNo, setSNo] = useState("");
   const [fund, setFund] = useState("");
@@ -26,7 +26,7 @@ export default function ProjectsPage() {
   const [dir, setDir] = useState(-1);
   const [openUid, setOpenUid] = useState(null);
 
-  const alerts = useMemo(() => buildAlerts(results, asOf, risk), [results, asOf, risk]);
+  const alerts = useMemo(() => buildAlerts(results, asOfMonth, risk), [results, asOfMonth, risk]);
   const byUidAlerts = useMemo(() => groupByUid(alerts), [alerts]);
 
   const orgs = useMemo(
@@ -196,7 +196,7 @@ export default function ProjectsPage() {
                 /* ผลผลิต/ผลลัพธ์ที่รายงานล่าสุดในเดือนที่ไม่เกิน "ณ เดือน" ที่เลือก */
                 const rep = monthlyOf(results, p.uid);
                 let lastReport = null;
-                for (let i = 0; i <= asOf; i++) {
+                for (let i = 0; i <= asOfMonth; i++) {
                   const e = rep[i];
                   if (e && ((e.o && e.o !== "") || (e.r && e.r !== ""))) lastReport = { i, e };
                 }
@@ -247,7 +247,7 @@ export default function ProjectsPage() {
                           <tr>
                             {MONTHS_SHORT.map((m, i) => {
                               const reported = roll.reported[i];
-                              const missed = plan[i] && i <= asOf && !reported;
+                              const missed = plan[i] && i <= asOfMonth && !reported;
                               return (
                                 <td key={i} className="mcell" title={m}>
                                   {plan[i] || reported ? (

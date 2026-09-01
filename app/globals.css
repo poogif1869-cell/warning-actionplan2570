@@ -418,3 +418,11 @@ tr.exp-body > td{background:var(--surface2); padding:0}
   tr{break-inside:avoid; page-break-inside:avoid}
   thead{display:table-header-group}
 }
+
+/* ---------- แท่งกราฟที่กดดูรายชื่อโครงการได้ ---------- */
+.barbtn{
+  display:block; width:100%; text-align:start; background:none; border:none;
+  padding:2px 4px; margin-inline:-4px; border-radius:8px; cursor:pointer; color:inherit;
+}
+.barbtn:hover{background:var(--surface2)}
+.barbtn:hover .lbl{color:var(--accent)}

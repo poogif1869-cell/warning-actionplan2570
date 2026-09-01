@@ -15,12 +15,12 @@ import {
   riskAt,
 } from "@/lib/store";
 import { KIND_LABEL, SEV_LABEL } from "@/lib/alerts";
-import BudgetEntries from "@/components/budget-entries";
+import MonthBudget from "@/components/month-budget";
 
 /* ลิ้นชักรายละเอียดโครงการ — ใช้ร่วมกันทุกหน้า
    รวมรายงานผลรายเดือน (ผลผลิต/ผลลัพธ์), รายการงบประมาณ และรายงานความเสี่ยงรายเดือน */
 export default function ProjectDrawer({ uid, alerts, onClose }) {
-  const { results, budget, risk, asOf, setProject, setMonthly, setRisk, clearProject } =
+  const { results, budget, risk, asOfMonth, setProject, setMonthly, setRisk, clearProject } =
     useResults();
   const [openMonth, setOpenMonth] = useState(null);
   const [tab, setTab] = useState("report");
@@ -196,7 +196,7 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
                     {MONTHS.map((label, i) => {
                       const e = rep[i] || {};
                       const reported = hasReport(e);
-                      const missed = plan[i] && i <= asOf && !reported;
+                      const missed = plan[i] && i <= asOfMonth && !reported;
                       const list = entriesOf(budget, uid, i);
                       const monthSpend = entriesTotal(list);
                       const open = openMonth === i;
@@ -205,7 +205,7 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
                         <tr key={i} className={reported ? "reported" : missed ? "missed" : ""}>
                           <td className="nowrap">
                             {label}
-                            {i === asOf ? (
+                            {i === asOfMonth ? (
                               <span className="chip" style={{ marginInlineStart: 6 }}>
                                 ณ เดือนนี้
                               </span>
@@ -251,7 +251,7 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
                           <tr className="exp-body" key={i + "/entries"}>
                             <td colSpan={5}>
                               <div style={{ padding: "10px 12px" }}>
-                                <BudgetEntries uid={uid} month={i} />
+                                <MonthBudget item={p} month={i} />
                               </div>
                             </td>
                           </tr>
@@ -324,7 +324,7 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
                         <tr key={i}>
                           <td className="nowrap">
                             {label}
-                            {i === asOf ? (
+                            {i === asOfMonth ? (
                               <span className="chip" style={{ marginInlineStart: 6 }}>
                                 ณ เดือนนี้
                               </span>

@@ -11,15 +11,35 @@ export default function LinkagePage() {
   const [levelKey, setLevelKey] = useState(PLAN_LINKS[0].levels[0].key);
   const [openUid, setOpenUid] = useState(null);
   const [expanded, setExpanded] = useState(null);
+  const [q, setQ] = useState("");
 
   const plan = PLAN_LINKS.find((p) => p.key === planKey) || PLAN_LINKS[0];
   const level =
     plan.levels.find((l) => l.key === levelKey) || plan.levels[0];
 
-  const groups = useMemo(() => groupByField(level.key), [level.key]);
+  const allGroups = useMemo(() => groupByField(level.key), [level.key]);
   const missing = useMemo(() => missingCount(level.key), [level.key]);
-  const totalBudget = useMemo(
-    () => groups.reduce((a, g) => a + g.budget, 0),
+
+  /* ค้นหาโครงการจากชื่อหรือรหัส — กรองทั้งรายชื่อในกลุ่มและตัวกลุ่มเอง
+     กลุ่มที่ไม่มีโครงการตรงคำค้นเลยจะถูกซ่อน จะได้เห็นทันทีว่าโครงการนั้นผูกอยู่กับอะไร */
+  const groups = useMemo(() => {
+    const needle = q.toLowerCase().trim();
+    if (!needle) return allGroups;
+
+    return allGroups
+      .map((g) => {
+        const list = g.list.filter((p) =>
+          (p.code + " " + p.name + " " + (p.org || "")).toLowerCase().includes(needle)
+        );
+        return { ...g, list, budget: list.reduce((a, p) => a + (p.budget || 0), 0) };
+      })
+      .filter((g) => g.list.length > 0);
+  }, [allGroups, q]);
+
+  const totalBudget = useMemo(() => groups.reduce((a, g) => a + g.budget, 0), [groups]);
+
+  const matchCount = useMemo(
+    () => groups.reduce((a, g) => a + g.list.length, 0),
     [groups]
   );
 
@@ -71,11 +91,39 @@ export default function LinkagePage() {
           ))}
         </div>
 
+        <div className="filters">
+          <div className="field" style={{ flex: 1 }}>
+            <label htmlFor="lk-q">ค้นหาโครงการ</label>
+            <input
+              id="lk-q"
+              type="search"
+              placeholder="ชื่อโครงการ หรือ รหัสโครงการ"
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setExpanded(null);
+              }}
+              style={{ maxWidth: 420 }}
+            />
+          </div>
+          {q ? (
+            <div className="field">
+              <label>&nbsp;</label>
+              <div className="small muted" style={{ paddingBlock: 7 }}>
+                พบ {fmt(matchCount)} โครงการ ใน {fmt(groups.length)} รายการของชั้นนี้
+              </div>
+            </div>
+          ) : null}
+        </div>
+
         <div className="tiles">
           <div className="tile">
             <span className="lab">จำนวนรายการในชั้นนี้</span>
             <div className="val">{fmt(groups.length)}</div>
-            <div className="note">{level.label}</div>
+            <div className="note">
+              {level.label}
+              {q ? " (กรองด้วยคำค้นแล้ว)" : ""}
+            </div>
           </div>
           <div className="tile">
             <span className="lab">โครงการที่เชื่อมโยงแล้ว</span>
@@ -108,7 +156,9 @@ export default function LinkagePage() {
 
         {groups.length === 0 ? (
           <div className="banner">
-            ไม่มีโครงการที่ระบุ{level.label}ไว้ในไฟล์แผน
+            {q
+              ? "ไม่พบโครงการที่ตรงกับ “" + q + "” ในชั้นนี้ — ลองเปลี่ยนแผนหรือชั้นที่ดูอยู่"
+              : "ไม่มีโครงการที่ระบุ" + level.label + "ไว้ในไฟล์แผน"}
           </div>
         ) : (
           <div className="tablewrap">
@@ -123,7 +173,8 @@ export default function LinkagePage() {
               </thead>
               <tbody>
                 {groups.map((g) => {
-                  const open = expanded === g.value;
+                  // ตอนค้นหาให้กางทุกกลุ่มอัตโนมัติ จะได้เห็นโครงการที่หาทันทีไม่ต้องกดทีละอัน
+                  const open = q ? true : expanded === g.value;
                   return [
                     <tr key={g.value}>
                       <td className="small">{g.value}</td>

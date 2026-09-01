@@ -4,21 +4,25 @@ import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { useResults } from "@/lib/store";
 import { buildAlerts, summarize } from "@/lib/alerts";
-import { META, PROJECTS, MONTHS, EXPECTED, reconcile } from "@/lib/plan";
+import { META, PROJECTS, EXPECTED, reconcile } from "@/lib/plan";
 import { STRATEGIES, FUND_ROLLUP, PROGRAMS, ORGS } from "@/lib/rollup";
 import { money, mb, fmt, pct } from "@/lib/format";
 import MonthPicker from "@/components/month-picker";
 import Bars from "@/components/bars";
+import ProjectList from "@/components/project-list";
 
 const S_COLORS = ["", "var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)"];
 
 export default function OverviewPage() {
-  const { results, risk, asOf, loaded, exportJson, importJson, refresh, saveNow } = useResults();
+  const { results, risk, asOfMonth, asOfLabel, loaded, exportJson, importJson, refresh, saveNow } =
+    useResults();
   const [msg, setMsg] = useState("");
+  // กลุ่มโครงการที่กำลังกางดูอยู่ ตั้งจากการกดตัวเลข/แท่งกราฟที่ไหนก็ได้ในหน้านี้
+  const [group, setGroup] = useState(null);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef(null);
 
-  const alerts = useMemo(() => buildAlerts(results, asOf, risk), [results, asOf, risk]);
+  const alerts = useMemo(() => buildAlerts(results, asOfMonth, risk), [results, asOfMonth, risk]);
   const stats = useMemo(() => summarize(alerts), [alerts]);
 
   const check = useMemo(() => reconcile(), []);
@@ -79,7 +83,7 @@ export default function OverviewPage() {
       <section className="block">
         <h2>
           สถานะการแจ้งเตือน
-          <small>ณ สิ้นเดือน {MONTHS[asOf]}</small>
+          <small>{asOfLabel}</small>
         </h2>
         <div className="tiles">
           <div className="tile crit">
@@ -95,10 +99,39 @@ export default function OverviewPage() {
           <div className="tile">
             <span className="lab">โครงการที่ติดแจ้งเตือน</span>
             <div className="val">
-              {fmt(stats.projects)}
+              <button
+                className="exp-toggle"
+                style={{ font: "inherit", color: "inherit" }}
+                onClick={() => {
+                  const flagged = new Set(alerts.map((a) => a.uid).filter(Boolean));
+                  setGroup({
+                    title: "โครงการที่ติดแจ้งเตือน",
+                    subtitle: asOfLabel,
+                    items: PROJECTS.filter((p) => flagged.has(p.uid)),
+                  });
+                }}
+              >
+                {fmt(stats.projects)}
+              </button>
               <span className="unit">/ {fmt(PROJECTS.length)}</span>
             </div>
-            <div className="note">อีก {fmt(stats.okProjects)} โครงการยังไม่พบปัญหา</div>
+            <div className="note">
+              อีก{" "}
+              <button
+                className="exp-toggle"
+                onClick={() => {
+                  const flagged = new Set(alerts.map((a) => a.uid).filter(Boolean));
+                  setGroup({
+                    title: "โครงการที่ยังไม่พบปัญหา",
+                    subtitle: asOfLabel,
+                    items: PROJECTS.filter((p) => !flagged.has(p.uid)),
+                  });
+                }}
+              >
+                {fmt(stats.okProjects)} โครงการ
+              </button>{" "}
+              ยังไม่พบปัญหา
+            </div>
           </div>
           <div className="tile ok">
             <span className="lab">งบประมาณที่เกี่ยวข้อง</span>
@@ -165,11 +198,16 @@ export default function OverviewPage() {
         <div className="card pad">
           <Bars
             data={STRATEGIES.map((s) => ({
+              key: "s" + s.no,
               label: "ยุทธศาสตร์ที่ " + s.no + " · " + s.count + " โครงการ",
               value: s.budget,
               display: money(s.budget) + " บาท",
               color: S_COLORS[Number(s.no)] || "var(--accent)",
+              items: PROJECTS.filter((p) => p.sNo === s.no),
             }))}
+            onSelect={(d) =>
+              setGroup({ title: d.label, subtitle: "งบตามยุทธศาสตร์", items: d.items })
+            }
           />
         </div>
       </section>
@@ -201,7 +239,24 @@ export default function OverviewPage() {
                     <td className="num">{money(f.ceiling)}</td>
                     <td className="num">{money(f.used)}</td>
                     <td className={"num " + (over ? "st-bad" : "")}>{money(f.left)}</td>
-                    <td className="num">{fmt(f.count)}</td>
+                    <td className="num">
+                      {f.count ? (
+                        <button
+                          className="exp-toggle"
+                          onClick={() =>
+                            setGroup({
+                              title: f.name,
+                              subtitle: "โครงการที่ใช้แหล่งเงินนี้",
+                              items: PROJECTS.filter((p) => p.fund === f.code),
+                            })
+                          }
+                        >
+                          {fmt(f.count)} ▸
+                        </button>
+                      ) : (
+                        "–"
+                      )}
+                    </td>
                     <td>
                       <div className="bar">
                         <i
@@ -247,10 +302,13 @@ export default function OverviewPage() {
         <div className="card pad">
           <Bars
             data={PROGRAMS.slice(0, 12).map((p) => ({
+              key: p.name,
               label: p.name + " · " + p.count + " โครงการ",
               value: p.budget,
               display: money(p.budget) + " บาท",
+              items: PROJECTS.filter((x) => (x.program || "(ไม่ระบุแผนงาน)") === p.name),
             }))}
+            onSelect={(d) => setGroup({ title: d.key, subtitle: "แผนงาน", items: d.items })}
           />
         </div>
       </section>
@@ -263,10 +321,13 @@ export default function OverviewPage() {
         <div className="card pad">
           <Bars
             data={ORGS.slice(0, 10).map((o) => ({
+              key: o.name,
               label: o.name + " · " + o.count + " โครงการ",
               value: o.budget,
               display: money(o.budget) + " บาท",
+              items: PROJECTS.filter((x) => (x.org || "(ไม่ระบุหน่วยงาน)") === o.name),
             }))}
+            onSelect={(d) => setGroup({ title: d.key, subtitle: "หน่วยงานรับผิดชอบ", items: d.items })}
           />
         </div>
       </section>
@@ -343,6 +404,15 @@ export default function OverviewPage() {
           ยอดรวมนับเฉพาะรายการระดับโครงการ (lvl 1) เพราะงบของกิจกรรมย่อยรวมอยู่ในงบโครงการแม่แล้ว
         </div>
       </section>
+
+      {group ? (
+        <ProjectList
+          title={group.title}
+          subtitle={group.subtitle}
+          items={group.items}
+          onClose={() => setGroup(null)}
+        />
+      ) : null}
     </>
   );
 }

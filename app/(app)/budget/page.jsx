@@ -6,7 +6,7 @@ import { STRATEGIES } from "@/lib/rollup";
 import { money, fmt, pct } from "@/lib/format";
 import { useResults, entriesByCost, budgetRollup, COST_FIELDS } from "@/lib/store";
 import MonthPicker from "@/components/month-picker";
-import BudgetEntries from "@/components/budget-entries";
+import MonthBudget from "@/components/month-budget";
 import BudgetReport from "@/components/budget-report";
 import Bars from "@/components/bars";
 import Donut from "@/components/donut";
@@ -20,10 +20,9 @@ const VIEWS = [
 ];
 
 export default function BudgetPage() {
-  const { budget, asOf, loaded } = useResults();
+  const { budget, asOfMonth, asOfLabel, allMonths, loaded } = useResults();
   const [q, setQ] = useState("");
   const [org, setOrg] = useState("");
-  const [scope, setScope] = useState("month"); // month | year
   const [openUid, setOpenUid] = useState(null);
   const [view, setView] = useState("month");
   const [printItem, setPrintItem] = useState(null);
@@ -36,7 +35,8 @@ export default function BudgetPage() {
     []
   );
 
-  const month = scope === "month" ? asOf : null;
+  // ดรอปดาวน์ "ช่วงเวลา" ด้านบนคุมทั้งหน้า — ทั้งปี = null (ไม่กรองเดือน)
+  const month = allMonths ? null : asOfMonth;
 
   /* ยอดของแต่ละโครงการ รวมรายการของกิจกรรมลูกด้วย */
   const rows = useMemo(() => {
@@ -97,12 +97,9 @@ export default function BudgetPage() {
     }));
   }, [view, budget, month]);
 
-  const donutLabel =
-    view === "month"
-      ? "ทั้งปีงบประมาณ"
-      : scope === "month"
-      ? "เดือน " + MONTHS[asOf]
-      : "ทั้งปีงบประมาณ";
+  /* มุมมองรายเดือนแสดงทั้ง 12 เดือนเสมอ เพราะการแบ่งตามเดือนคือสาระของมันอยู่แล้ว
+     อีกสองมุมมองจึงเป็นตัวที่ขึ้นกับช่วงเวลาที่เลือก */
+  const donutLabel = view === "month" ? "ทั้งปีงบประมาณ" : asOfLabel;
 
   /* ---------- พิมพ์เป็น PDF ----------
      ต้อง render DOM ของรายงานก่อน แล้วค่อยเรียก print ใน effect
@@ -138,8 +135,7 @@ export default function BudgetPage() {
         <h2>
           รายงานงบประมาณโครงการ
           <small>
-            {scope === "month" ? "เฉพาะเดือน " + MONTHS[asOf] : "ทั้งปีงบประมาณ 2570"} ·
-            ยอดนี้คือยอดเดียวกับ “เบิกจ่าย” ในรายงานผลการดำเนินงานรายเดือน
+            {asOfLabel} · ยอดนี้คือยอดเดียวกับ “เบิกจ่าย” ในรายงานผลการดำเนินงานรายเดือน
           </small>
         </h2>
 
@@ -211,7 +207,7 @@ export default function BudgetPage() {
         <h2>
           รายการงบประมาณรายโครงการ
           <small>
-            เพิ่มได้หลายรายการต่อเดือน · บันทึกได้ทั้งระดับโครงการและระดับกิจกรรม ·
+            เพิ่มได้หลายรายการต่อเดือน · โครงการที่มีกิจกรรมย่อยให้บันทึกที่กิจกรรมเท่านั้น ·
             แยก {COST_FIELDS.map((c) => c.label).join(" / ")}
           </small>
         </h2>
@@ -236,13 +232,6 @@ export default function BudgetPage() {
                   {o}
                 </option>
               ))}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="b-scope">ช่วงเวลา</label>
-            <select id="b-scope" value={scope} onChange={(e) => setScope(e.target.value)}>
-              <option value="month">เฉพาะเดือนที่เลือก</option>
-              <option value="year">ทั้งปีงบประมาณ</option>
             </select>
           </div>
         </div>
@@ -300,39 +289,9 @@ export default function BudgetPage() {
                     <tr className="exp-body" key={p.uid + "/entries"}>
                       <td colSpan={6}>
                         <div style={{ padding: "12px 14px" }}>
-                          {/* ระดับโครงการ */}
-                          <BudgetEntries
-                            uid={p.uid}
-                            month={month == null ? asOf : month}
-                            title="ระดับโครงการ"
-                          />
-
-                          {/* ระดับกิจกรรม — บันทึกงบจากกิจกรรมได้โดยตรง */}
-                          {p._kids && p._kids.length ? (
-                            <div style={{ marginTop: 20 }}>
-                              <div className="small muted" style={{ marginBottom: 8 }}>
-                                บันทึกงบประมาณจากกิจกรรมภายใต้โครงการนี้ ({p._kids.length} กิจกรรม)
-                                — ยอดจะถูกรวมขึ้นมาที่โครงการอัตโนมัติ
-                                ระวังอย่ากรอกยอดเดียวกันซ้ำทั้งสองระดับ
-                              </div>
-                              {p._kids.map((k) => (
-                                <div
-                                  key={k.uid}
-                                  style={{
-                                    borderTop: "1px solid var(--border)",
-                                    paddingTop: 12,
-                                    marginTop: 12,
-                                  }}
-                                >
-                                  <BudgetEntries
-                                    uid={k.uid}
-                                    month={month == null ? asOf : month}
-                                    title={k.code + " " + k.name}
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          ) : null}
+                          {/* โครงการที่มีกิจกรรมย่อยจะบันทึกที่ระดับโครงการไม่ได้
+                              เงื่อนไขอยู่ใน MonthBudget เพื่อให้ลิ้นชักใช้กติกาเดียวกัน */}
+                          <MonthBudget item={p} month={asOfMonth} allMonths={allMonths} />
                         </div>
                       </td>
                     </tr>

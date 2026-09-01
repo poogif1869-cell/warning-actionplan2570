@@ -17,12 +17,12 @@ import ProjectDrawer from "@/components/project-drawer";
 import Bars from "@/components/bars";
 
 export default function RiskPage() {
-  const { results, risk, asOf, loaded, setRisk } = useResults();
+  const { results, risk, asOfMonth, asOfLabel, allMonths, loaded, setRisk } = useResults();
   const [openUid, setOpenUid] = useState(null);
   const [q, setQ] = useState("");
   const [onlyReported, setOnlyReported] = useState(false);
 
-  const alerts = useMemo(() => buildAlerts(results, asOf, risk), [results, asOf, risk]);
+  const alerts = useMemo(() => buildAlerts(results, asOfMonth, risk), [results, asOfMonth, risk]);
   const riskAlerts = useMemo(
     () => alerts.filter((a) => RISK_KINDS.includes(a.kind)),
     [alerts]
@@ -38,7 +38,7 @@ export default function RiskPage() {
     PROJECTS.forEach((p) => {
       const mine = riskOf(risk, p.uid);
       let last = -1;
-      for (let i = 0; i <= asOf; i++) {
+      for (let i = 0; i <= asOfMonth; i++) {
         const e = mine[i];
         if (e && e.level !== "" && e.level != null) last = i;
       }
@@ -58,7 +58,7 @@ export default function RiskPage() {
     });
 
     return { byLevel, reported, budgetAtRisk, rows };
-  }, [risk, asOf, onlyReported]);
+  }, [risk, asOfMonth, onlyReported]);
 
   const registerRows = useMemo(() => {
     const needle = q.toLowerCase().trim();
@@ -100,7 +100,7 @@ export default function RiskPage() {
       <section className="block">
         <h2>
           แดชบอร์ดความเสี่ยง
-          <small>อิงรายงานล่าสุดที่ไม่เกินเดือน {MONTHS[asOf]}</small>
+          <small>อิงรายงานล่าสุดของ{asOfLabel}</small>
         </h2>
 
         <div className="tiles">
@@ -199,6 +199,14 @@ export default function RiskPage() {
           </small>
         </h2>
 
+        {allMonths ? (
+          <div className="banner">
+            ตอนนี้เลือกดู “ทั้งปีงบประมาณ” จึงกรอกรายงานความเสี่ยงในตารางนี้ไม่ได้ —
+            เลือกเดือนที่ต้องการจากดรอปดาวน์ด้านบนก่อน หรือกดที่ชื่อโครงการ
+            แล้วกรอกในแท็บ “ความเสี่ยง” ของลิ้นชักซึ่งมีครบทั้ง 12 เดือน
+          </div>
+        ) : null}
+
         <div className="filters">
           <div className="field">
             <label htmlFor="r-q">ค้นหา</label>
@@ -230,13 +238,15 @@ export default function RiskPage() {
                 <th>โครงการ</th>
                 <th>ปัจจัยเสี่ยงตามทะเบียน</th>
                 <th className="num">คุมภายใน</th>
-                <th style={{ width: 150 }}>ระดับเดือน {MONTHS[asOf]}</th>
+                <th style={{ width: 150 }}>
+                  {allMonths ? "ระดับล่าสุด" : "ระดับเดือน " + MONTHS[asOfMonth]}
+                </th>
                 <th style={{ minWidth: 200 }}>สถานการณ์ / มาตรการ</th>
               </tr>
             </thead>
             <tbody>
               {registerRows.slice(0, 200).map(({ p, level, month, inRegister }) => {
-                const cur = riskAt(risk, p.uid, asOf) || {};
+                const cur = riskAt(risk, p.uid, asOfMonth) || {};
                 const info = riskLevelInfo(cur.level === "" ? null : cur.level);
                 return (
                   <tr key={p.uid}>
@@ -251,7 +261,7 @@ export default function RiskPage() {
                       </button>
                       <div className="small muted">
                         {p.code} · {money(p.budget)} บาท
-                        {level != null && month !== asOf
+                        {level != null && month !== asOfMonth
                           ? " · รายงานล่าสุด " + MONTHS[month] + ": " + riskLevelInfo(level).label
                           : ""}
                       </div>
@@ -272,9 +282,12 @@ export default function RiskPage() {
                       {p.rSum ? p.rSum + " / 9" : "–"}
                     </td>
                     <td>
+                      {/* โหมด "ทั้งปี" ไม่มีเดือนปลายทางที่ชัดเจน ถ้าปล่อยให้กรอก
+                          ข้อมูลจะถูกเขียนลงเดือน ก.ย. 70 เงียบ ๆ จึงล็อกไว้ก่อน */}
                       <select
+                        disabled={allMonths}
                         value={cur.level == null ? "" : cur.level}
-                        onChange={(e) => setRisk(p.uid, asOf, { level: e.target.value })}
+                        onChange={(e) => setRisk(p.uid, asOfMonth, { level: e.target.value })}
                         style={{
                           width: "100%",
                           background: "var(--surface)",
@@ -298,9 +311,10 @@ export default function RiskPage() {
                     </td>
                     <td>
                       <input
+                        disabled={allMonths}
                         placeholder="สถานการณ์ที่พบ"
                         value={cur.situation || ""}
-                        onChange={(e) => setRisk(p.uid, asOf, { situation: e.target.value })}
+                        onChange={(e) => setRisk(p.uid, asOfMonth, { situation: e.target.value })}
                         style={{
                           width: "100%",
                           background: "var(--surface)",
@@ -312,9 +326,10 @@ export default function RiskPage() {
                         }}
                       />
                       <input
+                        disabled={allMonths}
                         placeholder="มาตรการจัดการ"
                         value={cur.action || ""}
-                        onChange={(e) => setRisk(p.uid, asOf, { action: e.target.value })}
+                        onChange={(e) => setRisk(p.uid, asOfMonth, { action: e.target.value })}
                         style={{
                           width: "100%",
                           background: "var(--surface)",

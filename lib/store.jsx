@@ -25,7 +25,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { getSupabase } from "@/lib/supabase/client";
-import { currentFiscalMonth } from "@/lib/plan";
+import { currentFiscalMonth, MONTHS as MONTH_NAMES } from "@/lib/plan";
 import { toNum } from "@/lib/format";
 
 const ASOF_KEY = "raot-plan-2570/asof";
@@ -200,6 +200,14 @@ function applyBudget(results, budget) {
                           RLS ยังไม่ทันทำงานด้วยซ้ำ
    - RLS ไม่ผ่าน        = ได้ผลลัพธ์ว่าง 0 แถว ไม่ใช่ error
    --------------------------------------------------------------------- */
+/* error ที่มักหายเองถ้าขอ token ใหม่ — ใช้ตัดสินใจว่าจะ refreshSession แล้วลองซ้ำไหม */
+export function isAuthError(err) {
+  const msg = (err && err.message ? err.message : String(err)) || "";
+  return /JWT|issued at future|used before issued|not yet valid|token|expired|PGRST301|invalid claim/i.test(
+    msg
+  );
+}
+
 export function explainError(err) {
   const msg = err && err.message ? err.message : String(err);
 
@@ -231,8 +239,18 @@ export function explainError(err) {
     );
   }
 
-  if (/JWT|not authenticated|invalid claim/i.test(msg)) {
-    return "เซสชันหมดอายุ กรุณาออกจากระบบแล้วเข้าใหม่อีกครั้ง (" + msg + ")";
+  /* iat ของ token อยู่หลังเวลาปัจจุบันของฝั่งที่ตรวจ = นาฬิกาสองฝั่งไม่ตรงกัน
+     ไม่ใช่เซสชันหมดอายุ บอกให้ตรงจะได้ไม่ไปแก้ผิดที่ */
+  if (/issued at future|used before issued|not yet valid|nbf/i.test(msg)) {
+    return (
+      "นาฬิกาของเครื่องไม่ตรงกับเซิร์ฟเวอร์ ทำให้ token ใช้ไม่ได้ (" + msg + ") — " +
+      "ให้ตั้งเวลาเครื่องเป็นอัตโนมัติ (Windows: Settings > Time & language > Date & time " +
+      "แล้วกด Sync now) จากนั้นกดปุ่มด้านล่างเพื่อเข้าสู่ระบบใหม่"
+    );
+  }
+
+  if (/JWT|not authenticated|invalid claim|token/i.test(msg)) {
+    return "เซสชันหมดอายุหรือใช้ไม่ได้ กรุณาเข้าสู่ระบบใหม่อีกครั้ง (" + msg + ")";
   }
 
   return msg;
@@ -277,6 +295,20 @@ export function ResultsProvider({ children }) {
 
   const snap = useRef({ raw, budget, risk });
   snap.current = { raw, budget, risk };
+
+  /* โหลดข้อมูล ถ้าเจอ error เกี่ยวกับ token ให้ขอ token ใหม่แล้วลองอีกครั้งหนึ่ง
+     กรณีนาฬิกาเครื่องเพี้ยนเล็กน้อย token ใบใหม่มักใช้ได้ทันที
+     ผู้ใช้จึงไม่ต้องออกจากระบบเองทุกครั้งที่เจอ */
+  async function loadAllWithRetry() {
+    try {
+      return await loadAll();
+    } catch (err) {
+      if (!isAuthError(err)) throw err;
+      const { error: refreshErr } = await getSupabase().auth.refreshSession();
+      if (refreshErr) throw err; // คืน error เดิม เพราะอธิบายสาเหตุได้ตรงกว่า
+      return await loadAll();
+    }
+  }
 
   /* ---------- โหลดข้อมูลทั้งหมดจาก Supabase ---------- */
   async function loadAll() {
@@ -378,7 +410,7 @@ export function ResultsProvider({ children }) {
         const { data } = await supabase.auth.getUser();
         if (alive && data && data.user) setUserEmail(data.user.email || "");
 
-        const next = await loadAll();
+        const next = await loadAllWithRetry();
         if (alive) {
           setRaw(next.raw);
           setBudget(next.budget);
@@ -396,7 +428,8 @@ export function ResultsProvider({ children }) {
         // ต้องกันกรณี null แยกต่างหาก ไม่งั้นจะได้ ต.ค. 69 เสมอแทนเดือนปัจจุบัน
         const stored = localStorage.getItem(ASOF_KEY);
         const saved = stored == null ? NaN : Number(stored);
-        if (alive) setAsOfState(isFinite(saved) && saved >= 0 && saved <= 11 ? saved : fm.index);
+        // -1 = ดูทั้งปี ค่าที่ยอมรับจึงเริ่มที่ -1 ไม่ใช่ 0
+        if (alive) setAsOfState(isFinite(saved) && saved >= -1 && saved <= 11 ? saved : fm.index);
       } catch (e) {
         if (alive) setAsOfState(fm.index);
       }
@@ -553,6 +586,13 @@ export function ResultsProvider({ children }) {
       savedHint,
       userEmail,
       budgetHasSaved,
+
+      /* asOf เป็นค่าที่ผู้ใช้เลือก (-1 = ทั้งปี)
+         asOfMonth คือเดือนที่ใช้คำนวณจริง ทั้งปีนับเสมือนถึงสิ้นปีงบ
+         โค้ดที่ต้องวนเดือนหรือตัดยอดสะสมให้ใช้ asOfMonth ไม่ใช่ asOf */
+      asOfMonth: asOf < 0 ? 11 : asOf,
+      allMonths: asOf < 0,
+      asOfLabel: asOf < 0 ? "ทั้งปีงบประมาณ" : MONTH_NAMES[asOf],
       asOf,
       fyStarted,
 
@@ -744,7 +784,7 @@ export function ResultsProvider({ children }) {
       async refresh() {
         setLoadError("");
         try {
-          const next = await loadAll();
+          const next = await loadAllWithRetry();
           setRaw(next.raw);
           setBudget(next.budget);
           setBudgetHasSaved(next.hasSaved !== false);
@@ -847,7 +887,7 @@ export function ResultsProvider({ children }) {
         const failed = done.find((r) => r && r.error);
         if (failed) throw new Error(failed.error.message);
 
-        const next = await loadAll();
+        const next = await loadAllWithRetry();
         setRaw(next.raw);
         setBudget(next.budget);
         setBudgetHasSaved(next.hasSaved !== false);

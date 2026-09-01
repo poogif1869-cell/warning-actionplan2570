@@ -11,7 +11,7 @@ import ProjectDrawer from "@/components/project-drawer";
 const KINDS = Object.keys(KIND_LABEL);
 
 export default function AlertsPage() {
-  const { results, asOf, risk, loaded } = useResults();
+  const { results, asOfMonth, asOfLabel, risk, loaded } = useResults();
   const [sev, setSev] = useState("");
   const [kind, setKind] = useState("");
   const [sNo, setSNo] = useState("");
@@ -19,7 +19,7 @@ export default function AlertsPage() {
   const [q, setQ] = useState("");
   const [openUid, setOpenUid] = useState(null);
 
-  const alerts = useMemo(() => buildAlerts(results, asOf, risk), [results, asOf, risk]);
+  const alerts = useMemo(() => buildAlerts(results, asOfMonth, risk), [results, asOfMonth, risk]);
   const stats = useMemo(() => summarize(alerts), [alerts]);
 
   const orgs = useMemo(
@@ -63,7 +63,7 @@ export default function AlertsPage() {
       <section className="block">
         <h2>
           สรุปการแจ้งเตือน
-          <small>ณ สิ้นเดือน {MONTHS[asOf]}</small>
+          <small>{asOfLabel}</small>
         </h2>
 
         <div className="tiles">
@@ -186,7 +186,7 @@ export default function AlertsPage() {
         {shown.length === 0 ? (
           <div className="banner ok">
             {alerts.length === 0
-              ? "ณ สิ้นเดือน " + MONTHS[asOf] + " ยังไม่พบผลการดำเนินงานที่ไม่เป็นไปตามเป้าหมาย — " +
+              ? asOfLabel + " ยังไม่พบผลการดำเนินงานที่ไม่เป็นไปตามเป้าหมาย — " +
                 "ถ้ายังไม่ได้กรอกผลเลย ให้เลื่อน “ณ เดือน” ไปข้างหน้าเพื่อดูรายการที่ถึงกำหนดแล้ว"
               : "ไม่มีรายการที่ตรงกับตัวกรองที่เลือก"}
           </div>

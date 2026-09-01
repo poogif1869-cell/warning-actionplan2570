@@ -21,7 +21,7 @@ export default function Shell({ children }) {
   const {
     results,
     risk,
-    asOf,
+    asOfMonth,
     savedHint,
     loaded,
     loadError,
@@ -34,8 +34,8 @@ export default function Shell({ children }) {
 
   const critCount = useMemo(() => {
     if (!loaded) return 0;
-    return buildAlerts(results, asOf, risk).filter((a) => a.sev === "crit").length;
-  }, [results, asOf, risk, loaded]);
+    return buildAlerts(results, asOfMonth, risk).filter((a) => a.sev === "crit").length;
+  }, [results, asOfMonth, risk, loaded]);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -94,7 +94,23 @@ export default function Shell({ children }) {
       </nav>
 
       <main>
-        {loadError ? <div className="banner bad">{loadError}</div> : null}
+        {loadError ? (
+          <div className="banner bad">
+            {loadError}
+            {/* error เรื่อง token มักหายเมื่อเข้าสู่ระบบใหม่ ให้ปุ่มไว้ตรงนี้เลย
+                จะได้ไม่ต้องไปหาปุ่มออกจากระบบด้านบนเอง */}
+            {/token|JWT|เซสชัน|นาฬิกา/i.test(loadError) ? (
+              <div className="btnrow">
+                <button className="btn" onClick={signOut}>
+                  ออกจากระบบแล้วเข้าใหม่
+                </button>
+                <button className="btn ghost" onClick={() => window.location.reload()}>
+                  ลองโหลดหน้าใหม่
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         {saveError ? <div className="banner bad">{saveError}</div> : null}
         {children}
       </main>
