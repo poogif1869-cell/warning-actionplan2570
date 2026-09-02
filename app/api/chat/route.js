@@ -27,7 +27,11 @@ const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/";
 const MAX_CHARS = 2000;      // ความยาวข้อความหนึ่งข้อความ
 const MAX_TURNS = 12;        // จำนวนข้อความย้อนหลังที่ส่งไปด้วย
 const MAX_CONTEXT = 60000;   // ขนาด JSON ข้อมูลระบบ (ตัวอักษร)
-const MAX_OUTPUT = 4096;     // เพดานคำตอบ — น้อยกว่านี้คำตอบที่มีรายการยาว ๆ จะถูกตัดกลางคัน
+const MAX_OUTPUT = 8192;     // เพดานคำตอบ — เผื่อ token ที่รุ่นใหม่ใช้ไปกับการคิดด้วย
+
+/* จำไว้ว่ารุ่นนี้รับ thinkingConfig ไหม จะได้ไม่ยิงคำขอที่รู้อยู่แล้วว่าพังทุกครั้ง
+   (serverless ใช้ instance ซ้ำ ค่านี้จึงอยู่ข้ามคำถามได้ระยะหนึ่ง) */
+let thinkingConfigOK = true;
 
 function key() {
   return (process.env.GEMINI_API_KEY || "").trim();
@@ -134,15 +138,20 @@ export async function POST(request) {
   let res;
   let data;
   try {
-    let out = await call(false);
+    let out = await call(!thinkingConfigOK);
 
     /* บางรุ่นปิดการคิดไม่ได้ แล้วตอบ 400 กลับมา — ลองใหม่แบบไม่ส่ง thinkingConfig
-       ดีกว่าเดาล่วงหน้าว่ารุ่นไหนรองรับ เพราะ Google เปลี่ยนรุ่นอยู่เรื่อย ๆ */
-    if (
-      out.r.status === 400 &&
-      /thinking|thought/i.test((out.d && out.d.error && out.d.error.message) || "")
-    ) {
-      out = await call(true);
+
+       ลองใหม่ทุกกรณีที่เป็น 400 ไม่ดูข้อความ เพราะ Gemini 3 ตอบแค่
+       "Request contains an invalid argument." ไม่บอกว่าฟิลด์ไหนผิด
+       thinkingConfig เป็นฟิลด์เดียวที่เราส่งเพิ่มจากมาตรฐาน จึงเป็นผู้ต้องสงสัยอันดับแรก
+       ถ้าลองใหม่แล้วยังพัง จะรายงาน error ของรอบแรกซึ่งตรงกับสาเหตุจริงมากกว่า */
+    if (out.r.status === 400 && thinkingConfigOK) {
+      const retry = await call(true);
+      if (retry.r.ok) {
+        thinkingConfigOK = false; // รุ่นนี้ไม่รับ เลิกส่งไปเลย ไม่ต้องเสียคำขอทิ้งทุกครั้ง
+        out = retry;
+      }
     }
     res = out.r;
     data = out.d;
@@ -196,7 +205,9 @@ function explainGemini(status, detail) {
       "และคีย์ไม่ได้ถูกจำกัดโดเมน · " + detail;
   }
   if (status === 400) {
-    return "คำขอไม่ถูกต้อง — มักเกิดจากคีย์ผิดหรือชื่อรุ่นโมเดลไม่มีอยู่จริง · " + detail;
+    /* Gemini 3 ตอบ 400 แบบไม่บอกว่าฟิลด์ไหนผิด จึงต้องไล่ความเป็นไปได้ให้ผู้ดูแล */
+    return "คำขอไม่ถูกต้อง — อาจเป็นคีย์ผิด ชื่อรุ่นโมเดลไม่มีอยู่จริง " +
+      "หรือรุ่น " + MODEL + " ไม่รองรับพารามิเตอร์ที่ส่งไป · " + detail;
   }
   if (status === 404) {
     return "ไม่พบโมเดล " + MODEL + " — ตั้งตัวแปร GEMINI_MODEL ให้เป็นรุ่นที่คีย์นี้ใช้ได้ · " + detail;
