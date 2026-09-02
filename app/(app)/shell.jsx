@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useResults } from "@/lib/store";
 import { buildAlerts } from "@/lib/alerts";
+import Assistant from "@/components/assistant";
 
 const NAV = [
   { href: "/", label: "ภาพรวม" },
@@ -114,6 +115,9 @@ export default function Shell({ children }) {
         {saveError ? <div className="banner bad">{saveError}</div> : null}
         {children}
       </main>
+
+      {/* ปุ่มลอยมุมขวาล่าง อยู่นอก main จะได้ไม่ถูกกฎ print ของแต่ละหน้าจับ */}
+      <Assistant />
     </>
   );
 }

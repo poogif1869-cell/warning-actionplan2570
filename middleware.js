@@ -54,6 +54,12 @@ export async function middleware(request) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  /* /api/* ต้องได้ 401 เป็น JSON ไม่ใช่ถูก redirect ไปหน้า login
+     ไม่งั้น fetch จะได้ HTML ของหน้า login กลับมา แล้ว res.json() พังโดยไม่บอกสาเหตุ */
+  if (!user && pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "ยังไม่ได้เข้าสู่ระบบ" }, { status: 401 });
+  }
+
   if (!user && pathname !== "/login") {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
