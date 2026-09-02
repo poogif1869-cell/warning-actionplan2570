@@ -27,6 +27,7 @@ const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/";
 const MAX_CHARS = 2000;      // ความยาวข้อความหนึ่งข้อความ
 const MAX_TURNS = 12;        // จำนวนข้อความย้อนหลังที่ส่งไปด้วย
 const MAX_CONTEXT = 60000;   // ขนาด JSON ข้อมูลระบบ (ตัวอักษร)
+const MAX_OUTPUT = 4096;     // เพดานคำตอบ — น้อยกว่านี้คำตอบที่มีรายการยาว ๆ จะถูกตัดกลางคัน
 
 function key() {
   return (process.env.GEMINI_API_KEY || "").trim();
@@ -99,32 +100,57 @@ export async function POST(request) {
     return { role: m.role, parts: [{ text }] };
   });
 
+  const url =
+    ENDPOINT + encodeURIComponent(MODEL) + ":generateContent?key=" + encodeURIComponent(apiKey);
+
+  function payload(withThinking) {
+    const gen = { temperature: 0.3, maxOutputTokens: MAX_OUTPUT };
+    /* รุ่นใหม่ (2.5 ขึ้นไป) "คิด" ก่อนตอบ และการคิดกิน maxOutputTokens ด้วย
+       ถ้าไม่ปิด คำตอบจะถูกตัดกลางประโยคทั้งที่ยังเขียนไม่จบ
+       คำถามในเว็บนี้เป็นการอ่านตัวเลขจาก context ที่ส่งไปให้แล้ว ไม่ต้องใช้การคิดยาว */
+    if (!withThinking) gen.thinkingConfig = { thinkingBudget: 0 };
+    return JSON.stringify({
+      system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents,
+      generationConfig: gen,
+    });
+  }
+
+  async function call(withThinking) {
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: payload(withThinking),
+    });
+    let d = null;
+    try {
+      d = await r.json();
+    } catch (e) {
+      d = null;
+    }
+    return { r, d };
+  }
+
   let res;
+  let data;
   try {
-    res = await fetch(
-      ENDPOINT + encodeURIComponent(MODEL) + ":generateContent?key=" + encodeURIComponent(apiKey),
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents,
-          generationConfig: { temperature: 0.3, maxOutputTokens: 1200 },
-        }),
-      }
-    );
+    let out = await call(false);
+
+    /* บางรุ่นปิดการคิดไม่ได้ แล้วตอบ 400 กลับมา — ลองใหม่แบบไม่ส่ง thinkingConfig
+       ดีกว่าเดาล่วงหน้าว่ารุ่นไหนรองรับ เพราะ Google เปลี่ยนรุ่นอยู่เรื่อย ๆ */
+    if (
+      out.r.status === 400 &&
+      /thinking|thought/i.test((out.d && out.d.error && out.d.error.message) || "")
+    ) {
+      out = await call(true);
+    }
+    res = out.r;
+    data = out.d;
   } catch (e) {
     return NextResponse.json(
       { error: "ติดต่อ Gemini ไม่ได้: " + (e && e.message ? e.message : String(e)) },
       { status: 502 }
     );
-  }
-
-  let data = null;
-  try {
-    data = await res.json();
-  } catch (e) {
-    data = null;
   }
 
   if (!res.ok) {
@@ -154,7 +180,10 @@ export async function POST(request) {
     );
   }
 
-  return NextResponse.json({ text });
+  /* ยังชนเพดานได้ถ้ารายการยาวจริง ๆ — ต้องบอกผู้ใช้ ไม่ใช่โชว์คำตอบที่ขาดกลางคัน
+     เงียบ ๆ แล้วปล่อยให้เข้าใจว่านั่นคือคำตอบทั้งหมด */
+  const truncated = cand && cand.finishReason === "MAX_TOKENS";
+  return NextResponse.json({ text, truncated: Boolean(truncated) });
 }
 
 /* แปล error ให้บอกวิธีแก้ตรงจุด แนวเดียวกับ explainError ใน lib/store.jsx */

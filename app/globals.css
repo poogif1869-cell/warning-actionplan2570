@@ -761,6 +761,19 @@ th{box-shadow:inset 0 -1px 0 var(--border)}
   align-self:flex-start; background:var(--surface2);
   border:1px solid var(--border); border-end-start-radius:3px;
 }
+/* บรรทัดในคำตอบของบอท — แปลงมาจาก markdown ย่อ ๆ ใน assistant.jsx */
+.chatline{margin:0}
+.chatline.head{font-weight:700; margin-top:4px}
+.chatline.bullet{padding-inline-start:15px; position:relative}
+.chatline.bullet::before{
+  content:"•"; position:absolute; inset-inline-start:2px; color:var(--accent);
+}
+.chatgap{height:7px}
+.chatcut{
+  margin-top:7px; padding-top:6px; border-top:1px dashed var(--border);
+  font-size:12px; color:var(--warn);
+}
+
 .chatwait{color:var(--muted); font-style:italic}
 .chaterr{margin:0; font-size:13px}
 

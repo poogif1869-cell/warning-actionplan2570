@@ -19,6 +19,51 @@ const STARTERS = [
   "ตัวชี้วัดตัวไหนยังไม่บรรลุเป้าหมาย",
 ];
 
+/* ---------------------------------------------------------------------
+   ตัวแปลง markdown แบบย่อ
+
+   บอทตอบมาเป็น markdown ตามธรรมชาติ (**ตัวหนา**, รายการขึ้นต้นด้วย * หรือ -)
+   ถ้าไม่แปลงจะเห็นดอกจันดิบ ๆ ปนอยู่ในคำตอบ
+   ลงไลบรารี markdown ทั้งตัวเพื่อสามรูปแบบนี้ไม่คุ้ม และเครื่องนี้ลงอะไรไม่ได้อยู่แล้ว
+   --------------------------------------------------------------------- */
+function inlineBold(text, keyBase) {
+  const out = [];
+  const re = /\*\*(.+?)\*\*/g;
+  let last = 0;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    out.push(<b key={keyBase + "b" + m.index}>{m[1]}</b>);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
+function Rich({ text }) {
+  const lines = String(text == null ? "" : text).split("\n");
+  return (
+    <>
+      {lines.map((line, i) => {
+        if (!line.trim()) return <div key={i} className="chatgap" />;
+
+        const head = /^\s*#{1,6}\s+/.test(line);
+        const bullet = !head && /^\s*[*\-•]\s+/.test(line);
+        const body = line.replace(/^\s*(#{1,6}|[*\-•])\s+/, "");
+
+        return (
+          <div
+            key={i}
+            className={"chatline" + (bullet ? " bullet" : "") + (head ? " head" : "")}
+          >
+            {inlineBold(body, i + "-")}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 export default function Assistant() {
   const { results, budget, risk, asOfMonth, allMonths, asOfLabel, loaded } = useResults();
 
@@ -111,7 +156,10 @@ export default function Assistant() {
         setError((data && data.error) || "ตอบกลับไม่สำเร็จ (รหัส " + res.status + ")");
         return;
       }
-      setMsgs((prev) => [...prev, { role: "model", text: data.text }]);
+      setMsgs((prev) => [
+        ...prev,
+        { role: "model", text: data.text, truncated: Boolean(data.truncated) },
+      ]);
     } catch (e) {
       setError("ส่งคำถามไม่สำเร็จ: " + (e && e.message ? e.message : String(e)));
     } finally {
@@ -188,11 +236,22 @@ export default function Assistant() {
               </div>
             ) : null}
 
-            {msgs.map((m, i) => (
-              <div key={i} className={"chatmsg " + (m.role === "user" ? "user" : "bot")}>
-                {m.text}
-              </div>
-            ))}
+            {msgs.map((m, i) =>
+              m.role === "user" ? (
+                <div key={i} className="chatmsg user">
+                  {m.text}
+                </div>
+              ) : (
+                <div key={i} className="chatmsg bot">
+                  <Rich text={m.text} />
+                  {m.truncated ? (
+                    <div className="chatcut">
+                      คำตอบยาวเกินจึงถูกตัด — ลองถามให้แคบลง เช่น ระบุชื่อหรือรหัสโครงการ
+                    </div>
+                  ) : null}
+                </div>
+              )
+            )}
 
             {busy ? <div className="chatmsg bot chatwait">กำลังคิด…</div> : null}
             {error ? <div className="banner bad chaterr">{error}</div> : null}
