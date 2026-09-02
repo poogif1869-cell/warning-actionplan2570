@@ -658,7 +658,7 @@ powershell -File check\verify-imports.ps1   # ต้องไม่พบ import
 
 `GET /api/chat` คืน `{ configured }` — ไม่ตั้งคีย์ = ปุ่มแชทไม่แสดงเลย
 เว็บที่เหลือทำงานปกติ (แนวเดียวกับที่ฟีเจอร์อื่นซ่อนตัวเมื่อฐานข้อมูลยังไม่พร้อม)
-เปลี่ยนรุ่นโมเดลได้ด้วย `GEMINI_MODEL` ค่าเริ่มต้น `gemini-2.0-flash`
+เปลี่ยนรุ่นโมเดลได้ด้วย `GEMINI_MODEL` ค่าเริ่มต้น `gemini-3.6-flash`
 
 `middleware.js` เพิ่มเงื่อนไข: `/api/*` ที่ยังไม่ล็อกอินต้องได้ **401 เป็น JSON**
 ไม่ใช่ redirect ไป `/login` ไม่งั้น `fetch` จะได้ HTML ของหน้า login กลับมา

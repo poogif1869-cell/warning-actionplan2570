@@ -17,7 +17,10 @@ import { SYSTEM_PROMPT } from "@/lib/assistant-prompt";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+/* Google ปลดระวางรุ่นเก่าเป็นระยะแล้วคืน 404 พร้อมบอกรุ่นใหม่ที่ควรใช้
+   ถ้าเจอ "no longer available" อีก ให้ตั้ง GEMINI_MODEL ใน Vercel เป็นรุ่นที่ error บอก
+   จะได้แก้ได้โดยไม่ต้อง deploy ใหม่ */
+const MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/";
 
 /* เพดานฝั่งเซิร์ฟเวอร์ — ไม่เชื่อว่า client จะส่งมาเท่าไหร่ */
