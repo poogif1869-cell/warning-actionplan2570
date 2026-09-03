@@ -3,7 +3,8 @@
 /* =====================================================================
    ผู้ช่วย AI — ปุ่มลอยมุมขวาล่าง เปิดแผงแชท
 
-   ประวัติการสนทนาอยู่ใน state เท่านั้น ปิดหน้าแล้วหาย (ที่ผู้ใช้เลือกไว้)
+   แชทเปิดค้างไว้จนกว่าผู้ใช้จะกดปิด ข้ามการเปลี่ยนหน้าและการรีเฟรช
+   บทสนทนาเก็บใน sessionStorage จึง **หายเมื่อปิดแท็บ** ตามที่ผู้ใช้เลือกไว้
    ข้อมูลจริงในระบบถูกประกอบฝั่งนี้ด้วย buildContext() แล้วส่งไปกับคำถาม
    เพราะข้อมูลทั้งหมดโหลดมาอยู่ในเบราว์เซอร์แล้ว เซิร์ฟเวอร์ไม่ต้องไปอ่าน Supabase ซ้ำ
    ===================================================================== */
@@ -22,6 +23,35 @@ const STARTERS = [
 /* ข้อความทักทายที่ลอยอยู่ข้างหุ่นยนต์ตอนยังไม่ได้เปิดแชท */
 const GREETING = "ให้ช่วยอะไรไหมครับ";
 const GREET_KEY = "raot-chat-greeted";
+
+/* ---------------------------------------------------------------------
+   จำว่าแชทเปิดค้างอยู่ไหม และบทสนทนาที่คุยไว้
+
+   การสลับหน้าใน Next ไม่ทำให้ component นี้ถูกถอดออก (อยู่ใน layout)
+   สถานะจึงอยู่ยงข้ามหน้าอยู่แล้ว **แต่การรีเฟรชหน้าล้างทุกอย่างทิ้ง**
+   เก็บลง sessionStorage จึงครอบทั้งสองกรณี
+
+   ใช้ sessionStorage ไม่ใช่ localStorage เพราะตรงกับที่ตกลงไว้ว่า
+   "บทสนทนาหายเมื่อปิดหน้า" — sessionStorage ตายพร้อมแท็บพอดี
+   และบนเครื่องที่ใช้ร่วมกัน ข้อมูลไม่ค้างข้ามคนใช้
+   --------------------------------------------------------------------- */
+const OPEN_KEY = "raot-chat-open";
+const MSGS_KEY = "raot-chat-msgs";
+
+function readSession(key, fallback) {
+  try {
+    const raw = sessionStorage.getItem(key);
+    return raw == null ? fallback : JSON.parse(raw);
+  } catch (e) {
+    return fallback;
+  }
+}
+
+function writeSession(key, value) {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {}
+}
 
 /* ---------------------------------------------------------------------
    หุ่นยนต์ผู้ช่วย — วาดเป็น SVG ในโค้ดเลย
@@ -124,7 +154,8 @@ function Rich({ text }) {
 }
 
 export default function Assistant() {
-  const { results, budget, risk, asOfMonth, allMonths, asOfLabel, loaded } = useResults();
+  const { results, budget, risk, asOfMonth, allMonths, asOfLabel, loaded, userEmail } =
+    useResults();
 
   const [configured, setConfigured] = useState(null); // null = ยังไม่รู้
   const [open, setOpen] = useState(false);
@@ -137,6 +168,39 @@ export default function Assistant() {
   const bodyRef = useRef(null);
   const inputRef = useRef(null);
   const panelRef = useRef(null);
+
+  /* ---------------------------------------------------------------
+     คืนสถานะที่ค้างไว้หลังรีเฟรชหน้า
+
+     อ่านใน useEffect ไม่ใช่ค่าเริ่มต้นของ useState เพราะ sessionStorage
+     ไม่มีบนเซิร์ฟเวอร์ ถ้าอ่านตอน render แรกจะได้ค่าคนละอย่างกับที่
+     เซิร์ฟเวอร์ส่งมา แล้ว React จะเตือน hydration mismatch
+
+     **รอจนรู้ว่าใครล็อกอินอยู่ก่อนถึงจะคืนบทสนทนา** แล้วเทียบอีเมลให้ตรงกัน
+     ถ้าคนก่อนหน้าออกจากระบบแล้วคนใหม่ล็อกอินในแท็บเดิม จะไม่เห็นของคนเก่า
+     (แท็บไม่ได้ถูกปิด sessionStorage จึงยังอยู่) — ตรวจตอนอ่านแบบนี้
+     เชื่อถือได้กว่าไปดักจังหวะออกจากระบบ เพราะตอนนั้น component นี้
+     ถูกถอดออกไปแล้ว (หน้า /login อยู่นอก layout ที่ mount แชท)
+     --------------------------------------------------------------- */
+  const restored = useRef(false);
+
+  useEffect(() => {
+    if (restored.current || !userEmail) return;
+    restored.current = true;
+
+    const saved = readSession(MSGS_KEY, null);
+    if (saved && saved.email === userEmail && Array.isArray(saved.msgs) && saved.msgs.length) {
+      setMsgs(saved.msgs);
+    }
+    if (readSession(OPEN_KEY, false) === true) setOpen(true);
+  }, [userEmail]);
+
+  useEffect(() => {
+    // อย่าเขียนทับก่อนได้อ่านของเก่าขึ้นมา ไม่งั้นจะล้างตัวเองตอนโหลดหน้า
+    if (!restored.current) return;
+    writeSession(OPEN_KEY, open);
+    writeSession(MSGS_KEY, { email: userEmail || "", msgs });
+  }, [open, msgs, userEmail]);
 
   /* ทักทายหลังหน้าโหลดเสร็จสักครู่ ไม่ใช่เด้งพร้อมหน้าจนบังของที่ผู้ใช้กำลังอ่าน
      กดปิดแล้วจำไว้ ไม่ทักซ้ำอีก — ทักทุกครั้งที่เปิดเว็บจะกลายเป็นน่ารำคาญ */
