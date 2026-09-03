@@ -268,9 +268,26 @@ export default function Assistant() {
     if (!q || busy) return;
 
     setDraft("");
-    setError("");
     const history = [...msgs, { role: "user", text: q }];
     setMsgs(history);
+    await ask(history, q);
+  }
+
+  /* ส่งคำถามเดิมซ้ำโดยไม่ต้องพิมพ์ใหม่
+     ใช้ตอนที่พลาดเพราะเหตุชั่วคราวฝั่ง Google (คิวเต็ม/โควตาต่อนาที)
+     ซึ่งกดใหม่อีกทีก็มักผ่าน — ให้ผู้ใช้พิมพ์คำถามยาว ๆ ซ้ำถือว่าใจร้าย */
+  const lastQuestion =
+    msgs.length && msgs[msgs.length - 1].role === "user"
+      ? msgs[msgs.length - 1].text
+      : null;
+
+  async function retry() {
+    if (!lastQuestion || busy) return;
+    await ask(msgs, lastQuestion);
+  }
+
+  async function ask(history, q) {
+    setError("");
     setBusy(true);
 
     try {
@@ -445,7 +462,18 @@ export default function Assistant() {
                 <div className="chatmsg bot chatwait">กำลังคิด…</div>
               </div>
             ) : null}
-            {error ? <div className="banner bad chaterr">{error}</div> : null}
+            {error ? (
+              <div className="banner bad chaterr">
+                {error}
+                {lastQuestion ? (
+                  <div className="btnrow">
+                    <button className="btn" onClick={retry} disabled={busy}>
+                      ลองถามใหม่อีกครั้ง
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           <div className="chatfoot">

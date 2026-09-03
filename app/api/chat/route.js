@@ -239,13 +239,14 @@ export async function POST(request) {
 
     let out = null;
     for (let i = 0; i < order.length; i++) {
-      out = await call(order[i]);
+      out = await callWithBackoff(call, order[i]);
       if (out.r.ok) {
         goodVariant = order[i];
         break;
       }
       /* 400 = คำขอผิดรูป ลองรูปแบบที่เรียบง่ายกว่าอาจผ่าน
-         ส่วน 429/403/404 ลองซ้ำกี่ครั้งก็ได้ผลเดิม หยุดเลย
+         ส่วน 429/403/404/503 ลองรูปแบบอื่นก็ไม่ช่วย หยุดเลย
+         (503 ลองซ้ำไปแล้วใน callWithBackoff)
 
          ถ้าไม่ผ่านสักตัว จะรายงาน error ของตัวสุดท้าย (แบบเรียบง่ายที่สุด)
          ซึ่งตรงกับข้อความที่บอกว่า "ลองแบบเรียบง่ายที่สุดแล้วก็ยังไม่ผ่าน" */
@@ -296,6 +297,32 @@ export async function POST(request) {
 }
 
 /* ---------------------------------------------------------------------
+   ลองซ้ำเมื่อเจอ 503 UNAVAILABLE
+
+   "This model is currently experiencing high demand" คือคิวฝั่ง Google เต็ม
+   ไม่ใช่ความผิดของคำขอเรา และมักหายเองในไม่กี่วินาที
+   ลองซ้ำสั้น ๆ สองครั้งจึงคุ้มกว่าโยน error ให้ผู้ใช้ไปกดเองทันที
+
+   หน่วงรวมไม่เกิน ~2.2 วินาที เพราะ serverless function บน Vercel
+   มีเพดานเวลาทำงาน ถ้าหน่วงนานกว่านี้เสี่ยงโดนตัดกลางคัน
+   --------------------------------------------------------------------- */
+const RETRY_DELAYS = [700, 1500];
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function callWithBackoff(call, variant) {
+  let out = await call(variant);
+  for (let i = 0; i < RETRY_DELAYS.length; i++) {
+    if (out.r.status !== 503) break;
+    await sleep(RETRY_DELAYS[i]);
+    out = await call(variant);
+  }
+  return out;
+}
+
+/* ---------------------------------------------------------------------
    ดึงรายละเอียด error ให้ได้มากที่สุด
 
    error.message ของ Gemini มักเป็นประโยคกว้าง ๆ ที่ไม่ช่วยอะไร
@@ -321,6 +348,15 @@ function errorDetail(data, status) {
 function explainGemini(status, detail) {
   if (status === 429) {
     return "โควตา Gemini เต็มชั่วคราว (คีย์ฟรีจำกัดจำนวนคำถามต่อนาที) รอสักครู่แล้วถามใหม่";
+  }
+  if (status === 503) {
+    /* คิวฝั่ง Google เต็ม ไม่ใช่ความผิดของคำขอเรา และไม่ใช่เรื่องโควตาของคีย์
+       ลองซ้ำอัตโนมัติไปแล้วสองครั้งก่อนจะมาถึงตรงนี้ */
+    return (
+      "ตอนนี้รุ่น " + MODEL + " มีคนใช้พร้อมกันเยอะจนคิวเต็มฝั่ง Google " +
+      "ลองซ้ำให้แล้วยังไม่ผ่าน รอสัก 1-2 นาทีแล้วกดถามใหม่ " +
+      "(ไม่ใช่ปัญหาของคีย์หรือของเว็บ ถ้าเจอบ่อยให้ตั้ง GEMINI_MODEL เป็นรุ่นอื่นใน Vercel)"
+    );
   }
   if (status === 403) {
     return "คีย์ Gemini ใช้ไม่ได้ — ตรวจว่าเปิดใช้ Generative Language API แล้ว " +
