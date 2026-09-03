@@ -8,8 +8,16 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY, isConfigured } from "@/lib/supabase/co
    นอกจากกันคนที่ยังไม่ล็อกอินแล้ว ที่นี่ยัง**ต่ออายุเซสชัน Supabase** ให้ด้วย
    จึงต้องคืน response ตัวที่ setAll เขียนคุกกี้ลงไป ไม่ใช่ NextResponse.next() ตัวใหม่
    ไม่งั้น token ที่รีเฟรชแล้วจะไม่ถูกส่งกลับไปที่เบราว์เซอร์ และผู้ใช้จะหลุดล็อกอินเป็นระยะ */
+/* ไฟล์ของ PWA (manifest, service worker, ไอคอน, หน้าออฟไลน์) ต้องอยู่นอกประตูด้วย
+   เบราว์เซอร์ขอไฟล์พวกนี้ตอนยังไม่ได้ล็อกอิน ถ้าถูก redirect ไป /login
+   จะได้ HTML แทน JSON/JavaScript แล้วปุ่ม "ติดตั้ง" จะไม่ขึ้นเลยโดยไม่มี error ให้เห็น
+
+   sw.js ยังต้องอยู่นอกประตูตลอดไป เพราะเบราว์เซอร์เรียกเช็คเวอร์ชันใหม่เป็นระยะ
+   แม้ตอนที่เซสชันหมดอายุแล้ว */
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|logo.png).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|logo.png|icons/|manifest.webmanifest|sw.js|offline.html).*)",
+  ],
 };
 
 export async function middleware(request) {

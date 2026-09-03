@@ -1,0 +1,61 @@
+﻿# =====================================================================
+# สร้างไอคอน PWA จาก public/logo.png (ตราสัญลักษณ์ กยท. 256x256 พื้นโปร่ง)
+#
+# เครื่องนี้ไม่มี Node.js และไม่มีโปรแกรมแต่งรูป จึงใช้ System.Drawing
+# ที่ติดมากับ Windows อยู่แล้ว
+#
+# พื้นหลังเป็นสีขาว ไม่ใช่พื้นโปร่ง เพราะตราเป็นวงสีเขียว
+# ถ้าปล่อยโปร่งแล้วระบบปฏิบัติการวางบนพื้นเข้ม ตราจะจมหายไป
+# (ปัญหาเดียวกับตราในแถบหัวเรื่องที่ต้องรองด้วยวงกลมขาว)
+#
+# รันเมื่อเปลี่ยน logo.png เท่านั้น:  powershell -File build\make-icons.ps1
+# =====================================================================
+
+$ErrorActionPreference = "Stop"
+Add-Type -AssemblyName System.Drawing
+
+$root = Split-Path -Parent $PSScriptRoot
+$srcPath = Join-Path $root "public\logo.png"
+$outDir = Join-Path $root "public\icons"
+
+if (-not (Test-Path $srcPath)) { throw "ไม่พบ $srcPath" }
+if (-not (Test-Path $outDir)) { New-Item -ItemType Directory -Path $outDir | Out-Null }
+
+$src = [System.Drawing.Image]::FromFile($srcPath)
+Write-Host "ต้นฉบับ $($src.Width)x$($src.Height)"
+
+function New-Icon {
+  param([int]$Size, [double]$Ratio, [string]$Name)
+
+  $bmp = New-Object System.Drawing.Bitmap($Size, $Size)
+  $gfx = [System.Drawing.Graphics]::FromImage($bmp)
+  $gfx.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+  $gfx.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+  $gfx.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+  $gfx.Clear([System.Drawing.Color]::White)
+
+  $inner = [int]($Size * $Ratio)
+  $pad = [int](($Size - $inner) / 2)
+  $gfx.DrawImage($src, $pad, $pad, $inner, $inner)
+  $gfx.Dispose()
+
+  $path = Join-Path $outDir $Name
+  $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
+  $bmp.Dispose()
+  Write-Host ("  {0,-22} {1}x{1}  ตรากว้าง {2}px" -f $Name, $Size, $inner)
+}
+
+# purpose "any" — ระบบวาดตามที่ให้ไปเลย เว้นขอบพองาม
+New-Icon -Size 192 -Ratio 0.86 -Name "icon-192.png"
+New-Icon -Size 512 -Ratio 0.86 -Name "icon-512.png"
+
+# purpose "maskable" — Android ครอบเป็นวงกลม/สี่เหลี่ยมมนตามธีมของเครื่อง
+# เนื้อหาต้องอยู่ในวงกลมกลางภาพเส้นผ่านศูนย์กลาง 80% ของด้าน
+# สี่เหลี่ยมที่ใหญ่สุดที่อยู่ในวงนั้นได้ = 0.8 / sqrt(2) = 0.566 ของด้าน
+New-Icon -Size 512 -Ratio 0.55 -Name "icon-maskable-512.png"
+
+# iOS ไม่รองรับ maskable และไม่ทำมุมมนให้เอง ใช้ตัวเว้นขอบมากหน่อยจะดูดีกว่า
+New-Icon -Size 180 -Ratio 0.8 -Name "apple-touch-icon.png"
+
+$src.Dispose()
+Write-Host "`nเสร็จแล้ว ไฟล์อยู่ที่ public\icons\"

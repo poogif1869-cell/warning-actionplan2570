@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ออฟไลน์ — ระบบแจ้งเตือนผลการดำเนินงาน กยท.</title>
+    <!--
+      หน้านี้ถูกแคชไว้ตั้งแต่ติดตั้ง Service Worker จึงเขียนสไตล์ไว้ในไฟล์เลย
+      ลิงก์ไป globals.css ไม่ได้ เพราะชื่อไฟล์มี hash ที่เปลี่ยนทุกครั้งที่ build
+      สีจึงต้องเขียนตรง ๆ ไม่ใช้ตัวแปรธีม แต่ยังรองรับโหมดมืดด้วย media query
+    -->
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f2f5f1;
+        --surface: #ffffff;
+        --border: #d3ded6;
+        --text: #132018;
+        --muted: #55665c;
+        --brand: #0a4227;
+        --gold: #b8892b;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0f1512;
+          --surface: #161d19;
+          --border: #2b3931;
+          --text: #e4ece7;
+          --muted: #9fb0a6;
+          --brand: #45c286;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Sarabun", "Noto Sans Thai", "Leelawadee UI", Tahoma, "Segoe UI",
+          sans-serif;
+        font-size: 15px;
+        line-height: 1.65;
+      }
+      .box {
+        max-width: 420px;
+        width: 100%;
+        text-align: center;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-top: 3px solid var(--gold);
+        border-radius: 10px;
+        padding: 30px 24px;
+      }
+      img {
+        width: 62px;
+        height: 62px;
+        border-radius: 50%;
+        background: #fff;
+        padding: 3px;
+        box-shadow: 0 0 0 1.5px var(--gold);
+      }
+      h1 {
+        font-size: 18px;
+        margin: 16px 0 8px;
+      }
+      p {
+        margin: 0 0 8px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      button {
+        margin-top: 18px;
+        padding: 10px 22px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--brand);
+        color: #fff;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      @media (prefers-color-scheme: dark) {
+        button {
+          color: #0f1512;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <img src="/logo.png" alt="ตราสัญลักษณ์การยางแห่งประเทศไทย" width="62" height="62" />
+      <h1>ตอนนี้ไม่ได้เชื่อมต่ออินเทอร์เน็ต</h1>
+      <p>
+        ระบบแจ้งเตือนผลการดำเนินงานต้องดึงข้อมูลจากเซิร์ฟเวอร์ทุกครั้ง
+        จึงใช้งานแบบออฟไลน์ไม่ได้
+      </p>
+      <p>ต่ออินเทอร์เน็ตแล้วกดปุ่มด้านล่างเพื่อลองใหม่</p>
+      <button onclick="location.reload()">ลองใหม่</button>
+    </div>
+  </body>
+</html>
