@@ -13,10 +13,13 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY, isConfigured } from "@/lib/supabase/co
    จะได้ HTML แทน JSON/JavaScript แล้วปุ่ม "ติดตั้ง" จะไม่ขึ้นเลยโดยไม่มี error ให้เห็น
 
    sw.js ยังต้องอยู่นอกประตูตลอดไป เพราะเบราว์เซอร์เรียกเช็คเวอร์ชันใหม่เป็นระยะ
-   แม้ตอนที่เซสชันหมดอายุแล้ว */
+   แม้ตอนที่เซสชันหมดอายุแล้ว
+
+   og-image.png ก็เหมือนกัน — บ็อตของ LINE/Facebook ที่มาดึงรูปตัวอย่างตอนแชร์ลิงก์
+   ไม่มีคุกกี้เซสชันของใครทั้งนั้น ถ้ากันไว้ การ์ดในแชทจะขึ้นเป็นกรอบเปล่า */
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|logo.png|icons/|manifest.webmanifest|sw.js|offline.html).*)",
+    "/((?!_next/static|_next/image|favicon.ico|logo.png|og-image.png|icons/|manifest.webmanifest|sw.js|offline.html).*)",
   ],
 };
 

@@ -93,12 +93,32 @@ GEMINI_API_KEY = AIza...
 
 ไอคอนสร้างด้วย `powershell -File build\make-icons.ps1`
 
-- **ไอคอนแอป** (180-512px) ย่อจาก `public/logo.png` — ตราสัญลักษณ์ กยท. เต็มดวง
-- **favicon** เป็นหยดน้ำยางบนวงกลมเขียวที่วาดขึ้นใหม่เป็นเวกเตอร์
-  เพราะ favicon แสดงจริงที่ 16px ซึ่งรายละเอียดของตราเต็มเละหมด
+โครงแบบเดียวกับไอคอน Chrome — วงนอกเขียว กยท. → วงในขาว → หยดน้ำยางสีทอง
+**พื้นนอกวงกลมโปร่งใส ไม่ใช่สี่เหลี่ยมขาว** ยกเว้น `apple-touch-icon` กับ
+`icon-maskable` ที่ระบบปฏิบัติการไม่รองรับพื้นโปร่ง ซึ่งรองด้วย**เขียว ไม่ใช่ขาว**
 
-รันใหม่เมื่อเปลี่ยนรูปเท่านั้น และ **อย่าลืมขยับ `VERSION` ใน `public/sw.js`**
+วาดขึ้นใหม่เป็นเวกเตอร์ ไม่ได้ย่อจาก `public/logo.png` เพราะตราเต็มดวง
+เละหมดที่ 16px ซึ่งเป็นขนาดที่ favicon แสดงจริง
+
+รันใหม่เมื่อเปลี่ยนแบบเท่านั้น และ **อย่าลืมขยับ `VERSION` ใน `public/sw.js`**
 ไม่งั้นเครื่องที่ติดตั้งแอปไว้แล้วจะเห็นไอคอนเก่าตลอดไป
+ถ้าแก้รูป ต้องแก้ทั้ง `build\make-icons.ps1` (PNG) และ `public/icons/favicon.svg` (SVG)
+
+## รูปตัวอย่างตอนแชร์ลิงก์เข้า LINE
+
+ส่งลิงก์เว็บเข้า LINE / Facebook / X แล้วจะขึ้นการ์ดพร้อมรูป ชื่อระบบ และคำอธิบาย
+รูปคือ `public/og-image.png` ขนาด 1200×630 สร้างด้วย
+
+```powershell
+powershell -File build\make-og.ps1
+```
+
+รันใหม่เมื่อเปลี่ยนข้อความบนการ์ดหรือเปลี่ยนไอคอน
+
+**ถ้าใช้โดเมนของตัวเอง** ให้ตั้ง `NEXT_PUBLIC_SITE_URL` ใน Vercel เป็น URL เต็ม
+(เช่น `https://plan.raot.co.th`) ไม่ตั้งก็ได้ ระบบจะใช้โดเมน production ของ Vercel เอง
+
+LINE แคชการ์ดไว้นาน ถ้าแก้รูปแล้วยังเห็นของเก่า ให้ลองส่งลิงก์ที่ต่อ `?v=2` ท้าย URL
 
 ## ตรวจก่อน push
 
@@ -123,7 +143,7 @@ powershell -File check\verify-imports.ps1   # ตรวจ import/export แล�
 | `app/api/chat/route.js` | เรียก Gemini ฝั่งเซิร์ฟเวอร์ — คีย์อยู่ที่นี่ที่เดียว |
 | `components/assistant.jsx` | ปุ่มลอย + แผงแชท |
 | `app/manifest.js` · `public/sw.js` | ไฟล์ PWA — manifest กับ service worker |
-| `build/make-icons.ps1` | สร้างไอคอน PWA จาก `public/logo.png` |
+| `build/make-icons.ps1` · `build/make-og.ps1` | สร้างไอคอนและรูปตัวอย่างตอนแชร์ลิงก์ |
 | `middleware.js` | ต่ออายุเซสชัน Supabase + กันคนที่ยังไม่ล็อกอิน + คืน 401 ให้ `/api/*` + ปล่อยไฟล์ PWA ผ่าน |
 | `supabase/schema.sql` | 5 ตาราง + trigger + Row Level Security |
 | `app/(app)/` | 7 หน้า: ภาพรวม / แจ้งเตือน / ยุทธศาสตร์&ตัวชี้วัด / โครงการ / งบประมาณ / ความเชื่อมโยงแผน / ความเสี่ยง |
