@@ -18,23 +18,31 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/";
+const LIST_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
 
 /* ---------------------------------------------------------------------
    รายชื่อรุ่นที่จะไล่ใช้ ตัวแรกคือตัวหลัก ที่เหลือคือตัวสำรอง
 
-   ปัญหาที่เจอจริง: **รุ่นใหม่ล่าสุดคือรุ่นที่คิวเต็มบ่อยที่สุด** เพราะคนแห่ไปใช้
-   ส่วนรุ่นก่อนหน้าที่ยังอยู่บนชั้นฟรีเหมือนกันกลับว่างกว่ามาก
-   งานของเว็บนี้คือ "อ่านตัวเลขจาก JSON ที่ส่งไปให้แล้วสรุปเป็นภาษาไทย"
-   ไม่ต้องใช้รุ่นแรงที่สุด รุ่นรองก็ตอบได้คุณภาพเท่ากัน
+   **Google ปลดระวางรุ่นถี่มาก** และรุ่นที่ยังอยู่ในเอกสารก็อาจใช้ไม่ได้กับ
+   คีย์ที่เพิ่งสมัคร ("no longer available to new users") รายชื่อที่ฮาร์ดโค้ดไว้
+   จึงเป็นแค่ตัวตั้งต้น ไม่ใช่ที่พึ่งสุดท้าย — ถ้าตายหมดทั้งรายการ
+   ระบบจะไปถาม ListModels ว่าคีย์นี้ใช้รุ่นไหนได้ แล้วเลือกเองอัตโนมัติ
+   (ดู discoverModel ด้านล่าง) เจอปัญหานี้มาสามรอบแล้ว จึงต้องแก้ที่ราก
+
+   สองรุ่นนี้ Google บอกมาเองในข้อความ error ว่าให้ใช้แทนตัวที่ปลดระวาง
+   จึงยืนยันได้ว่ามีจริง ไม่ได้เดาจากเอกสารที่อาจเก่า
+
+   ลำดับ: ตัวหลักเอา 3.6 ที่ยืนยันแล้วว่ามีจริง ตามด้วยรุ่นเบากว่า
+   ซึ่งคนใช้น้อยกว่าจึงคิวว่างกว่า — งานของเว็บนี้คืออ่านตัวเลขจาก JSON
+   ที่ส่งไปให้แล้วสรุปเป็นภาษาไทย ไม่ต้องใช้รุ่นแรงที่สุด
 
    เจอ 503 (คิวเต็ม) / 429 (โควตา) / 404 (ปลดระวาง) แล้วจะสลับไปตัวถัดไปเอง
-   ผู้ใช้ไม่ต้องมานั่งเดาว่าตอนนี้รุ่นไหนว่าง
 
    ตั้ง GEMINI_MODEL ทับตัวหลักได้ และ GEMINI_MODEL_FALLBACK
    (คั่นด้วยจุลภาค) ทับรายการสำรองได้ ทั้งคู่แก้ที่ Vercel ไม่ต้องแตะโค้ด
    --------------------------------------------------------------------- */
-const DEFAULT_MODEL = "gemini-2.5-flash";
-const DEFAULT_FALLBACKS = "gemini-3.6-flash,gemini-2.5-flash-lite";
+const DEFAULT_MODEL = "gemini-3.6-flash";
+const DEFAULT_FALLBACKS = "gemini-3.5-flash,gemini-3.5-flash-lite";
 
 /* ตัด "models/" ที่นำหน้าออก เพราะ ENDPOINT เติมให้อยู่แล้ว
    ถ้าใครก๊อบชื่อรุ่นจากข้อความ error มาวางตรง ๆ จะได้ models/models/... แล้วพัง */
@@ -61,6 +69,49 @@ const MODEL = MODELS[0];
 /* รุ่นที่ใช้ได้ล่าสุด — เริ่มจากตัวนี้ก่อนในคำถามถัดไป ไม่ต้องไปเจอ 503 ซ้ำ
    (serverless ใช้ instance ซ้ำ ค่านี้จึงอยู่ข้ามคำถามได้ระยะหนึ่ง) */
 let goodModel = null;
+
+/* ---------------------------------------------------------------------
+   ถามรายชื่อรุ่นที่คีย์นี้ใช้ได้จริง
+
+   ใช้ทั้งในหน้าตรวจสอบ (?models=1) และในตัวกู้สถานการณ์อัตโนมัติ
+   ตอนที่รุ่นในรายการตายหมด
+   --------------------------------------------------------------------- */
+async function listModels(apiKey) {
+  const r = await fetch(
+    LIST_ENDPOINT + "?pageSize=200&key=" + encodeURIComponent(apiKey)
+  );
+  let d = null;
+  try {
+    d = await r.json();
+  } catch (e) {
+    d = null;
+  }
+  if (!r.ok) return { ok: false, status: r.status, data: d, models: [] };
+
+  const models = ((d && d.models) || [])
+    .filter((m) => (m.supportedGenerationMethods || []).indexOf("generateContent") >= 0)
+    .map((m) => normModel(m.name))
+    .filter(Boolean);
+  return { ok: true, status: r.status, data: d, models };
+}
+
+/* รุ่นที่ไม่เกี่ยวกับงานของเว็บนี้ (สร้างภาพ เสียง วิดีโอ ฝังเวกเตอร์)
+   บางตัวรองรับ generateContent เหมือนกันแต่ตอบกลับมาเป็นสื่อ ไม่ใช่ข้อความ */
+const OFF_TOPIC = /embedding|aqa|imagen|veo|image|audio|tts|live|robotics/i;
+
+/* เลือกรุ่นที่เหมาะกับงานสรุปข้อความจากรายชื่อที่ใช้ได้จริง
+   เรียงความชอบ: flash ธรรมดา → flash ทุกแบบ (รวม lite) → อะไรก็ได้ที่เหลือ
+   เลี่ยง pro เพราะชั้นฟรีไม่รองรับแล้ว และ flash เร็วพอสำหรับงานนี้ */
+function pickModel(models) {
+  const usable = models.filter((m) => !OFF_TOPIC.test(m));
+  return (
+    usable.find((m) => /flash/i.test(m) && !/lite/i.test(m) && !/preview/i.test(m)) ||
+    usable.find((m) => /flash/i.test(m) && !/lite/i.test(m)) ||
+    usable.find((m) => /flash/i.test(m)) ||
+    usable[0] ||
+    null
+  );
+}
 
 /* เพดานฝั่งเซิร์ฟเวอร์ — ไม่เชื่อว่า client จะส่งมาเท่าไหร่ */
 const MAX_CHARS = 2000;      // ความยาวข้อความหนึ่งข้อความ
@@ -114,14 +165,9 @@ export async function GET(request) {
     return NextResponse.json({ error: "ยังไม่ได้ตั้งค่า GEMINI_API_KEY" }, { status: 503 });
   }
 
-  let r;
-  let d = null;
+  let list;
   try {
-    r = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=" +
-        encodeURIComponent(apiKey)
-    );
-    d = await r.json();
+    list = await listModels(apiKey);
   } catch (e) {
     return NextResponse.json(
       { error: "ติดต่อ Gemini ไม่ได้: " + (e && e.message ? e.message : String(e)) },
@@ -129,34 +175,34 @@ export async function GET(request) {
     );
   }
 
-  if (!r.ok) {
+  if (!list.ok) {
     return NextResponse.json(
-      { error: explainGemini(r.status, errorDetail(d, r.status)) },
+      { error: explainGemini(list.status, errorDetail(list.data, list.status)) },
       { status: 502 }
     );
   }
 
-  const all = (d && d.models) || [];
-  const usable = all
-    .filter((m) => (m.supportedGenerationMethods || []).indexOf("generateContent") >= 0)
-    .map((m) => String(m.name || "").replace(/^models\//, ""));
-
-  const configured = MODELS.map((m) => ({
-    model: m,
-    usable: usable.indexOf(m) >= 0,
-  }));
-  const missing = configured.filter((x) => !x.usable).map((x) => x.model);
+  const usable = list.models;
+  const chain = MODELS.map((m) => ({ model: m, usable: usable.indexOf(m) >= 0 }));
+  const missing = chain.filter((x) => !x.usable).map((x) => x.model);
+  const autoPick = pickModel(usable);
 
   return NextResponse.json({
     configured: true,
     /* ลำดับที่เว็บจะไล่ใช้ ตัวแรกคือตัวหลัก ที่เหลือคือตัวสำรองเวลาคิวเต็ม */
-    modelChain: configured,
+    modelChain: chain,
+    /* รุ่นที่ระบบจะเลือกเองถ้ารายการข้างบนตายหมด */
+    autoFallback: autoPick,
     usableModels: usable,
-    hint: missing.length
-      ? "รุ่นเหล่านี้ใช้ไม่ได้กับคีย์นี้: " + missing.join(", ") +
-        " — เลือกชื่อจาก usableModels ไปตั้ง GEMINI_MODEL (ตัวหลัก) " +
-        "และ GEMINI_MODEL_FALLBACK (ตัวสำรอง คั่นด้วยจุลภาค) ใน Vercel แล้ว Redeploy"
-      : "ทุกรุ่นในรายการใช้ได้ ถ้าเจอ 503 เว็บจะสลับไปตัวถัดไปให้เอง",
+    hint: !usable.length
+      ? "คีย์นี้ยังเรียก generateContent ไม่ได้เลยสักรุ่น — ตรวจว่าเปิดใช้ Generative Language API แล้ว"
+      : missing.length === chain.length
+        ? "รุ่นที่ตั้งไว้ใช้ไม่ได้ทั้งหมด แต่ไม่ต้องแก้อะไร ระบบจะเลือก " +
+          autoPick + " ให้เองอัตโนมัติ (ตั้ง GEMINI_MODEL ทับได้ถ้าอยากบังคับรุ่นอื่น)"
+        : missing.length
+          ? "รุ่นเหล่านี้ใช้ไม่ได้กับคีย์นี้: " + missing.join(", ") +
+            " — ตัวที่เหลือยังใช้ได้ ระบบจะข้ามตัวที่ตายให้เอง"
+          : "ทุกรุ่นในรายการใช้ได้ ถ้าเจอ 503 เว็บจะสลับไปตัวถัดไปให้เอง",
   });
 }
 
@@ -294,7 +340,9 @@ export async function POST(request) {
 
   /* รุ่นที่ควรลองก่อน แล้วตามด้วยตัวสำรอง */
   const modelOrder =
-    goodModel && MODELS.indexOf(goodModel) > 0
+    /* goodModel อาจเป็นรุ่นที่ค้นเจอเอง ซึ่งไม่อยู่ใน MODELS
+       จึงเช็คแค่ว่ามีค่าไหม ไม่ได้เช็คว่าอยู่ในรายการหรือเปล่า */
+    goodModel
       ? [goodModel].concat(MODELS.filter((m) => m !== goodModel))
       : MODELS;
 
@@ -315,6 +363,28 @@ export async function POST(request) {
          เพราะเป็นปัญหาของคำขอหรือของคีย์เอง หยุดเลย */
       const s = out.r.status;
       if (s !== 503 && s !== 429 && s !== 404) break;
+    }
+
+    /* ---------------------------------------------------------------
+       กู้สถานการณ์อัตโนมัติเมื่อรุ่นในรายการตายหมด
+
+       Google ปลดระวางรุ่นถี่มาก และรุ่นเดียวกันอาจใช้ได้กับคีย์เก่า
+       แต่ใช้ไม่ได้กับคีย์ที่เพิ่งสมัคร รายชื่อที่ฮาร์ดโค้ดไว้จึงเชื่อไม่ได้ถาวร
+
+       ถามตัว API เลยว่าคีย์นี้ใช้รุ่นไหนได้ แล้วเลือกให้เอง
+       ทำเฉพาะตอนเจอ 404 (ไม่มีรุ่นนั้น) — ถ้าเป็น 503 คือรุ่นมีอยู่แต่คิวเต็ม
+       ไปหารุ่นใหม่ก็ไม่ช่วย และเสียคำขอทิ้งเปล่า ๆ
+       --------------------------------------------------------------- */
+    if (!out.r.ok && out.r.status === 404) {
+      const list = await listModels(apiKey);
+      const found = list.ok ? pickModel(list.models) : null;
+      if (found && MODELS.indexOf(found) < 0) {
+        const rescue = await tryModel(found);
+        if (rescue.r.ok) {
+          goodModel = found;
+          out = rescue;
+        }
+      }
     }
 
     res = out.r;
@@ -435,8 +505,11 @@ function explainGemini(status, detail) {
       "มักเป็นคีย์ผิด หรือรุ่น " + MODEL + " ไม่มีอยู่จริง/คีย์นี้ใช้ไม่ได้ · " + detail;
   }
   if (status === 404) {
-    return "ไม่พบรุ่นที่ตั้งไว้เลยสักตัว (" + MODELS.join(", ") + ") — " +
-      "เปิด /api/chat?models=1 ดูว่าคีย์นี้ใช้รุ่นไหนได้ แล้วตั้ง GEMINI_MODEL ใหม่ · " + detail;
+    /* ลองค้นรุ่นจาก ListModels ให้แล้วก็ยังไม่ได้ แปลว่าคีย์นี้ไม่มีรุ่นที่ใช้ได้เลย
+       หรือ ListModels เองก็เรียกไม่ผ่าน (คีย์ผิด/ยังไม่เปิดใช้ API) */
+    return "ไม่พบรุ่นที่ใช้ได้เลย ทั้งรุ่นที่ตั้งไว้ (" + MODELS.join(", ") + ") " +
+      "และรุ่นที่ค้นหาให้อัตโนมัติ — เปิด /api/chat?models=1 ดูว่าคีย์นี้ใช้รุ่นไหนได้บ้าง " +
+      "ถ้ารายการว่างเปล่า แปลว่าคีย์ยังไม่ได้เปิดใช้ Generative Language API · " + detail;
   }
   return "Gemini ตอบกลับผิดพลาด · " + detail;
 }
