@@ -136,6 +136,7 @@ export default function Assistant() {
 
   const bodyRef = useRef(null);
   const inputRef = useRef(null);
+  const panelRef = useRef(null);
 
   /* ทักทายหลังหน้าโหลดเสร็จสักครู่ ไม่ใช่เด้งพร้อมหน้าจนบังของที่ผู้ใช้กำลังอ่าน
      กดปิดแล้วจำไว้ ไม่ทักซ้ำอีก — ทักทุกครั้งที่เปิดเว็บจะกลายเป็นน่ารำคาญ */
@@ -174,9 +175,83 @@ export default function Assistant() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [msgs, busy, error]);
 
+  /* โฟกัสช่องพิมพ์เฉพาะบนจอใหญ่
+     บนมือถือคีย์บอร์ดจะเด้งขึ้นมาทันทีที่เปิดแชท บังคำถามตัวอย่างจนกดไม่ได้
+     แอปแชททั่วไปก็ไม่เด้งคีย์บอร์ดให้เองตอนเพิ่งเปิดห้อง */
   useEffect(() => {
-    if (open && inputRef.current) inputRef.current.focus();
+    if (!open) return;
+    if (window.matchMedia("(max-width:820px)").matches) return;
+    if (inputRef.current) inputRef.current.focus();
   }, [open]);
+
+  /* ---------------------------------------------------------------
+     ทำให้แผงสูงเท่า "พื้นที่ที่มองเห็นจริง" บนมือถือ เหมือนแอปแชททั่วไป
+
+     ตอนคีย์บอร์ดเด้งขึ้นมา iOS Safari **ไม่ย่อ layout viewport ให้**
+     แผงที่สูง 100dvh จึงยังสูงเท่าเดิม ช่องพิมพ์ถูกคีย์บอร์ดบังไปเฉย ๆ
+     ต้องอ่านขนาดจริงจาก visualViewport แล้วกำหนดความสูงเอง
+     ส่วน offsetTop ใช้ชดเชยตอนหน้าถูกเลื่อนขึ้นไปหลบคีย์บอร์ด
+
+     Android จัดการให้แล้วผ่าน interactiveWidget:"resizes-content"
+     ใน app/layout.jsx แต่โค้ดนี้ทำงานถูกทั้งสองฝั่ง
+     --------------------------------------------------------------- */
+  useEffect(() => {
+    if (!open) return;
+    const vv = window.visualViewport;
+    const el = panelRef.current;
+    if (!vv || !el) return;
+
+    const mq = window.matchMedia("(max-width:820px)");
+
+    function apply() {
+      if (!mq.matches) {
+        // จอใหญ่ปล่อยให้ CSS คุมเอง อย่าค้างค่าที่คำนวณไว้ตอนจอเล็ก
+        el.style.height = "";
+        el.style.transform = "";
+        return;
+      }
+      el.style.height = vv.height + "px";
+      el.style.transform = "translateY(" + vv.offsetTop + "px)";
+
+      /* แผงเตี้ยลงตอนคีย์บอร์ดเด้ง ข้อความล่าสุดจะหลุดออกนอกสายตา
+         ต้องรั้งให้อยู่ล่างสุดเสมอ เหมือนที่แอปแชททำ */
+      const body = bodyRef.current;
+      if (body) body.scrollTop = body.scrollHeight;
+    }
+
+    apply();
+    vv.addEventListener("resize", apply);
+    vv.addEventListener("scroll", apply);
+    if (mq.addEventListener) mq.addEventListener("change", apply);
+
+    return () => {
+      vv.removeEventListener("resize", apply);
+      vv.removeEventListener("scroll", apply);
+      if (mq.removeEventListener) mq.removeEventListener("change", apply);
+      el.style.height = "";
+      el.style.transform = "";
+    };
+  }, [open]);
+
+  /* กันหน้าเบื้องหลังเลื่อนตามนิ้วตอนแผงเต็มจอ — แอปแชทไม่มีใครทำแบบนั้น */
+  useEffect(() => {
+    if (!open) return;
+    if (!window.matchMedia("(max-width:820px)").matches) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  /* ช่องพิมพ์ยืดตามจำนวนบรรทัด เริ่มที่บรรทัดเดียวเหมือนแอปแชท
+     สูงสุด 120px แล้วค่อยให้เลื่อนในช่อง ไม่งั้นข้อความยาว ๆ จะดันแผงจนเต็มจอ */
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 120) + "px";
+  }, [draft, open]);
 
   /* ปิดด้วย Esc — แผงเต็มจอบนมือถือ ถ้าไม่มีทางหนีจะน่ารำคาญ */
   useEffect(() => {
@@ -291,7 +366,7 @@ export default function Assistant() {
       </div>
 
       {open ? (
-        <section className="chatpanel" aria-label="ผู้ช่วย AI">
+        <section className="chatpanel" aria-label="ผู้ช่วย AI" ref={panelRef}>
           <header className="chathead">
             <Robot size={34} className="chathead-bot" />
             <div className="chathead-title">
@@ -376,9 +451,9 @@ export default function Assistant() {
           <div className="chatfoot">
             <textarea
               ref={inputRef}
-              rows={2}
+              rows={1}
               value={draft}
-              placeholder="พิมพ์คำถาม แล้วกด Enter (Shift+Enter ขึ้นบรรทัดใหม่)"
+              placeholder="พิมพ์คำถาม…"
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={onKeyDown}
               maxLength={2000}

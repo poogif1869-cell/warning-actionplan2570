@@ -26,6 +26,11 @@ export const metadata = {
 export const viewport = {
   width: "device-width",
   initialScale: 1,
+  /* คีย์บอร์ดบนจอเด้งขึ้นมาแล้วให้ย่อพื้นที่หน้าเว็บลงจริง ๆ
+     ไม่ใช่ลอยทับ — 100dvh จะได้ตรงกับที่ตาเห็น และช่องพิมพ์ในแชท
+     ไม่ถูกคีย์บอร์ดบัง (Android ทำตามค่านี้ ส่วน iOS ยังไม่รองรับ
+     จึงต้องอาศัย visualViewport ใน components/assistant.jsx ด้วย) */
+  interactiveWidget: "resizes-content",
   /* ไม่ล็อกการซูม ผู้ใช้ที่สายตาไม่ดีต้องขยายอ่านตัวเลขในตารางได้ */
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#0a4227" },
