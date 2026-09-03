@@ -122,6 +122,73 @@ New-Icon -Size 512 -Name "icon-maskable-512.png" -Ratio 0.58 -GreenBg $true
 
 $src.Dispose()
 
+# =====================================================================
+# หุ่นยนต์ผู้ช่วย AI — จาก Images\chat AI.png
+#
+# ⚠️ ภาพต้นฉบับเป็น 24bpp **ไม่มีช่องอัลฟา พื้นเป็นสีขาวทึบ**
+# ถ้าเอาไปวางบนปุ่มลอยสีเขียวตรง ๆ จะเห็นเป็นสี่เหลี่ยมขาว
+# จึง **ตัดเป็นวงกลม** (SetClip) ให้นอกวงกลายเป็นพื้นโปร่ง
+# ตัวภาพเป็นวงกลมอยู่แล้ว จึงไม่เสียเนื้อหาอะไรไป
+#
+# ออกไฟล์เดียวขนาด 192px แล้วให้เบราว์เซอร์ย่อเอง
+# หน้าเว็บใช้ตั้งแต่ 28 ถึง 54px ตัวเดียว 192px จึงคมพอแม้บนจอ 3x
+# =====================================================================
+$botSrcPath = Join-Path $root "Images\chat AI.png"
+if (Test-Path $botSrcPath) {
+  $bot = [System.Drawing.Bitmap]::FromFile($botSrcPath)
+
+  # หากรอบเนื้อหาโดยถือว่า "เกือบขาว" คือพื้นหลัง (ภาพนี้ไม่มีอัลฟาให้ดู)
+  $bMinX = $bot.Width; $bMinY = $bot.Height; $bMaxX = -1; $bMaxY = -1
+  for ($y = 0; $y -lt $bot.Height; $y += 2) {
+    for ($x = 0; $x -lt $bot.Width; $x += 2) {
+      $c = $bot.GetPixel($x, $y)
+      if ($c.R -le 242 -or $c.G -le 242 -or $c.B -le 242) {
+        if ($x -lt $bMinX) { $bMinX = $x }
+        if ($x -gt $bMaxX) { $bMaxX = $x }
+        if ($y -lt $bMinY) { $bMinY = $y }
+        if ($y -gt $bMaxY) { $bMaxY = $y }
+      }
+    }
+  }
+
+  # ครอบเป็นจัตุรัสรอบจุดกึ่งกลางของวง ใช้ด้านที่ยาวกว่าเป็นเส้นผ่านศูนย์กลาง
+  $cx = ($bMinX + $bMaxX) / 2.0
+  $cy = ($bMinY + $bMaxY) / 2.0
+  $side = [Math]::Max($bMaxX - $bMinX + 1, $bMaxY - $bMinY + 1)
+  $botCrop = New-Object System.Drawing.Rectangle(
+    [int]($cx - $side / 2), [int]($cy - $side / 2), [int]$side, [int]$side)
+  Write-Host "`nหุ่นยนต์ผู้ช่วย — ต้นฉบับ $($bot.Width)x$($bot.Height) ครอบเป็นวง $([int]$side)px"
+
+  $botSize = 192
+  $bmp = New-Object System.Drawing.Bitmap($botSize, $botSize)
+  $gfx = [System.Drawing.Graphics]::FromImage($bmp)
+  $gfx.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+  $gfx.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+  $gfx.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+  $gfx.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
+  $gfx.Clear([System.Drawing.Color]::Transparent)
+
+  # หดวงตัดเข้ามาครึ่งพิกเซล กันขอบขาวบาง ๆ หลงเหลือรอบวงเขียว
+  $clip = New-Object System.Drawing.Drawing2D.GraphicsPath
+  $clip.AddEllipse(0.5, 0.5, $botSize - 1.0, $botSize - 1.0)
+  $gfx.SetClip($clip)
+
+  $gfx.DrawImage($bot, (New-Object System.Drawing.Rectangle(0, 0, $botSize, $botSize)),
+    $botCrop, [System.Drawing.GraphicsUnit]::Pixel)
+
+  $clip.Dispose()
+  $gfx.Dispose()
+  $bot.Dispose()
+
+  $botOut = Join-Path $outDir "bot.png"
+  $bmp.Save($botOut, [System.Drawing.Imaging.ImageFormat]::Png)
+  $bmp.Dispose()
+  Write-Host ("  {0,-24} {1,4}x{1,-4} ตัดเป็นวงกลม พื้นนอกวงโปร่ง" -f "bot.png", $botSize)
+}
+else {
+  Write-Host "`nข้าม bot.png — ไม่พบ $botSrcPath"
+}
+
 # ไฟล์ SVG ของไอคอนชุดก่อนใช้ไม่ได้แล้ว ต้นฉบับรอบนี้เป็นบิตแมป
 $oldSvg = Join-Path $outDir "favicon.svg"
 if (Test-Path $oldSvg) {

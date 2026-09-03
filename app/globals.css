@@ -722,30 +722,21 @@ th{box-shadow:inset 0 -1px 0 var(--border)}
 .chatfab-x{font-size:16px; line-height:1}
 
 /* ---------- หุ่นยนต์ผู้ช่วย ---------- */
-/* currentColor = สีเส้นขอบ ตา และหู ส่วนหน้าหุ่นใช้ var(--surface) จาก SVG */
-.robot{display:block; flex-shrink:0; color:var(--accent)}
-/* บนปุ่มพื้นเขียวเข้ม ต้องกลับเป็นสีอ่อน ไม่งั้นหุ่นจะจมไปกับพื้น
-   (ปัญหาเดียวกับตราสัญลักษณ์ในแถบหัวเรื่อง) */
-.chatfab .robot{color:var(--on-brand)}
-.chatfab .robot-head{fill:rgba(255,255,255,.16)}
+/* เป็นภาพ PNG ที่ถูกครอบเป็นวงกลมมาแล้ว (build/make-icons.ps1)
+   ไม่ใช่ SVG จึงเปลี่ยนสีตามธีมไม่ได้ — แต่ตัวภาพมีวงขอบเขียวกับพื้นขาวในตัว
+   จึงอ่านออกทั้งบนพื้นอ่อนและพื้นเข้ม ไม่ต้องมีวงรองแบบตราสัญลักษณ์ */
+.robot{display:block; flex-shrink:0; border-radius:50%; object-fit:cover}
 
-/* ไฟบนเสาอากาศกะพริบช้า ๆ ให้ดูว่ายังทำงานอยู่ */
-.robot-led{animation:robot-led 2.6s ease-in-out infinite}
-@keyframes robot-led{0%,100%{opacity:1} 50%{opacity:.35}}
+/* บนปุ่มพื้นเขียวเข้ม เติมวงขาวบาง ๆ ให้ขอบเขียวของภาพไม่จมไปกับพื้นปุ่ม */
+.chatfab .robot{box-shadow:0 0 0 1.5px rgba(255,255,255,.55)}
 
-/* กะพริบตาเป็นระยะ — ย่อแนวตั้งจากกึ่งกลางลูกตา */
-.robot-eyes{transform-origin:24px 22.5px; animation:robot-blink 5.5s infinite}
-@keyframes robot-blink{
-  0%,92%,100%{transform:scaleY(1)}
-  95%{transform:scaleY(.12)}
-}
-.chatavatar{margin-top:5px}
+.chatavatar{margin-top:4px}
 .chatavatar.thinking{animation:robot-bob 1.1s ease-in-out infinite}
 @keyframes robot-bob{0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)}}
 
 /* เคารพการตั้งค่าของเครื่องที่ปิดแอนิเมชัน (เมาเร็ว/ไมเกรน) */
 @media (prefers-reduced-motion:reduce){
-  .robot-led,.robot-eyes,.chatavatar.thinking,.chatgreet{animation:none}
+  .chatavatar.thinking,.chatgreet{animation:none}
 }
 
 /* ---------- บอลลูนทักทาย ---------- */

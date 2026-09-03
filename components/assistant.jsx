@@ -54,57 +54,30 @@ function writeSession(key, value) {
 }
 
 /* ---------------------------------------------------------------------
-   หุ่นยนต์ผู้ช่วย — วาดเป็น SVG ในโค้ดเลย
+   หุ่นยนต์ผู้ช่วย — ภาพจาก Images/chat AI.png
 
-   ไม่ใช้ไฟล์รูปเพราะต้องมีสองชุดสำหรับโหมดสว่าง/มืด และไม่ใช้ไลบรารีไอคอน
-   เพราะเครื่องที่พัฒนาลง dependency ไม่ได้
-   สีทั้งหมดอิง currentColor กับตัวแปรธีม จึงสลับโหมดมืดได้เอง
+   build/make-icons.ps1 ครอบภาพเป็นวงกลมแล้วบันทึกเป็น public/icons/bot.png
+   ต้นฉบับพื้นเป็นสีขาวทึบ ไม่มีช่องอัลฟา ถ้าไม่ครอบจะเห็นเป็นสี่เหลี่ยมขาว
+   บนปุ่มลอยสีเขียว
 
-   ไม่มีข้อความไทยใน SVG (คำทักทายเป็น HTML ข้าง ๆ) ตามกติกาเดิมของโปรเจกต์
+   ไฟล์เดียว 192px ใช้ทุกจุด (28-54px) เบราว์เซอร์ย่อเอง คมพอแม้บนจอ 3x
+   และโหลดครั้งเดียวถึงจะวางซ้ำหลายที่
 
    ตั้ง aria-hidden เพราะเป็นของตกแต่งล้วน ทุกจุดที่วางมีข้อความกำกับอยู่แล้ว
    ("ถาม AI", "ผู้ช่วย AI", คำทักทาย, ตัวคำตอบ) ถ้าประกาศชื่อด้วยจะถูกอ่านซ้ำสองรอบ
    --------------------------------------------------------------------- */
-function Robot({ size = 30, className }) {
+function Robot({ size = 34, className }) {
   return (
-    <svg
+    /* eslint-disable-next-line @next/next/no-img-element */
+    <img
       className={"robot" + (className ? " " + className : "")}
-      viewBox="0 0 48 46"
+      src="/icons/bot.png"
+      alt=""
       width={size}
       height={size}
+      decoding="async"
       aria-hidden="true"
-    >
-      {/* เสาอากาศ */}
-      <path d="M24 9V4.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-      <circle className="robot-led" cx="24" cy="3" r="2.7" fill="var(--gold)" />
-
-      {/* หูสองข้าง */}
-      <rect x="1.5" y="20" width="5" height="11" rx="2.5" fill="currentColor" />
-      <rect x="41.5" y="20" width="5" height="11" rx="2.5" fill="currentColor" />
-
-      {/* หัว */}
-      <rect
-        className="robot-head"
-        x="6" y="9" width="36" height="32" rx="11"
-        fill="var(--surface)" stroke="currentColor" strokeWidth="2.4"
-      />
-
-      {/* แก้ม */}
-      <circle cx="12.5" cy="30.5" r="2.6" fill="var(--gold)" opacity=".5" />
-      <circle cx="35.5" cy="30.5" r="2.6" fill="var(--gold)" opacity=".5" />
-
-      {/* ตา — กะพริบด้วย CSS */}
-      <g className="robot-eyes">
-        <circle cx="17.5" cy="22.5" r="3.7" fill="currentColor" />
-        <circle cx="30.5" cy="22.5" r="3.7" fill="currentColor" />
-      </g>
-
-      {/* ยิ้ม */}
-      <path
-        d="M18.5 30.2c1.7 2.6 3.6 3.9 5.5 3.9s3.8-1.3 5.5-3.9"
-        fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"
-      />
-    </svg>
+    />
   );
 }
 
@@ -440,7 +413,7 @@ export default function Assistant() {
               ✕
             </span>
           ) : (
-            <Robot size={30} />
+            <Robot size={34} />
           )}
           <span className="chatfab-text">{open ? "ปิด" : "ถาม AI"}</span>
         </button>
@@ -477,7 +450,7 @@ export default function Assistant() {
             {msgs.length === 0 ? (
               <div className="chatintro">
                 <div className="chathello">
-                  <Robot size={54} />
+                  <Robot size={58} />
                   <b>{GREETING}</b>
                 </div>
                 <p>
@@ -507,7 +480,7 @@ export default function Assistant() {
               ) : (
                 /* หุ่นยนต์ยืนข้างคำตอบทุกครั้ง จะได้แยกออกทันทีว่าอันไหนบอทพูด */
                 <div key={i} className="chatrow">
-                  <Robot size={26} className="chatavatar" />
+                  <Robot size={30} className="chatavatar" />
                   <div className="chatmsg bot">
                     <Rich text={m.text} />
                     {m.truncated ? (
@@ -522,7 +495,7 @@ export default function Assistant() {
 
             {busy ? (
               <div className="chatrow">
-                <Robot size={26} className="chatavatar thinking" />
+                <Robot size={30} className="chatavatar thinking" />
                 <div className="chatmsg bot chatwait">กำลังคิด…</div>
               </div>
             ) : null}
