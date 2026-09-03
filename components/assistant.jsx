@@ -19,6 +19,65 @@ const STARTERS = [
   "ตัวชี้วัดตัวไหนยังไม่บรรลุเป้าหมาย",
 ];
 
+/* ข้อความทักทายที่ลอยอยู่ข้างหุ่นยนต์ตอนยังไม่ได้เปิดแชท */
+const GREETING = "ให้ช่วยอะไรไหมครับ";
+const GREET_KEY = "raot-chat-greeted";
+
+/* ---------------------------------------------------------------------
+   หุ่นยนต์ผู้ช่วย — วาดเป็น SVG ในโค้ดเลย
+
+   ไม่ใช้ไฟล์รูปเพราะต้องมีสองชุดสำหรับโหมดสว่าง/มืด และไม่ใช้ไลบรารีไอคอน
+   เพราะเครื่องที่พัฒนาลง dependency ไม่ได้
+   สีทั้งหมดอิง currentColor กับตัวแปรธีม จึงสลับโหมดมืดได้เอง
+
+   ไม่มีข้อความไทยใน SVG (คำทักทายเป็น HTML ข้าง ๆ) ตามกติกาเดิมของโปรเจกต์
+
+   ตั้ง aria-hidden เพราะเป็นของตกแต่งล้วน ทุกจุดที่วางมีข้อความกำกับอยู่แล้ว
+   ("ถาม AI", "ผู้ช่วย AI", คำทักทาย, ตัวคำตอบ) ถ้าประกาศชื่อด้วยจะถูกอ่านซ้ำสองรอบ
+   --------------------------------------------------------------------- */
+function Robot({ size = 30, className }) {
+  return (
+    <svg
+      className={"robot" + (className ? " " + className : "")}
+      viewBox="0 0 48 46"
+      width={size}
+      height={size}
+      aria-hidden="true"
+    >
+      {/* เสาอากาศ */}
+      <path d="M24 9V4.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+      <circle className="robot-led" cx="24" cy="3" r="2.7" fill="var(--gold)" />
+
+      {/* หูสองข้าง */}
+      <rect x="1.5" y="20" width="5" height="11" rx="2.5" fill="currentColor" />
+      <rect x="41.5" y="20" width="5" height="11" rx="2.5" fill="currentColor" />
+
+      {/* หัว */}
+      <rect
+        className="robot-head"
+        x="6" y="9" width="36" height="32" rx="11"
+        fill="var(--surface)" stroke="currentColor" strokeWidth="2.4"
+      />
+
+      {/* แก้ม */}
+      <circle cx="12.5" cy="30.5" r="2.6" fill="var(--gold)" opacity=".5" />
+      <circle cx="35.5" cy="30.5" r="2.6" fill="var(--gold)" opacity=".5" />
+
+      {/* ตา — กะพริบด้วย CSS */}
+      <g className="robot-eyes">
+        <circle cx="17.5" cy="22.5" r="3.7" fill="currentColor" />
+        <circle cx="30.5" cy="22.5" r="3.7" fill="currentColor" />
+      </g>
+
+      {/* ยิ้ม */}
+      <path
+        d="M18.5 30.2c1.7 2.6 3.6 3.9 5.5 3.9s3.8-1.3 5.5-3.9"
+        fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 /* ---------------------------------------------------------------------
    ตัวแปลง markdown แบบย่อ
 
@@ -73,9 +132,28 @@ export default function Assistant() {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [greet, setGreet] = useState(false);
 
   const bodyRef = useRef(null);
   const inputRef = useRef(null);
+
+  /* ทักทายหลังหน้าโหลดเสร็จสักครู่ ไม่ใช่เด้งพร้อมหน้าจนบังของที่ผู้ใช้กำลังอ่าน
+     กดปิดแล้วจำไว้ ไม่ทักซ้ำอีก — ทักทุกครั้งที่เปิดเว็บจะกลายเป็นน่ารำคาญ */
+  useEffect(() => {
+    if (!configured) return;
+    try {
+      if (localStorage.getItem(GREET_KEY)) return;
+    } catch (e) {}
+    const t = setTimeout(() => setGreet(true), 1200);
+    return () => clearTimeout(t);
+  }, [configured]);
+
+  function dismissGreet() {
+    setGreet(false);
+    try {
+      localStorage.setItem(GREET_KEY, "1");
+    } catch (e) {}
+  }
 
   /* ถามเซิร์ฟเวอร์ครั้งเดียวว่าตั้งคีย์ไว้หรือยัง
      ยังไม่ตั้ง = ไม่แสดงปุ่มเลย ดีกว่าให้กดแล้วเจอ error ทุกครั้ง */
@@ -178,20 +256,45 @@ export default function Assistant() {
 
   return (
     <>
-      <button
-        className="chatfab"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        title={open ? "ปิดผู้ช่วย AI" : "ถามผู้ช่วย AI"}
-      >
-        <span aria-hidden="true">{open ? "✕" : "💬"}</span>
-        <span className="chatfab-text">{open ? "ปิด" : "ถาม AI"}</span>
-      </button>
+      <div className="chatdock">
+        {greet && !open ? (
+          <div className="chatgreet" role="status">
+            <span>{GREETING}</span>
+            <button
+              className="chatgreet-x"
+              onClick={dismissGreet}
+              aria-label="ปิดคำทักทาย"
+            >
+              ✕
+            </button>
+          </div>
+        ) : null}
+
+        <button
+          className={"chatfab" + (open ? " isopen" : "")}
+          onClick={() => {
+            setOpen((v) => !v);
+            dismissGreet();
+          }}
+          aria-expanded={open}
+          title={open ? "ปิดผู้ช่วย AI" : "ถามผู้ช่วย AI"}
+        >
+          {open ? (
+            <span className="chatfab-x" aria-hidden="true">
+              ✕
+            </span>
+          ) : (
+            <Robot size={30} />
+          )}
+          <span className="chatfab-text">{open ? "ปิด" : "ถาม AI"}</span>
+        </button>
+      </div>
 
       {open ? (
         <section className="chatpanel" aria-label="ผู้ช่วย AI">
           <header className="chathead">
-            <div>
+            <Robot size={34} className="chathead-bot" />
+            <div className="chathead-title">
               <b>ผู้ช่วย AI</b>
               <span className="chatsub">ข้อมูล ณ {asOfLabel}</span>
             </div>
@@ -217,6 +320,10 @@ export default function Assistant() {
           <div className="chatbody" ref={bodyRef}>
             {msgs.length === 0 ? (
               <div className="chatintro">
+                <div className="chathello">
+                  <Robot size={54} />
+                  <b>{GREETING}</b>
+                </div>
                 <p>
                   ถามได้ทั้งวิธีใช้เว็บ (เช่น กรอกงบตรงไหน) และข้อมูลจริงในระบบ
                   (เช่น หน่วยงานไหนเบิกจ่ายช้า) โดยตอบจากข้อมูลที่โหลดอยู่ตอนนี้
@@ -242,18 +349,27 @@ export default function Assistant() {
                   {m.text}
                 </div>
               ) : (
-                <div key={i} className="chatmsg bot">
-                  <Rich text={m.text} />
-                  {m.truncated ? (
-                    <div className="chatcut">
-                      คำตอบยาวเกินจึงถูกตัด — ลองถามให้แคบลง เช่น ระบุชื่อหรือรหัสโครงการ
-                    </div>
-                  ) : null}
+                /* หุ่นยนต์ยืนข้างคำตอบทุกครั้ง จะได้แยกออกทันทีว่าอันไหนบอทพูด */
+                <div key={i} className="chatrow">
+                  <Robot size={26} className="chatavatar" />
+                  <div className="chatmsg bot">
+                    <Rich text={m.text} />
+                    {m.truncated ? (
+                      <div className="chatcut">
+                        คำตอบยาวเกินจึงถูกตัด — ลองถามให้แคบลง เช่น ระบุชื่อหรือรหัสโครงการ
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               )
             )}
 
-            {busy ? <div className="chatmsg bot chatwait">กำลังคิด…</div> : null}
+            {busy ? (
+              <div className="chatrow">
+                <Robot size={26} className="chatavatar thinking" />
+                <div className="chatmsg bot chatwait">กำลังคิด…</div>
+              </div>
+            ) : null}
             {error ? <div className="banner bad chaterr">{error}</div> : null}
           </div>
 

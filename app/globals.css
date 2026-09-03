@@ -370,7 +370,7 @@ tr.exp-body > td{background:var(--surface2); padding:0}
   body{background:#fff; font-size:10.5pt; line-height:1.5}
 
   /* ผู้ช่วย AI ต้องไม่ติดไปในไฟล์ PDF — ซ่อนทุกโหมดพิมพ์ ไม่ใช่เฉพาะโหมดใดโหมดหนึ่ง */
-  .chatfab,.chatpanel{display:none !important}
+  .chatdock,.chatfab,.chatpanel{display:none !important}
 
   /* ซ่อนทุกอย่างที่ไม่ใช่ตัวรายงาน */
   body.printing-report .topbar,
@@ -700,16 +700,65 @@ th{box-shadow:inset 0 -1px 0 var(--border)}
    z-index ต้องสูงกว่า .topbar (30) และลิ้นชักโครงการ ไม่งั้นจะถูกบัง
    แผงยึดมุมขวาล่างบนจอใหญ่ และเต็มจอบนมือถือ
    ===================================================================== */
-.chatfab{
+.chatdock{
   position:fixed; inset-block-end:18px; inset-inline-end:18px; z-index:60;
-  display:inline-flex; align-items:center; gap:8px;
-  padding:11px 17px; border:0; border-radius:999px; cursor:pointer;
+  display:flex; flex-direction:column; align-items:flex-end; gap:9px;
+}
+
+.chatfab{
+  display:inline-flex; align-items:center; gap:9px;
+  padding:9px 17px 9px 12px; border:0; border-radius:999px; cursor:pointer;
   background:linear-gradient(118deg,var(--brand-2),var(--brand-3));
   color:var(--on-brand); font-size:14px; font-weight:600;
   box-shadow:0 3px 10px rgba(11,58,35,.22),0 10px 28px rgba(11,58,35,.18);
 }
 .chatfab:hover{filter:brightness(1.08)}
-.chatfab span[aria-hidden]{font-size:16px; line-height:1}
+.chatfab.isopen{padding:11px 17px}
+.chatfab-x{font-size:16px; line-height:1}
+
+/* ---------- หุ่นยนต์ผู้ช่วย ---------- */
+/* currentColor = สีเส้นขอบ ตา และหู ส่วนหน้าหุ่นใช้ var(--surface) จาก SVG */
+.robot{display:block; flex-shrink:0; color:var(--accent)}
+/* บนปุ่มพื้นเขียวเข้ม ต้องกลับเป็นสีอ่อน ไม่งั้นหุ่นจะจมไปกับพื้น
+   (ปัญหาเดียวกับตราสัญลักษณ์ในแถบหัวเรื่อง) */
+.chatfab .robot{color:var(--on-brand)}
+.chatfab .robot-head{fill:rgba(255,255,255,.16)}
+
+/* ไฟบนเสาอากาศกะพริบช้า ๆ ให้ดูว่ายังทำงานอยู่ */
+.robot-led{animation:robot-led 2.6s ease-in-out infinite}
+@keyframes robot-led{0%,100%{opacity:1} 50%{opacity:.35}}
+
+/* กะพริบตาเป็นระยะ — ย่อแนวตั้งจากกึ่งกลางลูกตา */
+.robot-eyes{transform-origin:24px 22.5px; animation:robot-blink 5.5s infinite}
+@keyframes robot-blink{
+  0%,92%,100%{transform:scaleY(1)}
+  95%{transform:scaleY(.12)}
+}
+.chatavatar{margin-top:5px}
+.chatavatar.thinking{animation:robot-bob 1.1s ease-in-out infinite}
+@keyframes robot-bob{0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)}}
+
+/* เคารพการตั้งค่าของเครื่องที่ปิดแอนิเมชัน (เมาเร็ว/ไมเกรน) */
+@media (prefers-reduced-motion:reduce){
+  .robot-led,.robot-eyes,.chatavatar.thinking,.chatgreet{animation:none}
+}
+
+/* ---------- บอลลูนทักทาย ---------- */
+.chatgreet{
+  display:flex; align-items:center; gap:8px;
+  max-width:min(240px,calc(100vw - 40px));
+  padding:8px 10px 8px 13px; border-radius:14px;
+  background:var(--surface); color:var(--text);
+  border:1px solid var(--accent); font-size:13.5px; font-weight:600;
+  box-shadow:0 3px 10px rgba(11,58,35,.14),0 10px 26px rgba(11,58,35,.14);
+  animation:chatgreet-in .35s ease-out;
+}
+@keyframes chatgreet-in{from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none}}
+.chatgreet-x{
+  flex-shrink:0; border:0; background:transparent; cursor:pointer;
+  color:var(--faint); font-size:12px; line-height:1; padding:3px 4px;
+}
+.chatgreet-x:hover{color:var(--bad)}
 
 .chatpanel{
   position:fixed; inset-block-end:74px; inset-inline-end:18px; z-index:61;
@@ -728,6 +777,8 @@ th{box-shadow:inset 0 -1px 0 var(--border)}
   padding:10px 13px; border-bottom:1px solid var(--border);
   background:var(--surface2);
 }
+.chathead-bot{flex-shrink:0}
+.chathead-title{flex:1; min-width:0}
 .chathead b{font-size:14.5px}
 .chatsub{display:block; font-size:11.5px; color:var(--muted)}
 .chathead-btns{display:flex; gap:6px; flex-shrink:0}
@@ -740,6 +791,13 @@ th{box-shadow:inset 0 -1px 0 var(--border)}
 
 .chatintro{font-size:13.5px; color:var(--muted)}
 .chatintro p{margin:0 0 10px}
+/* หุ่นยนต์ทักทายตอนยังไม่มีบทสนทนา */
+.chathello{
+  display:flex; align-items:center; gap:11px; margin-bottom:12px;
+  padding:11px 13px; border-radius:12px;
+  background:var(--accent-soft); border:1px solid var(--accent);
+}
+.chathello b{font-size:14.5px; color:var(--text)}
 .chatstarters{display:flex; flex-direction:column; gap:6px; align-items:flex-start}
 /* .chip เดิมเป็นป้ายอ่านอย่างเดียว ตรงนี้เป็นปุ่มกดได้จึงต้องบอกด้วยเคอร์เซอร์ */
 .chatstarters .chip{
@@ -748,6 +806,10 @@ th{box-shadow:inset 0 -1px 0 var(--border)}
 }
 .chatstarters .chip:hover{background:var(--accent-soft)}
 .chatwarn{margin:10px 0 0; font-size:12.5px; color:var(--warn)}
+
+/* คำตอบของบอทมีหุ่นยนต์ยืนข้าง ๆ จึงต้องห่อเป็นแถวแนวนอน */
+.chatrow{display:flex; align-items:flex-start; gap:7px; align-self:flex-start; max-width:94%}
+.chatrow .chatmsg{max-width:none}
 
 .chatmsg{
   padding:9px 12px; border-radius:12px; font-size:14px;
@@ -799,7 +861,9 @@ th{box-shadow:inset 0 -1px 0 var(--border)}
   .chatpanel{
     inset:0; width:auto; max-height:none; border-radius:0; border:0;
   }
-  .chatfab{inset-block-end:14px; inset-inline-end:14px; padding:10px 15px}
+  .chatdock{inset-block-end:14px; inset-inline-end:14px}
+  .chatfab{padding:9px 13px}
+  .chatfab.isopen{padding:11px 15px}
   .chatfab-text{display:none}
   .chatbody{padding:12px}
   /* 15px กัน iOS ซูมเข้าอัตโนมัติตอนโฟกัส — กับดักเดียวกับช่องกรอกอื่นในเว็บ */
