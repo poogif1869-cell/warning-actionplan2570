@@ -17,15 +17,50 @@ import { SYSTEM_PROMPT } from "@/lib/assistant-prompt";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/* Google ปลดระวางรุ่นเก่าเป็นระยะแล้วคืน 404 พร้อมบอกรุ่นใหม่ที่ควรใช้
-   ถ้าเจอ "no longer available" อีก ให้ตั้ง GEMINI_MODEL ใน Vercel เป็นรุ่นที่ error บอก
-   จะได้แก้ได้โดยไม่ต้อง deploy ใหม่ */
+const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/";
+
+/* ---------------------------------------------------------------------
+   รายชื่อรุ่นที่จะไล่ใช้ ตัวแรกคือตัวหลัก ที่เหลือคือตัวสำรอง
+
+   ปัญหาที่เจอจริง: **รุ่นใหม่ล่าสุดคือรุ่นที่คิวเต็มบ่อยที่สุด** เพราะคนแห่ไปใช้
+   ส่วนรุ่นก่อนหน้าที่ยังอยู่บนชั้นฟรีเหมือนกันกลับว่างกว่ามาก
+   งานของเว็บนี้คือ "อ่านตัวเลขจาก JSON ที่ส่งไปให้แล้วสรุปเป็นภาษาไทย"
+   ไม่ต้องใช้รุ่นแรงที่สุด รุ่นรองก็ตอบได้คุณภาพเท่ากัน
+
+   เจอ 503 (คิวเต็ม) / 429 (โควตา) / 404 (ปลดระวาง) แล้วจะสลับไปตัวถัดไปเอง
+   ผู้ใช้ไม่ต้องมานั่งเดาว่าตอนนี้รุ่นไหนว่าง
+
+   ตั้ง GEMINI_MODEL ทับตัวหลักได้ และ GEMINI_MODEL_FALLBACK
+   (คั่นด้วยจุลภาค) ทับรายการสำรองได้ ทั้งคู่แก้ที่ Vercel ไม่ต้องแตะโค้ด
+   --------------------------------------------------------------------- */
+const DEFAULT_MODEL = "gemini-2.5-flash";
+const DEFAULT_FALLBACKS = "gemini-3.6-flash,gemini-2.5-flash-lite";
+
 /* ตัด "models/" ที่นำหน้าออก เพราะ ENDPOINT เติมให้อยู่แล้ว
    ถ้าใครก๊อบชื่อรุ่นจากข้อความ error มาวางตรง ๆ จะได้ models/models/... แล้วพัง */
-const MODEL = (process.env.GEMINI_MODEL || "gemini-3.6-flash")
-  .trim()
-  .replace(/^models\//, "");
-const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/";
+function normModel(s) {
+  return String(s == null ? "" : s).trim().replace(/^models\//, "");
+}
+
+const MODELS = (() => {
+  const primary = normModel(process.env.GEMINI_MODEL) || DEFAULT_MODEL;
+  const rest = String(process.env.GEMINI_MODEL_FALLBACK || DEFAULT_FALLBACKS)
+    .split(",")
+    .map(normModel)
+    .filter(Boolean);
+  const out = [primary];
+  rest.forEach((m) => {
+    if (out.indexOf(m) < 0) out.push(m);
+  });
+  return out;
+})();
+
+/* ชื่อรุ่นตัวหลัก ใช้ในข้อความ error และหน้าตรวจสอบ */
+const MODEL = MODELS[0];
+
+/* รุ่นที่ใช้ได้ล่าสุด — เริ่มจากตัวนี้ก่อนในคำถามถัดไป ไม่ต้องไปเจอ 503 ซ้ำ
+   (serverless ใช้ instance ซ้ำ ค่านี้จึงอยู่ข้ามคำถามได้ระยะหนึ่ง) */
+let goodModel = null;
 
 /* เพดานฝั่งเซิร์ฟเวอร์ — ไม่เชื่อว่า client จะส่งมาเท่าไหร่ */
 const MAX_CHARS = 2000;      // ความยาวข้อความหนึ่งข้อความ
@@ -106,15 +141,22 @@ export async function GET(request) {
     .filter((m) => (m.supportedGenerationMethods || []).indexOf("generateContent") >= 0)
     .map((m) => String(m.name || "").replace(/^models\//, ""));
 
+  const configured = MODELS.map((m) => ({
+    model: m,
+    usable: usable.indexOf(m) >= 0,
+  }));
+  const missing = configured.filter((x) => !x.usable).map((x) => x.model);
+
   return NextResponse.json({
     configured: true,
-    currentModel: MODEL,
-    currentModelUsable: usable.indexOf(MODEL) >= 0,
+    /* ลำดับที่เว็บจะไล่ใช้ ตัวแรกคือตัวหลัก ที่เหลือคือตัวสำรองเวลาคิวเต็ม */
+    modelChain: configured,
     usableModels: usable,
-    hint:
-      usable.indexOf(MODEL) >= 0
-        ? "รุ่นที่ตั้งไว้ใช้ได้ ถ้ายังพังอยู่แสดงว่าเป็นเรื่องพารามิเตอร์ ไม่ใช่ชื่อรุ่น"
-        : "รุ่นที่ตั้งไว้ใช้ไม่ได้ — เลือกชื่อจาก usableModels ไปใส่ GEMINI_MODEL ใน Vercel แล้ว Redeploy",
+    hint: missing.length
+      ? "รุ่นเหล่านี้ใช้ไม่ได้กับคีย์นี้: " + missing.join(", ") +
+        " — เลือกชื่อจาก usableModels ไปตั้ง GEMINI_MODEL (ตัวหลัก) " +
+        "และ GEMINI_MODEL_FALLBACK (ตัวสำรอง คั่นด้วยจุลภาค) ใน Vercel แล้ว Redeploy"
+      : "ทุกรุ่นในรายการใช้ได้ ถ้าเจอ 503 เว็บจะสลับไปตัวถัดไปให้เอง",
   });
 }
 
@@ -174,8 +216,8 @@ export async function POST(request) {
     return { role: m.role, parts: [{ text }] };
   });
 
-  const url =
-    ENDPOINT + encodeURIComponent(MODEL) + ":generateContent?key=" + encodeURIComponent(apiKey);
+  const urlFor = (model) =>
+    ENDPOINT + encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(apiKey);
 
   /* ------------------------------------------------------------------
      ประกอบคำขอตามรูปแบบที่กำหนด
@@ -213,8 +255,8 @@ export async function POST(request) {
     return JSON.stringify(body);
   }
 
-  async function call(variant) {
-    const r = await fetch(url, {
+  async function call(model, variant) {
+    const r = await fetch(urlFor(model), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: payload(variant),
@@ -225,12 +267,11 @@ export async function POST(request) {
     } catch (e) {
       d = null;
     }
-    return { r, d, variant };
+    return { r, d, model, variant };
   }
 
-  let res;
-  let data;
-  try {
+  /* ไล่รูปแบบคำขอกับรุ่นหนึ่ง ๆ จนกว่าจะเจอตัวที่ผ่าน */
+  async function tryModel(model) {
     /* ถ้าเคยรู้แล้วว่ารูปแบบไหนใช้ได้ เริ่มจากตัวนั้นก่อน จะได้ไม่เสียคำขอทิ้ง
        (คีย์ฟรีจำกัดจำนวนคำขอต่อนาที) ที่เหลือเรียงต่อท้ายไว้เผื่อรุ่นเปลี่ยนอีก */
     const order = goodVariant
@@ -239,18 +280,41 @@ export async function POST(request) {
 
     let out = null;
     for (let i = 0; i < order.length; i++) {
-      out = await callWithBackoff(call, order[i]);
+      out = await callWithBackoff(call, model, order[i]);
       if (out.r.ok) {
         goodVariant = order[i];
         break;
       }
       /* 400 = คำขอผิดรูป ลองรูปแบบที่เรียบง่ายกว่าอาจผ่าน
-         ส่วน 429/403/404/503 ลองรูปแบบอื่นก็ไม่ช่วย หยุดเลย
-         (503 ลองซ้ำไปแล้วใน callWithBackoff)
-
-         ถ้าไม่ผ่านสักตัว จะรายงาน error ของตัวสุดท้าย (แบบเรียบง่ายที่สุด)
-         ซึ่งตรงกับข้อความที่บอกว่า "ลองแบบเรียบง่ายที่สุดแล้วก็ยังไม่ผ่าน" */
+         ส่วน 429/403/404/503 เป็นเรื่องของรุ่นหรือคีย์ เปลี่ยนรูปแบบไม่ช่วย */
       if (out.r.status !== 400) break;
+    }
+    return out;
+  }
+
+  /* รุ่นที่ควรลองก่อน แล้วตามด้วยตัวสำรอง */
+  const modelOrder =
+    goodModel && MODELS.indexOf(goodModel) > 0
+      ? [goodModel].concat(MODELS.filter((m) => m !== goodModel))
+      : MODELS;
+
+  let res;
+  let data;
+  try {
+    let out = null;
+    for (let i = 0; i < modelOrder.length; i++) {
+      out = await tryModel(modelOrder[i]);
+      if (out.r.ok) {
+        goodModel = modelOrder[i];
+        break;
+      }
+      /* 503 คิวเต็ม · 429 โควตารุ่นนั้นหมด · 404 ปลดระวางแล้ว
+         ทั้งสามอย่างแก้ได้ด้วยการเปลี่ยนไปใช้รุ่นสำรอง
+
+         ส่วน 400 (คำขอผิด) กับ 403 (คีย์ใช้ไม่ได้) เปลี่ยนรุ่นก็ไม่ช่วย
+         เพราะเป็นปัญหาของคำขอหรือของคีย์เอง หยุดเลย */
+      const s = out.r.status;
+      if (s !== 503 && s !== 429 && s !== 404) break;
     }
 
     res = out.r;
@@ -301,23 +365,25 @@ export async function POST(request) {
 
    "This model is currently experiencing high demand" คือคิวฝั่ง Google เต็ม
    ไม่ใช่ความผิดของคำขอเรา และมักหายเองในไม่กี่วินาที
-   ลองซ้ำสั้น ๆ สองครั้งจึงคุ้มกว่าโยน error ให้ผู้ใช้ไปกดเองทันที
+   ลองซ้ำสั้น ๆ หนึ่งครั้งก่อน ถ้ายังไม่ผ่านค่อยสลับไปรุ่นสำรอง
+   ซึ่งได้ผลกว่าการรอรุ่นเดิมไปเรื่อย ๆ
 
-   หน่วงรวมไม่เกิน ~2.2 วินาที เพราะ serverless function บน Vercel
-   มีเพดานเวลาทำงาน ถ้าหน่วงนานกว่านี้เสี่ยงโดนตัดกลางคัน
+   ลองซ้ำแค่ครั้งเดียว (ไม่ใช่สองครั้งอย่างเดิม) เพราะตอนนี้มีรุ่นสำรองแล้ว
+   ถ้าลองซ้ำหลายรอบทุกรุ่น จำนวนคำขอจะบานจนชนลิมิต 15 ครั้งต่อนาทีของคีย์ฟรี
+   และเสี่ยงชนเพดานเวลาทำงานของ serverless function ด้วย
    --------------------------------------------------------------------- */
-const RETRY_DELAYS = [700, 1500];
+const RETRY_DELAYS = [700];
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function callWithBackoff(call, variant) {
-  let out = await call(variant);
+async function callWithBackoff(call, model, variant) {
+  let out = await call(model, variant);
   for (let i = 0; i < RETRY_DELAYS.length; i++) {
     if (out.r.status !== 503) break;
     await sleep(RETRY_DELAYS[i]);
-    out = await call(variant);
+    out = await call(model, variant);
   }
   return out;
 }
@@ -351,11 +417,11 @@ function explainGemini(status, detail) {
   }
   if (status === 503) {
     /* คิวฝั่ง Google เต็ม ไม่ใช่ความผิดของคำขอเรา และไม่ใช่เรื่องโควตาของคีย์
-       ลองซ้ำอัตโนมัติไปแล้วสองครั้งก่อนจะมาถึงตรงนี้ */
+       มาถึงตรงนี้แปลว่าลองครบทุกรุ่นในรายการแล้ว */
     return (
-      "ตอนนี้รุ่น " + MODEL + " มีคนใช้พร้อมกันเยอะจนคิวเต็มฝั่ง Google " +
-      "ลองซ้ำให้แล้วยังไม่ผ่าน รอสัก 1-2 นาทีแล้วกดถามใหม่ " +
-      "(ไม่ใช่ปัญหาของคีย์หรือของเว็บ ถ้าเจอบ่อยให้ตั้ง GEMINI_MODEL เป็นรุ่นอื่นใน Vercel)"
+      "คิวฝั่ง Google เต็มทุกรุ่นที่ตั้งไว้ (" + MODELS.join(", ") + ") " +
+      "ลองสลับรุ่นให้แล้วยังไม่ผ่าน รอสัก 1-2 นาทีแล้วกดถามใหม่ " +
+      "(ไม่ใช่ปัญหาของคีย์หรือของเว็บ)"
     );
   }
   if (status === 403) {
@@ -369,7 +435,8 @@ function explainGemini(status, detail) {
       "มักเป็นคีย์ผิด หรือรุ่น " + MODEL + " ไม่มีอยู่จริง/คีย์นี้ใช้ไม่ได้ · " + detail;
   }
   if (status === 404) {
-    return "ไม่พบโมเดล " + MODEL + " — ตั้งตัวแปร GEMINI_MODEL ให้เป็นรุ่นที่คีย์นี้ใช้ได้ · " + detail;
+    return "ไม่พบรุ่นที่ตั้งไว้เลยสักตัว (" + MODELS.join(", ") + ") — " +
+      "เปิด /api/chat?models=1 ดูว่าคีย์นี้ใช้รุ่นไหนได้ แล้วตั้ง GEMINI_MODEL ใหม่ · " + detail;
   }
   return "Gemini ตอบกลับผิดพลาด · " + detail;
 }
