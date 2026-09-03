@@ -20,7 +20,7 @@
 /* logo.png กับไอคอนใช้ชื่อไฟล์เดิมตลอด ไม่มี hash ต่อท้ายเหมือนไฟล์ของ Next
    ถ้าเปลี่ยนรูปพวกนี้ **ต้องขยับเลข VERSION ด้วย** ไม่งั้นเครื่องที่ติดตั้งไปแล้ว
    จะยังเห็นรูปเก่าตลอดไป (ตอน activate จะลบแคชที่ชื่อไม่ตรงทิ้งให้เอง) */
-const VERSION = "v1";
+const VERSION = "v2"; // v2 = เปลี่ยน favicon เป็นหยดน้ำยาง
 const STATIC_CACHE = "raot-static-" + VERSION;
 const OFFLINE_URL = "/offline.html";
 
