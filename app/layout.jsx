@@ -63,15 +63,17 @@ export const metadata = {
   },
 
   icons: {
-    /* ไอคอนเป็นวงกลมโครงเดียวกับ Chrome: วงนอกเขียว วงในขาว หยดน้ำยางสีทอง
-       พื้นนอกวงกลมโปร่งใส ไม่ใช่สี่เหลี่ยมขาว
+    /* ไอคอนย่อจากภาพ Images/icon.png (เกจวัดผล + กระดิ่งแจ้งเตือน)
+       ต้นฉบับเป็นบิตแมป **ไม่มีไฟล์เวกเตอร์** จึงไม่มี favicon.svg
+       ทุกเบราว์เซอร์ใช้ PNG หมด ต่างจากไอคอนชุดก่อนที่วาดเป็นเวกเตอร์
 
-       เรียง SVG ไว้ก่อน เบราว์เซอร์ที่รองรับจะได้ตัวคมทุกขนาด
-       ที่เหลือเป็น PNG สำรองให้ Safari รุ่นเก่าและแถบงานของ Windows */
+       ให้ไปหลายขนาด เบราว์เซอร์จะเลือกตัวที่ใกล้เคียงที่สุดเอง
+       จอความละเอียดสูงหยิบ 32/64 ไปใช้แทน 16 คมกว่ามาก */
     icon: [
-      { url: "/icons/favicon.svg", type: "image/svg+xml" },
-      { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
       { url: "/icons/favicon-16.png", sizes: "16x16", type: "image/png" },
+      { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/favicon-48.png", sizes: "48x48", type: "image/png" },
+      { url: "/icons/favicon-64.png", sizes: "64x64", type: "image/png" },
     ],
     shortcut: "/icons/favicon-32.png",
     /* iOS ไม่อ่าน manifest ตอนกด "เพิ่มไปยังหน้าจอโฮม" ต้องมีแท็กนี้แยก
