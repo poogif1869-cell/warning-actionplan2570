@@ -23,6 +23,9 @@ export default function BudgetEntries({ uid, month, title }) {
     budget,
     canEdit,
     budgetHasSaved,
+    hasSubmitTable,
+    budgetSubmitted,
+    setBudgetSubmitted,
     addBudgetEntry,
     updateBudgetEntry,
     deleteBudgetEntry,
@@ -32,6 +35,18 @@ export default function BudgetEntries({ uid, month, title }) {
 
   const list = entriesOf(budget, uid, month);
   const total = entriesTotal(list);
+
+  /* ---------------------------------------------------------------
+     สองระดับของการล็อก อย่าสับสนกัน
+
+       บันทึกรายการ  ล็อกทีละแถวที่กรอกเสร็จ กันหน่วยงานอื่นมาแก้ตัวเลข
+                     ปลดเองได้ทันทีด้วยปุ่ม "แก้ไข" ที่แถวนั้น
+       ส่งข้อมูล     ปิดทั้งเดือน เพิ่มรายการใหม่ไม่ได้ และเป็นเงื่อนไข
+                     ให้ไปรายงานผลโครงการของเดือนนั้นได้
+                     ต้องกด "แก้ไขงบประมาณ" ก่อนถึงจะกลับมาแก้ได้
+     --------------------------------------------------------------- */
+  const submitted = budgetSubmitted(uid, month);
+  const monthLocked = submitted || !canEdit;
 
   /* ---------------------------------------------------------------
      ตัวเลือกส่วนงานที่มาใช้งบของรายการนี้
@@ -103,6 +118,33 @@ export default function BudgetEntries({ uid, month, title }) {
     setBusy(false);
   }
 
+  async function submitMonth() {
+    if (
+      !confirm(
+        "ส่งข้อมูลงบประมาณเดือน " +
+          MONTHS[month] +
+          " ?\n\nหลังส่งแล้วจะเพิ่มหรือแก้รายการไม่ได้ จนกว่าจะกด “แก้ไขงบประมาณ”\n" +
+          "และจะไปรายงานผลโครงการของเดือนนี้ได้"
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    /* ล็อกรายการที่ยังค้างเป็นร่างไปพร้อมกัน ไม่งั้นจะเหลือแถวที่ยัง
+       "ยังไม่บันทึก" อยู่ในเดือนที่ส่งไปแล้ว ซึ่งขัดกันเอง */
+    if (budgetHasSaved && draft.length) {
+      await setEntriesSaved(uid, draft.map((e) => e.id), true);
+    }
+    await setBudgetSubmitted(uid, month, true);
+    setBusy(false);
+  }
+
+  async function reopenMonth() {
+    setBusy(true);
+    await setBudgetSubmitted(uid, month, false);
+    setBusy(false);
+  }
+
   return (
     <div>
       <div className="small muted" style={{ marginBottom: 8 }}>
@@ -138,7 +180,7 @@ export default function BudgetEntries({ uid, month, title }) {
             <tbody>
               {list.map((e) => {
                 /* ล็อกเมื่อบันทึกไปแล้ว หรือเมื่อบัญชีนี้เข้ามาแบบดูอย่างเดียว */
-                const ro = (budgetHasSaved && e.saved === true) || !canEdit;
+                const ro = (budgetHasSaved && e.saved === true) || monthLocked;
                 return (
                   <tr key={e.id} className={ro ? "locked" : ""}>
                     <td className="nowrap" data-label="สถานะ">
@@ -284,24 +326,74 @@ export default function BudgetEntries({ uid, month, title }) {
         </div>
       ) : null}
 
-      {/* ทั้งแถวนี้เป็นปุ่มแก้ข้อมูลล้วน บัญชีที่ดูอย่างเดียวจึงไม่ต้องเห็นเลย */}
+      {/* ---------------------------------------------------------------
+          แถบปุ่มสามขั้น เรียงตามลำดับงานจริง
+
+            + เพิ่มรายการ   -> บันทึกรายการ -> ส่งข้อมูลงบประมาณ
+                                                      |
+                                              แก้ไขงบประมาณ (ย้อนกลับ)
+
+          ทั้งแถวเป็นปุ่มแก้ข้อมูลล้วน บัญชีที่ดูอย่างเดียวจึงไม่เห็นเลย
+          --------------------------------------------------------------- */}
       {canEdit ? (
         <div className="btnrow">
-          <button className="btn ghost" onClick={add} disabled={busy}>
-            + เพิ่มรายการ
-          </button>
+          {!submitted ? (
+            <>
+              <button className="btn ghost" onClick={add} disabled={busy}>
+                + เพิ่มรายการ
+              </button>
 
-          {budgetHasSaved ? (
-            <button className="btn" onClick={saveAll} disabled={busy || !draft.length}>
-              {draft.length ? "บันทึกรายงาน (" + draft.length + " รายการ)" : "บันทึกรายงาน"}
-            </button>
-          ) : null}
+              {budgetHasSaved ? (
+                <button className="btn ghost" onClick={saveAll} disabled={busy || !draft.length}>
+                  {draft.length ? "บันทึกรายการ (" + draft.length + ")" : "บันทึกรายการ"}
+                </button>
+              ) : null}
 
-          {budgetHasSaved && locked.length ? (
-            <button className="btn ghost" onClick={unlockAll} disabled={busy}>
-              แก้ไขทั้งหมด ({locked.length})
+              {budgetHasSaved && locked.length ? (
+                <button className="btn ghost" onClick={unlockAll} disabled={busy}>
+                  ปลดล็อกทั้งหมด ({locked.length})
+                </button>
+              ) : null}
+
+              {/* ปุ่มหลักของหน้านี้ — ส่งแล้วถึงจะไปรายงานผลโครงการได้
+                  ไม่มีรายการเลยก็ส่งไม่ได้ ไม่งั้นเท่ากับส่งกระดาษเปล่า */}
+              <button
+                className="btn"
+                onClick={submitMonth}
+                disabled={busy || !list.length}
+                title={
+                  list.length
+                    ? "ปิดการกรอกงบของเดือนนี้ แล้วจึงไปรายงานผลโครงการได้"
+                    : "ยังไม่มีรายการงบประมาณในเดือนนี้"
+                }
+              >
+                ส่งข้อมูลงบประมาณ
+              </button>
+            </>
+          ) : (
+            <button className="btn danger" onClick={reopenMonth} disabled={busy}>
+              แก้ไขงบประมาณ
             </button>
-          ) : null}
+          )}
+        </div>
+      ) : null}
+
+      {submitted ? (
+        <div className="banner ok" style={{ marginTop: 12, marginBottom: 0 }}>
+          <b>ส่งข้อมูลงบประมาณเดือน {MONTHS[month]} แล้ว</b> — เพิ่มหรือแก้รายการไม่ได้
+          จนกว่าจะกด “แก้ไขงบประมาณ” · ตอนนี้ไปรายงานผลโครงการของเดือนนี้ได้แล้ว
+        </div>
+      ) : (
+        <div className="banner" style={{ marginTop: 12, marginBottom: 0 }}>
+          <b>ยังไม่ได้ส่งข้อมูลงบประมาณเดือน {MONTHS[month]}</b> —
+          ต้องกด “ส่งข้อมูลงบประมาณ” ก่อน จึงจะรายงานผลโครงการของเดือนนี้ได้
+        </div>
+      )}
+
+      {!hasSubmitTable ? (
+        <div className="small muted" style={{ marginTop: 8 }}>
+          ยังใช้การส่งข้อมูลงบประมาณไม่ได้ เพราะฐานข้อมูลไม่มีตาราง{" "}
+          <code>budget_submissions</code> — ให้ผู้ดูแลรัน <code>supabase/schema.sql</code>
         </div>
       ) : null}
 

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { MONTHS, STATUSES, monthsOf } from "@/lib/plan";
+import ConfirmDialog from "@/components/confirm-dialog";
 import { money, pct } from "@/lib/format";
 import {
   useResults,
@@ -38,12 +39,16 @@ const HOME_PATH = "/projects";
 
 export default function ReportTab({ item }) {
   const pathname = usePathname();
+  const router = useRouter();
   const editable = pathname === HOME_PATH;
 
   const {
     results,
     budget,
     asOfMonth,
+    asOfLabel,
+    allMonths,
+    budgetSubmitted,
     monthlyHasIssue,
     hasIndicatorCols,
     setProject,
@@ -56,6 +61,18 @@ export default function ReportTab({ item }) {
 
   const kids = item._kids || [];
   const activity = kids.find((k) => k.uid === actUid) || null;
+
+  /* ---------------------------------------------------------------
+     ต้องส่งข้อมูลงบประมาณของเดือนที่เลือกก่อน ถึงจะบันทึกรายงานผลได้
+
+     เหตุผล: ยอดเบิกจ่ายในรายงานผลคำนวณมาจากรายการงบประมาณ ถ้ายังแก้งบ
+     ได้อยู่ ตัวเลขในรายงานที่บันทึกไปแล้วจะเปลี่ยนตามทีหลังโดยไม่มีใครรู้
+
+     "ทั้งปี" ไม่ผูกกับเดือนใดเดือนหนึ่ง จึงไม่บังคับ — แต่เตือนให้เลือกเดือน
+     เพราะรายงานผลเป็นงานรายเดือน
+     --------------------------------------------------------------- */
+  const budgetReady = !allMonths && budgetSubmitted(item.uid, asOfMonth);
+  const [ackWarn, setAckWarn] = useState(false);
 
   const tk = projectTrack(results, item.uid);
   const roll = budgetRollup(budget, item, null);
@@ -166,6 +183,33 @@ export default function ReportTab({ item }) {
           “โครงการ/กิจกรรม”</b> ที่เดียว เพื่อไม่ให้ข้อมูลชุดเดียวกัน
           ถูกแก้จากหลายที่จนตามไม่ทันว่าใครแก้อะไร
         </div>
+      ) : null}
+
+      {/* ป๊อปอัพเตือนก่อนเริ่มกรอก ตามที่ตกลงไว้ว่าให้เตือน "ก่อนเริ่มรายงานผล"
+          ไม่ใช่ปล่อยให้กรอกจนเสร็จแล้วค่อยบอกว่าบันทึกไม่ได้ */}
+      {editable && !budgetReady && !ackWarn ? (
+        <ConfirmDialog
+          title="ยังไม่ได้ส่งข้อมูลงบประมาณ"
+          confirmLabel="รับทราบ ดูข้อมูลไปก่อน"
+          cancelLabel="ไปหน้างบประมาณโครงการ"
+          onConfirm={() => setAckWarn(true)}
+          onCancel={() => {
+            setAckWarn(true);
+            router.push("/budget");
+          }}
+        >
+          <p>
+            {allMonths
+              ? "ตอนนี้เลือกช่วงเวลาเป็น “ทั้งปีงบประมาณ” อยู่ การรายงานผลเป็นงานรายเดือน จึงต้องเลือกเดือนที่ต้องการรายงานก่อน"
+              : "โครงการนี้ยังไม่ได้ส่งข้อมูลงบประมาณของ " +
+                asOfLabel +
+                " จึงยังบันทึกรายงานผลของเดือนนี้ไม่ได้"}
+          </p>
+          <p className="small muted">
+            ยอดเบิกจ่ายในรายงานผลคำนวณจากรายการงบประมาณ ถ้ายังแก้งบได้อยู่
+            ตัวเลขที่บันทึกไปแล้วจะเปลี่ยนตามทีหลังโดยไม่มีใครรู้
+          </p>
+        </ConfirmDialog>
       ) : null}
 
       {/* ---------- 1. งบประมาณของโครงการ ---------- */}
@@ -371,8 +415,24 @@ export default function ReportTab({ item }) {
 
       {editable ? (
         <>
+          {!budgetReady ? (
+            <div className="banner bad" style={{ marginTop: 18 }}>
+              <b>ยังบันทึกรายงานผลไม่ได้</b> —{" "}
+              {allMonths
+                ? "เลือกเดือนที่ต้องการรายงานจากดรอปดาวน์ด้านบนก่อน"
+                : "ต้องไปกด “ส่งข้อมูลงบประมาณ” ของ " +
+                  asOfLabel +
+                  " ที่หน้างบประมาณโครงการก่อน"}
+              <div className="btnrow">
+                <button className="btn" onClick={() => router.push("/budget")}>
+                  ไปหน้างบประมาณโครงการ
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           <div className="btnrow">
-            <button className="btn" onClick={save} disabled={saving}>
+            <button className="btn" onClick={save} disabled={saving || !budgetReady}>
               {saving ? "กำลังบันทึก…" : saved ? "บันทึกแล้ว ✓" : "บันทึกรายงาน"}
             </button>
           </div>

@@ -276,6 +276,10 @@ export function ResultsProvider({ children }) {
   const [raw, setRaw] = useState(emptyResults);      // ตามที่อยู่ในตาราง ยังไม่ผูกงบ
   const [budget, setBudget] = useState({});          // budget[uid] = [entry, ...]
   const [risk, setRiskState] = useState({});              // risk[uid][month] = { level, situation, action }
+  /* submit[uid][month] = true เมื่อกด "ส่งข้อมูลงบประมาณ" ของเดือนนั้นแล้ว
+     ปิดการเพิ่ม/แก้รายการของเดือนนั้น และเป็นเงื่อนไขให้รายงานผลโครงการได้ */
+  const [submit, setSubmitState] = useState({});
+  const [hasSubmitTable, setHasSubmitTable] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [saveError, setSaveError] = useState("");
@@ -521,6 +525,22 @@ export function ResultsProvider({ children }) {
       });
     });
 
+    /* การส่งข้อมูลงบประมาณรายเดือน — ตารางเพิ่มทีหลัง ฐานข้อมูลเก่ายังไม่มี
+       ถ้าอ่านไม่ได้ให้ถือว่ายังไม่มีใครส่ง (ทุกเดือนเปิดให้กรอก) ดีกว่าล็อกทุกอย่างทิ้ง */
+    let nextSubmit = {};
+    let hasSubmit = true;
+    {
+      const res = await supabase.from("budget_submissions").select("uid,month,submitted");
+      if (res.error) {
+        hasSubmit = false;
+      } else {
+        (res.data || []).forEach((row) => {
+          if (!nextSubmit[row.uid]) nextSubmit[row.uid] = {};
+          nextSubmit[row.uid][row.month] = row.submitted === true;
+        });
+      }
+    }
+
     const nextRisk = {};
     (riskRes.data || []).forEach((row) => {
       if (!nextRisk[row.uid]) nextRisk[row.uid] = {};
@@ -531,7 +551,18 @@ export function ResultsProvider({ children }) {
       };
     });
 
-    return { raw: nextRaw, budget: nextBudget, risk: nextRisk, hasSaved, hasOther, hasOrg, hasIssue, hasIndicator };
+    return {
+      raw: nextRaw,
+      budget: nextBudget,
+      risk: nextRisk,
+      submit: nextSubmit,
+      hasSaved,
+      hasOther,
+      hasOrg,
+      hasSubmit,
+      hasIssue,
+      hasIndicator,
+    };
   }
 
   useEffect(() => {
@@ -574,6 +605,8 @@ export function ResultsProvider({ children }) {
           setMonthlyHasIssue(next.hasIssue !== false);
           setHasIndicatorCols(next.hasIndicator !== false);
           setRiskState(next.risk);
+          setSubmitState(next.submit || {});
+          setHasSubmitTable(next.hasSubmit !== false);
         }
       } catch (err) {
         if (alive) setLoadError("โหลดข้อมูลจาก Supabase ไม่สำเร็จ — " + explainError(err));
@@ -777,6 +810,17 @@ export function ResultsProvider({ children }) {
          role เป็น null ตอนยังโหลดไม่เสร็จ ให้ถือว่าแก้ไม่ได้ไว้ก่อน
          จะได้ไม่มีจังหวะที่ช่องกรอกเปิดแวบหนึ่งแล้วปิด
          --------------------------------------------------------- */
+      /* สถานะการส่งข้อมูลงบประมาณ
+         budgetSubmitted(uid, month) — เดือนนั้นส่งแล้วหรือยัง
+         ถ้าฐานข้อมูลยังไม่มีตาราง ให้ถือว่ายังไม่ส่ง (เปิดให้กรอกได้ตามปกติ)
+         ดีกว่าล็อกทุกอย่างทิ้งจนใช้เว็บไม่ได้ */
+      submit,
+      hasSubmitTable,
+      budgetSubmitted(uid, month) {
+        if (month == null) return false;
+        return Boolean((submit[uid] || {})[month]);
+      },
+
       role,
       hasRoles,
       canEdit: role === "editor" || role === "admin",
@@ -965,6 +1009,46 @@ export function ResultsProvider({ children }) {
         scheduleFlush();
       },
 
+      /* ---------------------------------------------------------
+         ส่งข้อมูลงบประมาณของโครงการหนึ่งในเดือนหนึ่ง
+
+         ต่างจาก setEntriesSaved ที่ล็อกทีละรายการ อันนี้ปิดทั้งเดือน
+
+         เขียนตรงเข้า Supabase ทันที ไม่ผ่าน flush หน่วงเวลา เพราะเป็น
+         การกระทำที่ผู้ใช้ตั้งใจกด ไม่ใช่การพิมพ์ต่อเนื่อง และหน้าโครงการ
+         ต้องเห็นผลทันทีว่าเดือนนี้ส่งแล้ว จึงจะรายงานผลได้
+         --------------------------------------------------------- */
+      async setBudgetSubmitted(uid, month, value) {
+        if (denyReadOnly()) return false;
+        if (!hasSubmitTable) {
+          setSaveError(
+            "ยังใช้การส่งข้อมูลงบประมาณไม่ได้ เพราะฐานข้อมูลไม่มีตาราง " +
+              "budget_submissions — ให้ผู้ดูแลรัน supabase/schema.sql ใน SQL Editor"
+          );
+          return false;
+        }
+
+        const supabase = getSupabase();
+        const { error } = await supabase
+          .from("budget_submissions")
+          .upsert(
+            { uid, month: Number(month), submitted: value === true },
+            { onConflict: "uid,month" }
+          );
+
+        if (error) {
+          setSaveError("ส่งข้อมูลงบประมาณไม่สำเร็จ — " + explainError(error));
+          return false;
+        }
+
+        setSubmitState((prev) => {
+          const cur = prev[uid] || {};
+          return { ...prev, [uid]: { ...cur, [month]: value === true } };
+        });
+        setSavedHint(value ? "ส่งข้อมูลงบประมาณแล้ว" : "เปิดให้แก้ไขงบประมาณแล้ว");
+        return true;
+      },
+
       /* ล้างข้อมูลของโครงการเดียว — ลบออกจากฐานข้อมูลจริง ทุกคนจะเห็นผล */
       async clearProject(uid) {
         if (denyReadOnly()) return;
@@ -1014,6 +1098,8 @@ export function ResultsProvider({ children }) {
           setMonthlyHasIssue(next.hasIssue !== false);
           setHasIndicatorCols(next.hasIndicator !== false);
           setRiskState(next.risk);
+          setSubmitState(next.submit || {});
+          setHasSubmitTable(next.hasSubmit !== false);
           return true;
         } catch (err) {
           setLoadError("ดึงข้อมูลใหม่ไม่สำเร็จ — " + explainError(err));
@@ -1133,6 +1219,8 @@ export function ResultsProvider({ children }) {
         setMonthlyHasIssue(next.hasIssue !== false);
         setHasIndicatorCols(next.hasIndicator !== false);
         setRiskState(next.risk);
+        setSubmitState(next.submit || {});
+        setHasSubmitTable(next.hasSubmit !== false);
         return {
           rows: kpiRows.length + projRows.length + monRows.length + budRows.length + riskRows.length,
         };
@@ -1145,7 +1233,7 @@ export function ResultsProvider({ children }) {
         window.location.href = "/login";
       },
     };
-  }, [results, raw, budget, risk, loaded, loadError, saveError, savedHint, userEmail, userName, budgetHasSaved, monthlyHasIssue, hasIndicatorCols, asOf, fyStarted, role, hasRoles, people]);
+  }, [results, raw, budget, risk, submit, hasSubmitTable, loaded, loadError, saveError, savedHint, userEmail, userName, budgetHasSaved, monthlyHasIssue, hasIndicatorCols, asOf, fyStarted, role, hasRoles, people]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

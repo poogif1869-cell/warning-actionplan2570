@@ -563,3 +563,58 @@ alter table public.budget_entries
 create index if not exists budget_entries_org_idx on public.budget_entries (org);
 
 notify pgrst, 'reload schema';
+
+
+-- =====================================================================
+-- เพิ่มเมื่อ 4 ก.ย. — การ "ส่งข้อมูลงบประมาณ" ของแต่ละโครงการในแต่ละเดือน
+--
+-- ต่างจาก budget_entries.saved ที่มีอยู่แล้ว อย่าสับสนกัน:
+--
+--   budget_entries.saved   ล็อก **รายการเดียว** ที่กรอกเสร็จแล้ว
+--                          กันหน่วยงานอื่นมาแก้ตัวเลขที่ลงไว้
+--                          ปลดล็อกเองได้ทันทีด้วยปุ่ม "แก้ไข" ที่แถวนั้น
+--
+--   budget_submissions     ปิด **ทั้งเดือน** ของโครงการนั้น = ส่งข้อมูลแล้ว
+--                          เพิ่มรายการใหม่ไม่ได้ ต้องกด "แก้ไขงบประมาณ" ก่อน
+--                          และเป็นเงื่อนไขว่าจะรายงานผลโครงการได้หรือยัง
+--
+-- ลำดับการทำงานที่ออกแบบไว้:
+--   กรอกรายการ -> บันทึกรายการ (ล็อกทีละแถว) -> ส่งข้อมูลงบประมาณ (ปิดทั้งเดือน)
+--   -> ถึงจะรายงานผลโครงการของเดือนนั้นได้
+-- =====================================================================
+
+create table if not exists public.budget_submissions (
+  uid         text not null,
+  month       smallint not null check (month between 0 and 11),
+  submitted   boolean not null default false,
+  updated_at  timestamptz not null default now(),
+  updated_by  uuid references auth.users (id) on delete set null,
+  primary key (uid, month)
+);
+
+create index if not exists budget_submissions_uid_idx on public.budget_submissions (uid);
+
+drop trigger if exists stamp_budget_submissions on public.budget_submissions;
+create trigger stamp_budget_submissions
+  before insert or update on public.budget_submissions
+  for each row execute function public.stamp_row();
+
+alter table public.budget_submissions enable row level security;
+
+drop policy if exists budget_submissions_read   on public.budget_submissions;
+drop policy if exists budget_submissions_write  on public.budget_submissions;
+drop policy if exists budget_submissions_update on public.budget_submissions;
+drop policy if exists budget_submissions_delete on public.budget_submissions;
+
+create policy budget_submissions_read on public.budget_submissions
+  for select to authenticated using (true);
+create policy budget_submissions_write on public.budget_submissions
+  for insert to authenticated with check (public.can_edit());
+create policy budget_submissions_update on public.budget_submissions
+  for update to authenticated using (public.can_edit()) with check (public.can_edit());
+create policy budget_submissions_delete on public.budget_submissions
+  for delete to authenticated using (public.can_edit());
+
+grant select, insert, update, delete on public.budget_submissions to authenticated;
+
+notify pgrst, 'reload schema';
