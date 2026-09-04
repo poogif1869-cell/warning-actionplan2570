@@ -153,8 +153,19 @@ export default function StrategyPage() {
 
       {STRATEGIES.map((s) => {
         const kpis = kpisByStrategy.get(String(s.no)) || [];
+
+        /* ---------- แยกเลข SO ออกจากข้อความเป้าหมาย ----------
+           ไฟล์แผนเก็บ so เป็นข้อความก้อนเดียวขึ้นต้นด้วย "SO1 " / "SO2 " ...
+           ซึ่งตรงกับเลขยุทธศาสตร์อยู่แล้ว แต่เดิมพิมพ์รวมเป็นบรรทัดสีเทา
+           อ่านผ่านแล้วไม่รู้ว่า SO ไหนคู่กับยุทธศาสตร์ไหน
+
+           แยกเลขออกมาทำเป็นป้าย และเว้นข้อความเป้าหมายไว้ต่างหาก
+           ถ้าไฟล์ไม่ได้ขึ้นต้นด้วย SO ก็ถอยไปใช้เลขยุทธศาสตร์แทน */
+        const soNo = (String(s.so || "").match(/^SO\s*(\d)/) || [])[1] || s.no;
+        const soText = String(s.so || "").replace(/^SO\s*\d\s*/, "");
+
         return (
-          <section className="block" key={s.no}>
+          <section className={"block sblock s" + s.no} key={s.no}>
             <h2>
               <span className={"chip s" + s.no}>ยุทธศาสตร์ที่ {s.no}</span>
               {s.name}
@@ -163,8 +174,17 @@ export default function StrategyPage() {
               </small>
             </h2>
 
-            {s.so ? <div className="small muted" style={{ marginBottom: 10 }}>{s.so}</div> : null}
+            {s.so ? (
+              <div className="sohead">
+                <span className="sotag">SO{soNo}</span>
+                <div>
+                  <div className="solab">เป้าหมายเชิงยุทธศาสตร์</div>
+                  <div className="sotext">{soText || s.so}</div>
+                </div>
+              </div>
+            ) : null}
 
+            <h4 className="sublab">กลยุทธ์ภายใต้ยุทธศาสตร์ที่ {s.no}</h4>
             <div className="tablewrap" style={{ marginBottom: 14 }}>
               <table className="stack">
                 <thead>
@@ -187,8 +207,12 @@ export default function StrategyPage() {
             </div>
 
             {kpis.length ? (
-              <div className="tablewrap">
-                <table className="stack">
+              <>
+                <h4 className="sublab">
+                  ตัวชี้วัดของ SO{soNo} ({kpis.length} ตัว)
+                </h4>
+                <div className="tablewrap">
+                  <table className="stack">
                   <thead>
                     <tr>
                       <th style={{ width: 46 }}>ที่</th>
@@ -248,8 +272,9 @@ export default function StrategyPage() {
                       );
                     })}
                   </tbody>
-                </table>
-              </div>
+                  </table>
+                </div>
+              </>
             ) : (
               <div className="small muted">ไม่มีตัวชี้วัดระดับองค์กรผูกกับยุทธศาสตร์นี้</div>
             )}

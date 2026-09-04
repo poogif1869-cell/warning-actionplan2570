@@ -39,23 +39,15 @@ const DONUT_VIEWS = [
   ["orgunit", "เบิกจ่ายตามส่วนงานที่ใช้งบ"],
 ];
 
-/* ขอบเขตของไฟล์ PDF ที่จะดาวน์โหลดในหน้ารายงาน */
-const PDF_SCOPES = [
-  ["all", "ทั้งหมดที่แสดงอยู่"],
-  ["org", "เฉพาะหน่วยงานที่เลือก"],
-  ["project", "เฉพาะโครงการที่เลือก"],
-];
-
 export default function BudgetPage() {
-  const { budget, asOfMonth, asOfLabel, allMonths, loaded, budgetSubmitted } = useResults();
+  const { budget, asOfMonth, asOfLabel, allMonths, loaded } = useResults();
   const [pane, setPane] = useState("report");
   const [q, setQ] = useState("");
   const [org, setOrg] = useState("");
   const [fund, setFund] = useState("");
   const [openUid, setOpenUid] = useState(null);
   const [view, setView] = useState("month");
-  const [pdfScope, setPdfScope] = useState("all");
-  const [pdfUid, setPdfUid] = useState("");
+  // โครงการที่กำลังจะพิมพ์เป็น PDF — ต้อง render DOM ของรายงานก่อนเรียก print
   const [printItem, setPrintItem] = useState(null);
 
   // ดรอปดาวน์ช่วงเวลาด้านบนคุมทั้งหน้า — ทั้งปี = null (ไม่กรองเดือน)
@@ -551,7 +543,9 @@ export default function BudgetPage() {
 
           <div className="hint">
             เพิ่มได้หลายรายการต่อเดือน · โครงการที่มีกิจกรรมย่อยให้บันทึกที่กิจกรรมเท่านั้น ·
-            แยก {COST_FIELDS.map((c) => c.label).join(" / ")}
+            แยก {COST_FIELDS.map((c) => c.label).join(" / ")} ·
+            <b>ดาวน์โหลด PDF ได้ที่ปุ่มท้ายแถวของแต่ละโครงการ</b>
+            ซึ่งได้รายงานเนื้อหาเดียวกับที่กรอกในหน้านี้ทั้งหมด
           </div>
 
           <div className="filters">
@@ -589,150 +583,9 @@ export default function BudgetPage() {
             </div>
           </div>
 
-          {/* ---------- เลือกขอบเขตไฟล์ PDF ---------- */}
-          <div className="card pad" style={{ marginBottom: 16 }}>
-            <div className="filters" style={{ marginBottom: 0 }}>
-              <div className="field">
-                <label htmlFor="b-pdf">ดาวน์โหลด PDF</label>
-                <select
-                  id="b-pdf"
-                  value={pdfScope}
-                  onChange={(e) => setPdfScope(e.target.value)}
-                >
-                  {PDF_SCOPES.map(([k, label]) => (
-                    <option key={k} value={k}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {pdfScope === "project" ? (
-                <div className="field" style={{ flex: 1 }}>
-                  <label htmlFor="b-pdfp">เลือกโครงการ</label>
-                  <select
-                    id="b-pdfp"
-                    value={pdfUid}
-                    onChange={(e) => setPdfUid(e.target.value)}
-                    style={{ maxWidth: 420 }}
-                  >
-                    <option value="">— เลือกโครงการ —</option>
-                    {rows.map(({ p }) => (
-                      <option key={p.uid} value={p.uid}>
-                        {p.code} {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
-
-              <div className="field">
-                <label>&nbsp;</label>
-                {pdfScope === "project" ? (
-                  <button
-                    className="btn"
-                    disabled={!pdfUid}
-                    onClick={() => {
-                      const hit = rows.find((r) => r.p.uid === pdfUid);
-                      if (hit) setPrintItem(hit.p);
-                    }}
-                  >
-                    ดาวน์โหลด PDF
-                  </button>
-                ) : (
-                  <DownloadButton
-                    sheets={() => [
-                      {
-                        name: "รายการเบิกจ่าย",
-                        widths: [12, 40, 10, 14, 20, 30].concat(COST_FIELDS.map(() => 14)).concat([16, 14]),
-                        rows: [
-                          ["รหัสโครงการ", "โครงการ", "เดือน", "วันที่", "ส่วนงานที่ใช้งบ", "รายละเอียด"]
-                            .concat(COST_FIELDS.map((c) => c.label))
-                            .concat(["รวมรายการ", "สถานะรายการ"]),
-                          ...rows.flatMap(({ p, roll }) =>
-                            [...roll.own, ...roll.byActivity.flatMap((a) => a.list)].map((e) =>
-                              [
-                                p.code,
-                                p.name,
-                                MONTHS[e.month] || "",
-                                e.occurred_on || "",
-                                e.org || "",
-                                e.note || "",
-                              ]
-                                .concat(COST_FIELDS.map((c) => Number(String(e[c.key] || "0").replace(/,/g, "")) || 0))
-                                .concat([entriesTotal([e]), e.saved ? "บันทึกแล้ว" : "ร่าง"])
-                            )
-                          ),
-                        ],
-                      },
-                      {
-                        name: "สรุปรายโครงการ",
-                        widths: [12, 44, 20, 16, 16, 16, 12, 18].concat(
-                          COST_FIELDS.map(() => 14)
-                        ),
-                        rows: [
-                          [
-                            "รหัส",
-                            "โครงการ",
-                            "หน่วยงาน",
-                            "งบตามแผน",
-                            "เบิกจ่าย",
-                            "คงเหลือ",
-                            "จำนวนรายการ",
-                            "สถานะการส่งงบ",
-                          ].concat(COST_FIELDS.map((c) => c.label)),
-                          ...rows.map(({ p, roll }) =>
-                            [
-                              p.code,
-                              p.name,
-                              p.org || "",
-                              p.budget || 0,
-                              roll.total,
-                              (p.budget || 0) - roll.total,
-                              roll.count,
-                              allMonths
-                                ? "ดูทั้งปี ไม่ระบุรายเดือน"
-                                : budgetSubmitted(p.uid, asOfMonth)
-                                ? "ส่งข้อมูลแล้ว"
-                                : "ยังไม่ส่ง",
-                            ].concat(
-                              COST_FIELDS.map(
-                                (c) =>
-                                  entriesByCost([
-                                    ...roll.own,
-                                    ...roll.byActivity.flatMap((a) => a.list),
-                                  ])[c.key] || 0
-                              )
-                            )
-                          ),
-                        ],
-                      },
-                    ]}
-                    title={
-                      pdfScope === "org"
-                        ? "รายงานงบประมาณ หน่วยงาน " + (orgName || "(ยังไม่เลือก)")
-                        : "รายงานงบประมาณโครงการ"
-                    }
-                    subtitle={
-                      asOfLabel +
-                      " · " + rows.length + " โครงการ" +
-                      (fund ? " · " + fund : "")
-                    }
-                  />
-                )}
-              </div>
-            </div>
-
-            <div className="small muted" style={{ marginTop: 8 }}>
-              {pdfScope === "all"
-                ? "ได้ทุกโครงการที่แสดงอยู่ตอนนี้ (ผ่านตัวกรองด้านบนแล้ว)"
-                : pdfScope === "org"
-                ? org
-                  ? "ได้เฉพาะโครงการของ " + orgName + " ตามที่กรองไว้"
-                  : "ยังไม่ได้เลือกหน่วยงาน — เลือกที่ช่อง “หน่วยงาน” ด้านบนก่อน ไม่งั้นจะได้ทุกโครงการ"
-                : "ได้รายงานละเอียดของโครงการเดียว พร้อมตารางกิจกรรมและรายการเบิกจ่ายทุกรายการ"}
-            </div>
-          </div>
+          {/* ไม่มีปุ่มดาวน์โหลดรวมทั้งหน้าแล้ว — ดาวน์โหลดเป็นรายโครงการ
+              ที่ปุ่ม PDF ท้ายแถวแทน เพราะรายงานงบประมาณเป็นเอกสารรายโครงการ
+              ไฟล์รวมทุกโครงการเป็นร้อยหน้าไม่มีใครเอาไปใช้จริง */}
 
           <div className="tablewrap">
             <table className="stack">

@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
 import { MONTHS, byUid } from "@/lib/plan";
 import { money, pct } from "@/lib/format";
-import { useResults } from "@/lib/store";
 import { KIND_LABEL, SEV_LABEL } from "@/lib/alerts";
 import ReportTab from "@/components/report-tab";
 import DownloadButton from "@/components/download-button";
@@ -16,17 +14,14 @@ import DownloadButton from "@/components/download-button";
    โผล่ใน 5 หน้า ถ้าเปิดให้แก้ทุกที่ ข้อมูลชุดเดียวกันจะถูกแก้จากหลายทาง
    จนตามไม่ทันว่าใครแก้อะไร
 
-     ผลการดำเนินงาน (ReportTab) -> หน้า /projects
+     ผลการดำเนินงาน (ReportTab) -> หน้า /projects (ReportTab เช็ค path เอง)
      รายงานความเสี่ยงรายเดือน   -> ขั้นตอนหนึ่งใน ReportTab (ไม่มีแท็บแยกแล้ว)
-     ล้างข้อมูลโครงการ          -> หน้า /projects (ลบทั้งสามชนิดพร้อมกัน)
      รายการงบประมาณ            -> หน้า /budget เท่านั้น (ไม่มีในลิ้นชักอยู่แล้ว)
+     เพิ่ม/ลบ/แก้ตัวแผน          -> หน้า /plan-edit เท่านั้น
+
+   ลิ้นชักตัวนี้จึงเป็น "ที่แสดงผล" ล้วน ๆ ไม่มีปุ่มที่ลบหรือแก้อะไรของตัวเอง
 */
 export default function ProjectDrawer({ uid, alerts, onClose }) {
-  const pathname = usePathname();
-  // ตัด "/" ท้ายทิ้งก่อนเทียบ ด้วยเหตุผลเดียวกับใน report-tab.jsx
-  const canClear = String(pathname || "").replace(/\/+$/, "") === "/projects";
-
-  const { clearProject } = useResults();
   const [tab, setTab] = useState("report");
 
   // ปิดด้วย Esc
@@ -204,26 +199,10 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
                 </>
               ) : null}
 
-              {/* ปุ่มนี้ลบข้อมูลทั้งสามชนิดพร้อมกัน จึงอยู่ที่หน้าโครงการที่เดียว
-                  ไม่ควรลบข้อมูลความเสี่ยงหรืองบประมาณจากหน้าที่ไม่ได้เป็นเจ้าของ */}
-              {canClear ? (
-                <div className="btnrow">
-                  <button
-                    className="btn ghost"
-                    onClick={() => {
-                      if (
-                        confirm(
-                          "ล้างข้อมูลที่กรอกไว้ของโครงการนี้ทั้งหมด?"
-                        )
-                      ) {
-                        clearProject(uid);
-                      }
-                    }}
-                  >
-                    ล้างข้อมูลที่กรอกของโครงการนี้
-                  </button>
-                </div>
-              ) : null}
+              {/* ไม่มีปุ่มล้างข้อมูลที่นี่แล้ว — ปุ่มที่ลบผลการดำเนินงาน
+                  รายการงบประมาณ และรายงานความเสี่ยงของทั้งโครงการพร้อมกัน
+                  ในคลิกเดียว อันตรายเกินกว่าจะวางไว้ข้างข้อมูลที่ดูเฉย ๆ
+                  ถ้าต้องล้างจริง ให้ลบทีละรายการจากหน้าที่เป็นเจ้าของข้อมูลนั้น */}
             </>
           ) : null}
         </div>

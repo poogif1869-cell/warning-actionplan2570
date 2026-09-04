@@ -138,30 +138,44 @@ export default function LinkagePage() {
           ))}
         </div>
 
-        <div className="filters">
-          <div className="field" style={{ flex: 1 }}>
-            <label htmlFor="lk-q">ค้นหาโครงการ</label>
-            <input
-              id="lk-q"
-              type="search"
-              placeholder="ชื่อโครงการ หรือ รหัสโครงการ"
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
+        {/* ---------- ช่องค้นหาแบบเด่น ----------
+            หน้านี้คนเข้ามาด้วยคำถามเดียวเป็นส่วนใหญ่: "โครงการนี้ผูกกับแผนไหน"
+            ช่องค้นหาจึงเป็นเครื่องมือหลักของหน้า ไม่ใช่ตัวกรองรองแบบหน้าอื่น
+            เดิมเป็น .field ธรรมดาที่หน้าตาเท่ากับดรอปดาวน์ทั่วไป มองผ่านได้ง่าย */}
+        <div className="searchbig">
+          <span className="searchbig-ico" aria-hidden="true">🔍</span>
+          <input
+            id="lk-q"
+            type="search"
+            aria-label="ค้นหาโครงการ"
+            placeholder="พิมพ์ชื่อหรือรหัสโครงการ เพื่อดูว่าผูกกับแผนไหน"
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setExpanded(null);
+            }}
+          />
+          {q ? (
+            <button
+              type="button"
+              className="searchbig-x"
+              aria-label="ล้างคำค้น"
+              onClick={() => {
+                setQ("");
                 setExpanded(null);
               }}
-              style={{ maxWidth: 420 }}
-            />
-          </div>
-          {q ? (
-            <div className="field">
-              <label>&nbsp;</label>
-              <div className="small muted" style={{ paddingBlock: 7 }}>
-                พบ {fmt(matchCount)} โครงการ ใน {fmt(groups.length)} รายการของชั้นนี้
-              </div>
-            </div>
+            >
+              ×
+            </button>
           ) : null}
         </div>
+
+        {q ? (
+          <div className="small muted" style={{ margin: "-6px 0 14px" }}>
+            พบ {fmt(matchCount)} โครงการ ใน {fmt(groups.length)} รายการของชั้นนี้ ·
+            กางทุกกลุ่มให้อัตโนมัติแล้ว
+          </div>
+        ) : null}
 
         <div className="tiles">
           <div className="tile">

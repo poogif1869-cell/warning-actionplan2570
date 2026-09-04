@@ -1531,3 +1531,81 @@ section.block > h2 > .dlwrap{margin-inline-start:auto}
      บนมือถือให้เหลือแค่ปุ่ม กดเองได้อยู่แล้ว */
   .chatgreet{display:none}
 }
+
+/* ---------- ช่องค้นหาหลักของหน้า ----------
+   ต่างจาก .field ในแถบตัวกรองตรงที่อันนี้เป็น "เครื่องมือหลัก" ของหน้า
+   ไม่ใช่ตัวกรองรอง จึงกว้างเต็มแถว สูงกว่า และมีไอคอนนำสายตา */
+.searchbig{
+  display:flex; align-items:center; gap:10px;
+  background:var(--surface); border:1.5px solid var(--border);
+  border-radius:999px; padding:4px 6px 4px 18px; margin-bottom:16px;
+  max-width:620px; box-shadow:var(--shadow);
+  transition:border-color .15s ease, box-shadow .15s ease;
+}
+.searchbig:focus-within{border-color:var(--accent); box-shadow:var(--shadow-lg)}
+.searchbig-ico{font-size:15px; line-height:1; opacity:.6; flex:none}
+.searchbig input{
+  flex:1 1 auto; min-width:0; border:0; background:none; outline:none;
+  /* 16px ไม่ใช่ 15px — iOS ซูมเข้าเองเมื่อช่องที่โฟกัสมีตัวอักษรเล็กกว่า 16px */
+  font:inherit; font-size:16px; padding:10px 0; color:var(--text);
+}
+.searchbig input::-webkit-search-cancel-button{display:none}
+.searchbig-x{
+  flex:none; border:0; background:var(--surface2); color:var(--muted);
+  width:30px; height:30px; border-radius:50%; cursor:pointer;
+  font-size:18px; line-height:1;
+}
+.searchbig-x:hover{background:var(--bad); color:#fff}
+
+/* =====================================================================
+   หน้ายุทธศาสตร์: แยก SO แต่ละข้อให้เห็นชัดว่าอันไหนคู่กับยุทธศาสตร์ไหน
+
+   เดิมทุกยุทธศาสตร์หน้าตาเหมือนกันหมด ต่างกันแค่ชิปเล็ก ๆ ที่หัวข้อ
+   เลื่อนผ่านแล้วไม่รู้ว่ากำลังอ่านตารางของยุทธศาสตร์ไหนอยู่
+
+   ทุกส่วนของบล็อกใช้สีเดียวกันผ่านตัวแปร --sc ที่ตั้งตามเลขยุทธศาสตร์
+   (ขีดหน้าหัวข้อ · ป้าย SO · เส้นซ้ายของตาราง · หัวตาราง)
+   ===================================================================== */
+.sblock.s1{--sc:var(--s1)}
+.sblock.s2{--sc:var(--s2)}
+.sblock.s3{--sc:var(--s3)}
+.sblock.s4{--sc:var(--s4)}
+
+.sblock > h2::before{background:var(--sc)}
+.sblock > h2{border-bottom-color:var(--sc)}
+
+/* ป้าย SO — ตัวใหญ่พอที่จะเป็นหมุดสายตาเวลาเลื่อนหา */
+.sohead{
+  display:flex; gap:14px; align-items:flex-start;
+  border:1px solid var(--sc); border-inline-start-width:5px;
+  border-radius:12px; padding:14px 16px; margin-bottom:20px;
+  background:var(--tint);
+}
+.sotag{
+  flex:none; font-weight:800; font-size:16px; letter-spacing:.02em;
+  color:var(--surface); background:var(--sc);
+  border-radius:9px; padding:6px 12px; line-height:1.2;
+}
+.solab{
+  font-size:11px; letter-spacing:.06em; color:var(--sc);
+  font-weight:700; margin-bottom:3px;
+}
+.sotext{font-size:13.5px; line-height:1.65; color:var(--text)}
+
+/* หัวข้อย่อยของแต่ละตารางในบล็อก — บอกว่าตารางนี้เป็นของอะไร */
+.sublab{
+  font-size:13px; color:var(--muted); font-weight:600;
+  margin:20px 0 9px; display:flex; align-items:center; gap:8px;
+}
+.sublab::before{
+  content:""; width:3px; height:14px; border-radius:2px;
+  background:var(--sc,var(--border)); flex:none;
+}
+
+/* ตารางในบล็อกได้เส้นซ้ายกับหัวตารางสีเดียวกับยุทธศาสตร์ */
+.sblock .tablewrap{border-inline-start:3px solid var(--sc)}
+.sblock th{color:var(--sc); border-bottom-color:var(--sc)}
+
+@media (max-width:640px){
+  .sohead{flex-direction:column; gap:9px}
+}

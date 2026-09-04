@@ -2,7 +2,14 @@
 
 import { MONTHS, META } from "@/lib/plan";
 import { money, fmt, pct } from "@/lib/format";
-import { COST_FIELDS, entriesOf, entriesTotal, entriesByCost, budgetRollup } from "@/lib/store";
+import {
+  useResults,
+  COST_FIELDS,
+  entriesOf,
+  entriesTotal,
+  entriesByCost,
+  budgetRollup,
+} from "@/lib/store";
 
 /* รายงานงบประมาณรายโครงการสำหรับพิมพ์เป็น PDF
 
@@ -13,6 +20,10 @@ import { COST_FIELDS, entriesOf, entriesTotal, entriesByCost, budgetRollup } fro
    ตัว DOM นี้ถูก render ไว้ก่อนเรียก print เสมอ (กับดักเดิม: ถ้าสร้าง DOM
    ตอน beforeprint จะได้หน้าว่าง) ส่วนการซ่อน/แสดงจัดการด้วย @media print ใน globals.css */
 export default function BudgetReport({ item, budget }) {
+  /* อ่านสถานะการส่งข้อมูลจาก store โดยตรง ไม่รับผ่าน prop
+     เพราะคนเรียกใช้อยู่หลายที่ ถ้าต้องส่ง prop เพิ่มทุกที่จะลืมสักที่จนได้
+     hook ต้องเรียกก่อน early return เสมอ ไม่งั้นลำดับ hook เปลี่ยนตามข้อมูล */
+  const { budgetSubmitted } = useResults();
   if (!item) return null;
 
   const roll = budgetRollup(budget, item, null);
@@ -179,6 +190,9 @@ export default function BudgetReport({ item, budget }) {
         ส่วนงบที่ใช้จริงนับรวมทุกระดับ
       </p>
 
+      {/* คอลัมน์สถานะการส่งข้อมูล ต้องมีในไฟล์ PDF ด้วย
+          เพราะเป็นข้อมูลที่หน้ากรอกแสดงอยู่ และเป็นตัวบอกว่าเดือนไหน
+          ปิดยอดแล้ว เดือนไหนยังแก้ได้ ซึ่งเปลี่ยนความหมายของตัวเลขทั้งแถว */}
       <h2>ยอดเบิกจ่ายรายเดือน</h2>
       <table className="rpt-tbl">
         <thead>
@@ -186,6 +200,7 @@ export default function BudgetReport({ item, budget }) {
             <th>เดือน</th>
             <th className="num">จำนวนรายการ</th>
             <th className="num">ยอดเบิกจ่าย (บาท)</th>
+            <th>สถานะการส่งข้อมูล</th>
           </tr>
         </thead>
         <tbody>
@@ -194,6 +209,13 @@ export default function BudgetReport({ item, budget }) {
               <td>{m.label}</td>
               <td className="num">{m.count ? fmt(m.count) : "–"}</td>
               <td className="num">{m.total ? money(m.total) : "–"}</td>
+              <td>
+                {budgetSubmitted(item.uid, m.i)
+                  ? "ส่งข้อมูลแล้ว"
+                  : m.count
+                  ? "ยังไม่ส่ง"
+                  : "–"}
+              </td>
             </tr>
           ))}
           <tr>
@@ -205,6 +227,11 @@ export default function BudgetReport({ item, budget }) {
             </td>
             <td className="num">
               <b>{money(used)}</b>
+            </td>
+            <td>
+              <b>
+                ส่งแล้ว {monthly.filter((m) => budgetSubmitted(item.uid, m.i)).length}/12 เดือน
+              </b>
             </td>
           </tr>
         </tbody>
@@ -260,6 +287,7 @@ export default function BudgetReport({ item, budget }) {
                 </th>
               ))}
               <th className="num">รวม</th>
+              <th>สถานะ</th>
             </tr>
           </thead>
           <tbody>
@@ -285,6 +313,7 @@ export default function BudgetReport({ item, budget }) {
                     </td>
                   ))}
                   <td className="num">{money(entriesTotal([e]))}</td>
+                  <td>{e.saved ? "บันทึกแล้ว" : "ร่าง"}</td>
                 </tr>
               ));
             })}
