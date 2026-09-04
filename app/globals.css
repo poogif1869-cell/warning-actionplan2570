@@ -9,7 +9,7 @@
   --on-brand:#ffffff; --on-brand-dim:rgba(255,255,255,.82); --on-brand-faint:rgba(255,255,255,.58);
   --brand-line:rgba(255,255,255,.22);
   --s1:#1d7a4a; --s2:#a86a10; --s3:#26608f; --s4:#75479a;
-  --ok:#2b7a34; --warn:#a67a00; --bad:#bf3b2c; --none:#94a19a;
+  --ok:#2b7a34; --warn:#a67a00; --bad:#bf3b2c; --none:#94a19a; --bad-soft:#fbe9e6;
   --shadow:0 1px 2px rgba(11,58,35,.06),0 8px 24px rgba(11,58,35,.07);
   --radius:10px;
 }
@@ -23,7 +23,7 @@
     --on-brand:#eef6f1; --on-brand-dim:rgba(238,246,241,.8); --on-brand-faint:rgba(238,246,241,.55);
     --brand-line:rgba(255,255,255,.14);
     --s1:#45c286; --s2:#dfa445; --s3:#6aa8e0; --s4:#b98ad6;
-    --ok:#5cbf62; --warn:#e0b040; --bad:#e8695a; --none:#78897f;
+    --ok:#5cbf62; --warn:#e0b040; --bad:#e8695a; --none:#78897f; --bad-soft:#2e1714;
     --shadow:0 1px 2px rgba(0,0,0,.45),0 8px 24px rgba(0,0,0,.35);
   }
 }
@@ -36,7 +36,7 @@
   --on-brand:#eef6f1; --on-brand-dim:rgba(238,246,241,.8); --on-brand-faint:rgba(238,246,241,.55);
   --brand-line:rgba(255,255,255,.14);
   --s1:#45c286; --s2:#dfa445; --s3:#6aa8e0; --s4:#b98ad6;
-  --ok:#5cbf62; --warn:#e0b040; --bad:#e8695a; --none:#78897f;
+  --ok:#5cbf62; --warn:#e0b040; --bad:#e8695a; --none:#78897f; --bad-soft:#2e1714;
   --shadow:0 1px 2px rgba(0,0,0,.45),0 8px 24px rgba(0,0,0,.35);
 }
 
@@ -1126,4 +1126,49 @@ section.block > h2 > .dlwrap{margin-inline-start:auto}
 
 @media print{
   .steps{display:none !important}
+}
+
+/* ---------- แถบเตือนสำคัญที่ขวางการบันทึก ----------
+   ต่างจาก .banner ธรรมดาตรงที่มีพื้นสีจริง ไม่ใช่แค่กรอบ
+   เพราะอันนี้ไม่ใช่ข้อมูลประกอบ แต่คือ "กดบันทึกไม่ได้นะ" ต้องสะดุดตา */
+.banner.blocknote{
+  display:flex; gap:14px; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; background:var(--bad-soft, rgba(198,40,40,.09));
+  border-width:1.5px; padding:13px 16px;
+}
+.banner.blocknote > div{flex:1 1 260px; min-width:0}
+.banner.blocknote .btn{background:var(--bad); flex:0 0 auto}
+
+/* ---------- ป้ายสถานะเล็ก ---------- */
+.pill{
+  display:inline-block; padding:2px 9px; border-radius:999px;
+  font-size:11.5px; font-weight:600; white-space:nowrap;
+  border:1px solid var(--border); background:var(--surface2); color:var(--muted);
+}
+.pill.ok{border-color:var(--ok); color:var(--ok); background:transparent}
+.pill.warn{border-color:var(--warn); color:var(--warn); background:transparent}
+.pill.bad{border-color:var(--bad); color:var(--bad); background:transparent}
+.pill.none{color:var(--none)}
+
+/* ---------- รายการกิจกรรมพร้อมสถานะรายงาน ---------- */
+.actlist{display:flex; flex-direction:column; gap:5px; margin-bottom:14px}
+.actrow{
+  display:flex; align-items:center; gap:10px; width:100%; text-align:start;
+  padding:8px 12px; border-radius:8px; cursor:pointer; font:inherit; font-size:13px;
+  background:var(--surface); border:1px solid var(--border); color:var(--text);
+}
+.actrow:hover{border-color:var(--accent)}
+.actrow.on{border-color:var(--gold); background:var(--gold-soft)}
+.actmark{
+  flex:0 0 auto; width:20px; height:20px; border-radius:50%;
+  display:grid; place-items:center; font-size:12px; font-weight:700;
+  background:var(--border); color:var(--muted);
+}
+.actrow.done .actmark{background:var(--ok); color:var(--surface)}
+.actname{flex:1 1 auto; min-width:0}
+.actrow .pill{flex:0 0 auto}
+
+@media (max-width:640px){
+  .actrow{flex-wrap:wrap}
+  .actname{flex-basis:100%; order:2}
 }

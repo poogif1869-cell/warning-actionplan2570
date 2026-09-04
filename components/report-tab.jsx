@@ -67,6 +67,19 @@ export default function ReportTab({ item }) {
   const activity = kids.find((k) => k.uid === actUid) || null;
 
   /* ---------------------------------------------------------------
+     กิจกรรมนี้รายงานผลแล้วหรือยัง
+
+     นับจาก outputResult ที่กรอกจริงเท่านั้น ไม่นับ outputIssue
+     เพราะ "ติดปัญหาอะไร" กรอกได้โดยที่ยังไม่มีผลผลิตมารายงาน
+     ถ้านับด้วยจะขึ้นว่ารายงานแล้วทั้งที่ยังไม่มีตัวเลขผลงานสักตัว
+     --------------------------------------------------------------- */
+  function actReported(k) {
+    const v = projectTrack(results, k.uid).outputResult;
+    return v != null && String(v).trim() !== "";
+  }
+  const actDone = kids.filter(actReported).length;
+
+  /* ---------------------------------------------------------------
      ต้องส่งข้อมูลงบประมาณของเดือนที่เลือกก่อน ถึงจะบันทึกรายงานผลได้
 
      เหตุผล: ยอดเบิกจ่ายในรายงานผลคำนวณมาจากรายการงบประมาณ ถ้ายังแก้งบ
@@ -77,6 +90,13 @@ export default function ReportTab({ item }) {
      --------------------------------------------------------------- */
   const budgetReady = !allMonths && budgetSubmitted(item.uid, asOfMonth);
   const [ackWarn, setAckWarn] = useState(false);
+
+  /* พาไปที่โครงการนี้ในหน้างบประมาณเลย ไม่ใช่ให้ไปค้นเองใหม่
+     ส่ง uid ไม่ใช่ code เพราะรหัสโครงการซ้ำกัน 9 รหัส ถ้าส่ง code
+     จะเปิดผิดโครงการได้ (ดูหมายเหตุเรื่องรหัสซ้ำใน lib/plan.js) */
+  function goBudget() {
+    router.push("/budget?uid=" + encodeURIComponent(item.uid));
+  }
 
   /* ---------------------------------------------------------------
      รายงานเป็นขั้นตอน ไม่ใช่หน้ายาวหน้าเดียว
@@ -216,17 +236,41 @@ export default function ReportTab({ item }) {
         </div>
       ) : null}
 
+      {/* ---------- แถบเตือนค้างไว้ด้านบน ----------
+          ป๊อปอัพกดปิดแล้วก็หายไป ถ้ามีแค่ป๊อปอัพ คนที่กด "รับทราบ" ตั้งแต่แรก
+          จะกรอกไปทั้งหน้าโดยไม่เหลืออะไรเตือนว่าบันทึกไม่ได้
+          แถบนี้จึงค้างอยู่ตลอดจนกว่าจะส่งงบจริง และมีปุ่มพาไปทำต่อในตัว */}
+      {editable && !budgetReady ? (
+        <div className="banner bad blocknote">
+          <div>
+            <b>ยังบันทึกรายงานผลไม่ได้</b>
+            <div style={{ marginTop: 3 }}>
+              {allMonths
+                ? "ตอนนี้เลือกช่วงเวลาเป็น “ทั้งปีงบประมาณ” อยู่ — การรายงานผลเป็นงานรายเดือน ให้เลือกเดือนที่ต้องการรายงานจากดรอปดาวน์ด้านบนก่อน"
+                : "โครงการนี้ยังไม่ได้ส่งข้อมูลงบประมาณของ " +
+                  asOfLabel +
+                  " ต้องไปกด “ส่งข้อมูลงบประมาณ” ที่หน้างบประมาณโครงการก่อน จึงจะกดบันทึกโครงการได้"}
+            </div>
+          </div>
+          {!allMonths ? (
+            <button type="button" className="btn" onClick={goBudget}>
+              รายงานงบประมาณ →
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       {/* ป๊อปอัพเตือนก่อนเริ่มกรอก ตามที่ตกลงไว้ว่าให้เตือน "ก่อนเริ่มรายงานผล"
           ไม่ใช่ปล่อยให้กรอกจนเสร็จแล้วค่อยบอกว่าบันทึกไม่ได้ */}
       {editable && !budgetReady && !ackWarn ? (
         <ConfirmDialog
           title="ยังไม่ได้ส่งข้อมูลงบประมาณ"
           confirmLabel="รับทราบ ดูข้อมูลไปก่อน"
-          cancelLabel="ไปหน้างบประมาณโครงการ"
+          cancelLabel="รายงานงบประมาณ"
           onConfirm={() => setAckWarn(true)}
           onCancel={() => {
             setAckWarn(true);
-            router.push("/budget");
+            goBudget();
           }}
         >
           <p>
@@ -409,7 +453,42 @@ export default function ReportTab({ item }) {
       {/* ---------- 6. กิจกรรมย่อย (ถ้ามี) ---------- */}
       {step === "activity" && kids.length ? (
         <>
-          <h4>รายงานผลรายกิจกรรม ({kids.length} กิจกรรม)</h4>
+          <h4>
+            รายงานผลรายกิจกรรม ({kids.length} กิจกรรม)
+            <span
+              className={"pill " + (actDone === kids.length ? "ok" : actDone ? "warn" : "none")}
+              style={{ marginInlineStart: 8 }}
+            >
+              รายงานแล้ว {actDone}/{kids.length}
+            </span>
+          </h4>
+
+          {/* รายการกิจกรรมพร้อมสถานะ ให้เห็นทีเดียวว่าเหลือกิจกรรมไหนยังไม่ได้ทำ
+              ถ้ามีแต่ดรอปดาวน์ ต้องกดไล่ทีละตัวถึงจะรู้ว่าตกอันไหน */}
+          <div className="actlist">
+            {kids.map((k) => {
+              const done = actReported(k);
+              return (
+                <button
+                  type="button"
+                  key={k.uid}
+                  className={
+                    "actrow" + (done ? " done" : "") + (k.uid === actUid ? " on" : "")
+                  }
+                  onClick={() => setActUid(k.uid === actUid ? "" : k.uid)}
+                >
+                  <span className="actmark">{done ? "✓" : "•"}</span>
+                  <span className="actname">
+                    <b>{k.code}</b> {k.name}
+                  </span>
+                  <span className={"pill " + (done ? "ok" : "none")}>
+                    {done ? "รายงานแล้ว" : "ยังไม่รายงาน"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
           <div className="field" style={{ marginBottom: 14 }}>
             <label className="small muted" htmlFor={"act-" + item.uid}>
               เลือกกิจกรรม
@@ -423,7 +502,7 @@ export default function ReportTab({ item }) {
               <option value="">— เลือกกิจกรรม —</option>
               {kids.map((k) => (
                 <option key={k.uid} value={k.uid}>
-                  {k.code} {k.name}
+                  {actReported(k) ? "✓ รายงานแล้ว" : "• ยังไม่รายงาน"} — {k.code} {k.name}
                 </option>
               ))}
             </select>
@@ -565,19 +644,15 @@ export default function ReportTab({ item }) {
       ) : null}
       {editable ? (
         <>
+          {/* ตรงนี้เหลือบรรทัดเดียวพอ เพราะคำอธิบายเต็มอยู่ในแถบเตือนด้านบนแล้ว
+              แต่ต้องมีอะไรอยู่ตรงนี้ด้วย ไม่งั้นคนเลื่อนลงมาเจอปุ่มกดไม่ได้
+              แล้วไม่รู้ว่าทำไม เพราะแถบด้านบนเลื่อนพ้นจอไปแล้ว */}
           {!budgetReady ? (
-            <div className="banner bad" style={{ marginTop: 18 }}>
-              <b>ยังบันทึกรายงานผลไม่ได้</b> —{" "}
+            <div className="small st-bad" style={{ marginTop: 18 }}>
+              ปุ่มบันทึกยังกดไม่ได้ —{" "}
               {allMonths
                 ? "เลือกเดือนที่ต้องการรายงานจากดรอปดาวน์ด้านบนก่อน"
-                : "ต้องไปกด “ส่งข้อมูลงบประมาณ” ของ " +
-                  asOfLabel +
-                  " ที่หน้างบประมาณโครงการก่อน"}
-              <div className="btnrow">
-                <button className="btn" onClick={() => router.push("/budget")}>
-                  ไปหน้างบประมาณโครงการ
-                </button>
-              </div>
+                : "ยังไม่ได้ส่งข้อมูลงบประมาณของ " + asOfLabel}
             </div>
           ) : null}
 

@@ -59,6 +59,31 @@ export default function BudgetPage() {
   // ดรอปดาวน์ช่วงเวลาด้านบนคุมทั้งหน้า — ทั้งปี = null (ไม่กรองเดือน)
   const month = allMonths ? null : asOfMonth;
 
+  /* ---------------------------------------------------------------
+     เข้ามาจากปุ่ม "รายงานงบประมาณ" ในหน้ารายงานผล — /budget?uid=xxx
+     ให้เปิดหน้าต่างรายงานและกางแผงกรอกงบของโครงการนั้นเลย
+
+     อ่านจาก window.location ใน useEffect แทน useSearchParams เพราะ
+     useSearchParams บังคับให้ต้องมี <Suspense> ครอบตอน build ของ Next
+     ซึ่งเครื่องนี้ build ไม่ได้ จะรู้ว่าพังก็ต่อเมื่อขึ้น Vercel แล้ว
+     --------------------------------------------------------------- */
+  useEffect(() => {
+    const want = new URLSearchParams(window.location.search).get("uid");
+    if (!want) return;
+    setPane("report");
+    setOpenUid(want);
+    // ล้าง query ทิ้ง ไม่งั้นกดปิดแผงแล้วรีเฟรชหน้า มันจะเด้งกลับมาเปิดอีก
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+
+  /* เลื่อนไปที่แถวที่ถูกสั่งให้เปิด ไม่งั้นแผงกางอยู่นอกจอ
+     คนที่กดปุ่มมาจะนึกว่าไม่มีอะไรเกิดขึ้น */
+  useEffect(() => {
+    if (!openUid || !loaded) return;
+    const el = document.getElementById("bud-" + openUid);
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: "center" });
+  }, [openUid, loaded]);
+
   /* ยอดของแต่ละโครงการ รวมรายการของกิจกรรมลูกด้วย */
   const rows = useMemo(() => {
     const needle = q.toLowerCase().trim();
@@ -667,7 +692,7 @@ export default function BudgetPage() {
                   const yearRoll = budgetRollup(budget, p, null);
                   const left = (p.budget || 0) - yearRoll.total;
                   return [
-                    <tr key={p.uid}>
+                    <tr key={p.uid} id={"bud-" + p.uid}>
                       <td className="lead">
                         {p.sNo ? <span className={"chip s" + p.sNo}>{p.tNo || p.sNo}</span> : null}{" "}
                         {p.name}
