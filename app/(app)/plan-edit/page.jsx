@@ -55,7 +55,8 @@ const LEAD = {
     "กรอกรายละเอียดโครงการให้ครบ แล้วเลือกว่าจะบันทึกร่างไว้ก่อน หรืออนุมัติเข้าแผนเลย",
   activity:
     "เลือกโครงการเดิมแล้วเพิ่มกิจกรรมเข้าไป ไม่ต้องกรอกข้อมูลโครงการซ้ำ — ใช้ของโครงการแม่ทั้งหมด",
-  edit: "เลือกโครงการครั้งเดียว แล้วติ๊กว่าจะแก้อะไรบ้าง แก้พร้อมกันได้ในรอบเดียว",
+  edit:
+    "เลือกโครงการครั้งเดียว แล้วเลือกว่าจะแก้อะไร และแก้ของโครงการอย่างเดียว หรือของกิจกรรมด้วย",
   delete: "เลือกได้ว่าจะลบทั้งโครงการ หรือลบเฉพาะบางกิจกรรม",
 };
 
@@ -129,6 +130,16 @@ export default function PlanEditPage() {
   const [note, setNote] = useState("");
   const [parts, setParts] = useState({ kpi: false, budget: false, schedule: false });
   const [delScope, setDelScope] = useState("all"); // all | some
+
+  /* ---------- โหมดแก้ไข: เลือกได้หลายรายการในครั้งเดียว ----------
+     editSel   uid ของรายการที่จะแก้ (โครงการ และ/หรือ กิจกรรมบางตัว)
+     editForms uid -> ค่าที่กรอกของรายการนั้น
+
+     **แยกฟอร์มต่อรายการ ไม่ใช้ค่าร่วมกัน** งบของโครงการกับงบของกิจกรรม
+     เป็นคนละก้อน ตัวชี้วัดก็คนละตัว ถ้าใช้ค่าเดียวกันจะกลายเป็นก๊อปทับกันหมด
+     สิ่งที่ประหยัดคือไม่ต้องเลือกโครงการใหม่ทุกรอบ ไม่ใช่ประหยัดการกรอก */
+  const [editSel, setEditSel] = useState([]);
+  const [editForms, setEditForms] = useState({});
   const [delKids, setDelKids] = useState([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -168,23 +179,37 @@ export default function PlanEditPage() {
     setForm({ ...emptyForm(), ...(row.data || {}) });
   }, [editId, planEdits]);
 
+  /* รายการที่แก้ได้ในโหมดแก้ไข = โครงการที่เลือก + กิจกรรมทุกตัวใต้โครงการนั้น
+     ถ้าเลือกกิจกรรมมาตรง ๆ ก็ไต่ขึ้นไปหาโครงการแม่ก่อน จะได้เห็นพี่น้องด้วย */
+  const editRoot = target ? (target.lvl === 1 ? target : target._parent || target) : null;
+  const editTargets = editRoot ? [editRoot].concat(editRoot._kids || []) : [];
+
   /* ---------- เปลี่ยนรายการเป้าหมาย: เติมค่าปัจจุบันลงฟอร์ม ---------- */
   useEffect(() => {
     if (!target || mode === "project") return;
+
     if (mode === "edit") {
-      setForm((f) => ({
-        ...f,
-        budget: target.budget == null ? "" : String(target.budget),
-        output: target.output || "",
-        outcome: target.outcome || "",
-        kpi: target.kpi || "",
-        period: target.period || "",
-        outputTarget: target.outputTarget || "",
-        outputUnit: target.outputUnit || "",
-        months: (target.months || new Array(12).fill(0)).slice(),
-        monthTargets: (target.monthTargets || new Array(12).fill("")).slice(),
-      }));
+      const root = target.lvl === 1 ? target : target._parent || target;
+      const list = [root].concat(root._kids || []);
+      const seeded = {};
+      list.forEach((t) => {
+        seeded[t.uid] = {
+          budget: t.budget == null ? "" : String(t.budget),
+          output: t.output || "",
+          outcome: t.outcome || "",
+          kpi: t.kpi || "",
+          period: t.period || "",
+          outputTarget: t.outputTarget || "",
+          outputUnit: t.outputUnit || "",
+          months: (t.months || new Array(12).fill(0)).slice(),
+          monthTargets: (t.monthTargets || new Array(12).fill("")).slice(),
+        };
+      });
+      setEditForms(seeded);
+      // เลือกไว้ให้ตัวที่กดมาก่อน ถ้ากดโครงการมาก็เริ่มที่โครงการอย่างเดียว
+      setEditSel([target.uid]);
     }
+
     if (mode === "delete") {
       setDelScope("all");
       setDelKids([]);
@@ -242,12 +267,20 @@ export default function PlanEditPage() {
     return "";
   }, [mode, acts, projectCode]);
 
-  const schedErr =
-    mode === "activity" || (mode === "edit" && parts.schedule)
-      ? scheduleProblem(form)
-      : mode === "project" && acts.length === 0
-      ? scheduleProblem(form)
-      : "";
+  /* โหมดแก้ไขตรวจแผนดำเนินงานของ **ทุกรายการที่เลือก** ไม่ใช่แค่ตัวเดียว
+     บอกด้วยว่าเป็นของรายการไหน ไม่งั้นข้อความ "ผลรวมไม่ตรง" จะไม่รู้ว่าของใคร */
+  const schedErr = useMemo(() => {
+    if (mode === "activity") return scheduleProblem(form);
+    if (mode === "project") return acts.length ? "" : scheduleProblem(form);
+    if (mode === "edit" && parts.schedule) {
+      for (let i = 0; i < editSel.length; i++) {
+        const t = byUid.get(editSel[i]);
+        const e = scheduleProblem(editForms[editSel[i]] || {});
+        if (e) return (t ? t.code + " " : "") + e;
+      }
+    }
+    return "";
+  }, [mode, form, acts.length, parts.schedule, editSel, editForms]);
 
   const missing = useMemo(() => {
     const out = [];
@@ -268,8 +301,9 @@ export default function PlanEditPage() {
     }
 
     if (mode === "edit") {
-      if (!target) out.push("รายการที่จะแก้");
+      if (!target) out.push("โครงการที่จะแก้");
       if (!anyPart) out.push("เลือกอย่างน้อยหนึ่งอย่างที่จะแก้");
+      if (anyPart && !editSel.length) out.push("รายการที่จะแก้อย่างน้อยหนึ่งรายการ");
     }
 
     if (mode === "delete") {
@@ -284,7 +318,7 @@ export default function PlanEditPage() {
     return out;
   }, [
     mode, form, codeErr, target, anyPart, delScope, delKids,
-    actErr, schedErr, needsApproval, approval, note,
+    actErr, schedErr, needsApproval, approval, note, editSel,
   ]);
 
   const ok = missing.length === 0 && canEdit && hasPlanEdits;
@@ -422,48 +456,61 @@ export default function PlanEditPage() {
       }));
     }
 
-    // โหมด edit — หนึ่งแถวต่อหนึ่งชนิดที่ติ๊กไว้
+    /* โหมด edit — หนึ่งแถวต่อ (รายการที่เลือก × ชนิดที่ติ๊ก)
+       เลือกโครงการ + 3 กิจกรรม แล้วติ๊กงบกับแผน = 8 แถวในถัง
+       แยกละเอียดแบบนี้เพราะถังต้องตอบได้ว่า "กิจกรรมนี้งบเคยเปลี่ยนกี่ครั้ง"
+       ไม่ใช่ตอบได้แค่ว่า "โครงการนี้เคยถูกแก้" */
     const out = [];
-    if (parts.kpi) {
-      out.push({
-        ...meta,
-        kind: "kpi",
-        uid,
-        data: { output: form.output, outcome: form.outcome, kpi: form.kpi },
-        prev: { output: target.output, outcome: target.outcome, kpi: target.kpi },
-      });
-    }
-    if (parts.budget) {
-      out.push({
-        ...meta,
-        kind: "budget",
-        uid,
-        data: { budget: Number(String(form.budget).replace(/,/g, "")) || 0 },
-        // เทียบกับงบตามไฟล์แผนเสมอ ไม่ใช่งบล่าสุด แดชบอร์ดจึงเทียบกับแผนเดิมได้ตรง
-        prev: { budget: target.baseBudget == null ? target.budget || 0 : target.baseBudget },
-      });
-    }
-    if (parts.schedule) {
-      out.push({
-        ...meta,
-        kind: "schedule",
-        uid,
-        data: {
-          months: form.months,
-          monthTargets: form.monthTargets,
-          period: form.period,
-          outputTarget: form.outputTarget,
-          outputUnit: form.outputUnit,
-        },
-        prev: {
-          months: (target.months || []).slice(),
-          monthTargets: (target.monthTargets || []).slice(),
-          period: target.period,
-          outputTarget: target.outputTarget || "",
-          outputUnit: target.outputUnit || "",
-        },
-      });
-    }
+
+    editSel.forEach((u) => {
+      const t = byUid.get(u);
+      if (!t) return;
+      const f = editForms[u] || {};
+
+      if (parts.kpi) {
+        out.push({
+          ...meta,
+          kind: "kpi",
+          uid: u,
+          data: { output: f.output, outcome: f.outcome, kpi: f.kpi },
+          prev: { output: t.output, outcome: t.outcome, kpi: t.kpi },
+        });
+      }
+
+      if (parts.budget) {
+        out.push({
+          ...meta,
+          kind: "budget",
+          uid: u,
+          data: { budget: Number(String(f.budget).replace(/,/g, "")) || 0 },
+          // เทียบกับงบตามไฟล์แผนเสมอ ไม่ใช่งบล่าสุด แดชบอร์ดจึงเทียบกับแผนเดิมได้ตรง
+          prev: { budget: t.baseBudget == null ? t.budget || 0 : t.baseBudget },
+        });
+      }
+
+      if (parts.schedule) {
+        out.push({
+          ...meta,
+          kind: "schedule",
+          uid: u,
+          data: {
+            months: f.months,
+            monthTargets: f.monthTargets,
+            period: f.period,
+            outputTarget: f.outputTarget,
+            outputUnit: f.outputUnit,
+          },
+          prev: {
+            months: (t.months || []).slice(),
+            monthTargets: (t.monthTargets || []).slice(),
+            period: t.period,
+            outputTarget: t.outputTarget || "",
+            outputUnit: t.outputUnit || "",
+          },
+        });
+      }
+    });
+
     return out;
   }
 
@@ -816,46 +863,146 @@ export default function PlanEditPage() {
                 ))}
               </div>
 
-              {parts.kpi ? (
-                <>
-                  <h4>ตัวชี้วัด</h4>
-                  <Indicators form={form} setForm={setForm} />
-                </>
-              ) : null}
+              {/* ---------- เลือกว่าจะแก้ของใครบ้าง ----------
+                  โครงการอย่างเดียว / โครงการกับทุกกิจกรรม / เลือกบางกิจกรรม
 
-              {parts.budget ? (
+                  **แต่ละรายการมีช่องกรอกของตัวเอง ไม่ได้ใช้ค่าร่วมกัน**
+                  งบของโครงการกับงบของกิจกรรมเป็นคนละก้อน ตัวชี้วัดก็คนละตัว
+                  ถ้าใช้ค่าเดียวกันทุกอันจะกลายเป็นการก๊อปทับกันหมด
+                  ที่ประหยัดคือไม่ต้องเลือกโครงการใหม่ทุกรอบ ไม่ใช่ประหยัดการกรอก */}
+              {anyPart ? (
                 <>
-                  <h4>งบประมาณที่ได้รับจัดสรร</h4>
-                  <div className="grid2">
-                    <div className="field">
-                      <label>งบเดิมตามไฟล์แผน (บาท)</label>
-                      <input
-                        type="text"
-                        value={money(
-                          target.baseBudget == null ? target.budget : target.baseBudget
-                        )}
-                        readOnly
-                        disabled
-                      />
-                    </div>
-                    <div className="field">
-                      <label htmlFor="ed-budget">งบที่ได้รับจัดสรรใหม่ (บาท)</label>
-                      <input
-                        id="ed-budget"
-                        type="text"
-                        inputMode="numeric"
-                        value={form.budget}
-                        onChange={(e) => setForm({ ...form, budget: e.target.value })}
-                      />
-                    </div>
+                  <h3 className="steptitle">
+                    <span className="stepno">3</span>เลือกรายการที่จะแก้
+                    <span className="pill ok">{editSel.length} รายการ</span>
+                  </h3>
+
+                  <div className="btnrow" style={{ marginTop: 0, marginBottom: 12 }}>
+                    <button
+                      type="button"
+                      className="btn ghost"
+                      onClick={() => setEditSel([target.uid])}
+                    >
+                      เฉพาะโครงการ
+                    </button>
+                    {kids.length ? (
+                      <>
+                        <button
+                          type="button"
+                          className="btn ghost"
+                          onClick={() => setEditSel(editTargets.map((t) => t.uid))}
+                        >
+                          โครงการ + ทุกกิจกรรม ({kids.length})
+                        </button>
+                        <button
+                          type="button"
+                          className="btn ghost"
+                          onClick={() => setEditSel(kids.map((k) => k.uid))}
+                        >
+                          เฉพาะกิจกรรมทั้งหมด
+                        </button>
+                      </>
+                    ) : null}
                   </div>
-                </>
-              ) : null}
 
-              {parts.schedule ? (
-                <>
-                  <h4>แผน / ระยะเวลาดำเนินงาน</h4>
-                  <ScheduleFields form={form} setForm={setForm} />
+                  <div className="partpick">
+                    {editTargets.map((t) => {
+                      const on = editSel.indexOf(t.uid) >= 0;
+                      return (
+                        <label className={"partrow" + (on ? " on" : "")} key={t.uid}>
+                          <input
+                            type="checkbox"
+                            checked={on}
+                            onChange={(e) =>
+                              setEditSel(
+                                e.target.checked
+                                  ? editSel.concat([t.uid])
+                                  : editSel.filter((u) => u !== t.uid)
+                              )
+                            }
+                          />
+                          <span>
+                            <b>
+                              {t.lvl === 1 ? "โครงการ" : "กิจกรรม"} {t.code}
+                            </b>{" "}
+                            {t.name}
+                            <span className="small muted">
+                              {" "}
+                              · งบตามแผน {money(t.budget)} บาท
+                            </span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  {editSel.length === 0 ? (
+                    <div className="banner">
+                      ยังไม่ได้เลือกรายการที่จะแก้ — เลือกอย่างน้อยหนึ่งรายการด้านบน
+                    </div>
+                  ) : null}
+
+                  {/* ช่องกรอกของแต่ละรายการที่เลือก แยกเป็นการ์ดของตัวเอง */}
+                  {editTargets
+                    .filter((t) => editSel.indexOf(t.uid) >= 0)
+                    .map((t) => {
+                      const f = editForms[t.uid] || {};
+                      const setF = (next) => setEditForms({ ...editForms, [t.uid]: next });
+                      return (
+                        <div className="actcard ok" key={t.uid}>
+                          <div className="actcard-head">
+                            <b>
+                              {t.lvl === 1 ? "โครงการ" : "กิจกรรม"} {t.code} {t.name}
+                            </b>
+                          </div>
+
+                          {parts.kpi ? (
+                            <>
+                              <h4>ตัวชี้วัด</h4>
+                              <Indicators form={f} setForm={setF} idPrefix={t.uid} />
+                            </>
+                          ) : null}
+
+                          {parts.budget ? (
+                            <>
+                              <h4>งบประมาณที่ได้รับจัดสรร</h4>
+                              <div className="grid2">
+                                <div className="field">
+                                  <label>งบเดิมตามไฟล์แผน (บาท)</label>
+                                  <input
+                                    type="text"
+                                    value={money(
+                                      t.baseBudget == null ? t.budget : t.baseBudget
+                                    )}
+                                    readOnly
+                                    disabled
+                                  />
+                                </div>
+                                <div className="field">
+                                  <label htmlFor={"ed-budget-" + t.uid}>
+                                    งบที่ได้รับจัดสรรใหม่ (บาท)
+                                  </label>
+                                  <input
+                                    id={"ed-budget-" + t.uid}
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={f.budget == null ? "" : f.budget}
+                                    onChange={(e) => setF({ ...f, budget: e.target.value })}
+                                  />
+                                </div>
+                              </div>
+                            </>
+                          ) : null}
+
+                          {parts.schedule ? (
+                            <>
+                              <h4>แผน / ระยะเวลาดำเนินงาน</h4>
+                              <ScheduleFields form={f} setForm={setF} />
+                            </>
+                          ) : null}
+                        </div>
+                      );
+                    })}
                 </>
               ) : null}
             </>
@@ -1049,7 +1196,8 @@ export default function PlanEditPage() {
           </p>
           {mode === "edit" ? (
             <p className="small muted">
-              บันทึก {PARTS.filter((p) => parts[p.key]).length} รายการในถัง
+              บันทึก {PARTS.filter((p) => parts[p.key]).length * editSel.length} รายการในถัง
+              ({editSel.length} รายการ × {PARTS.filter((p) => parts[p.key]).length} ชนิดที่แก้)
             </p>
           ) : null}
         </ConfirmDialog>
@@ -1059,34 +1207,37 @@ export default function PlanEditPage() {
 }
 
 /* ---------- ช่องตัวชี้วัด ---------- */
-function Indicators({ form, setForm, requireOutput }) {
+function Indicators({ form, setForm, requireOutput, idPrefix }) {
+  /* id ต้องไม่ซ้ำเมื่อมีหลายชุดในหน้าเดียว (โหมดแก้ไขหลายรายการ)
+     ไม่งั้น label กดแล้วโฟกัสไปที่ช่องของรายการอื่น */
+  const p = "in-" + (idPrefix ? String(idPrefix).replace(/[^A-Za-z0-9_-]/g, "") + "-" : "");
   return (
     <>
       <div className="field">
-        <label htmlFor="in-output">
+        <label htmlFor={p + "output"}>
           ตัวชี้วัดผลผลิต (Output)
           {requireOutput ? <span className="req"> *</span> : null}
         </label>
         <textarea
-          id="in-output"
+          id={p + "output"}
           rows={2}
           value={form.output}
           onChange={(e) => setForm({ ...form, output: e.target.value })}
         />
       </div>
       <div className="field">
-        <label htmlFor="in-outcome">ตัวชี้วัดผลลัพธ์ (Outcome)</label>
+        <label htmlFor={p + "outcome"}>ตัวชี้วัดผลลัพธ์ (Outcome)</label>
         <textarea
-          id="in-outcome"
+          id={p + "outcome"}
           rows={2}
           value={form.outcome}
           onChange={(e) => setForm({ ...form, outcome: e.target.value })}
         />
       </div>
       <div className="field">
-        <label htmlFor="in-kpi">ตัวชี้วัดอื่น ๆ</label>
+        <label htmlFor={p + "kpi"}>ตัวชี้วัดอื่น ๆ</label>
         <textarea
-          id="in-kpi"
+          id={p + "kpi"}
           rows={2}
           value={form.kpi}
           onChange={(e) => setForm({ ...form, kpi: e.target.value })}
