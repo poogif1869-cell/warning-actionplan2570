@@ -8,6 +8,7 @@ import { buildAlerts } from "@/lib/alerts";
 import Assistant from "@/components/assistant";
 import InstallButton from "@/components/install-button";
 import ThemeToggle from "@/components/theme-toggle";
+import UserChip from "@/components/user-chip";
 
 const NAV = [
   { href: "/", label: "ภาพรวม" },
@@ -84,7 +85,7 @@ export default function Shell({ children }) {
 
           <div className="topbar-right">
             {savedHint ? <span className="savehint">{savedHint}</span> : null}
-            {userEmail ? <span className="savehint useremail">{userEmail}</span> : null}
+            <UserChip />
             <ThemeToggle />
             <InstallButton />
             <button className="iconbtn" onClick={handleSignOut} disabled={signingOut}>

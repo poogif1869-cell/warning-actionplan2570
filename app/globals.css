@@ -512,12 +512,12 @@ th{box-shadow:inset 0 -1px 0 var(--border)}
   }
   .brand .sub,.brand .en{display:none}
 
-  /* ปีงบกับอีเมลไม่ใช่ของที่ต้องเห็นตลอดเวลาบนจอเล็ก */
+  /* ปีงบไม่ใช่ของที่ต้องเห็นตลอดเวลาบนจอเล็ก */
   .fybadge{display:none}
-  /* ซ่อนเฉพาะอีเมล ส่วนคำว่า "บันทึกแล้ว" ต้องเห็นบนมือถือด้วย
-     ไม่งั้นผู้ใช้ไม่รู้ว่าที่พิมพ์ไปขึ้นระบบแล้วหรือยัง */
-  .savehint.useremail{display:none}
+  /* คำว่า "บันทึกแล้ว" ต้องเห็นบนมือถือด้วย ไม่งั้นผู้ใช้ไม่รู้ว่า
+     ที่พิมพ์ไปขึ้นระบบแล้วหรือยัง — ป้ายผู้ใช้เป็นวงกลมเล็กอยู่แล้ว ไม่ต้องซ่อน */
   .savehint{font-size:11px}
+  .userchip{width:28px; height:28px; font-size:11px}
 
   .topbar-right{width:auto; margin-inline-start:auto; gap:6px; flex-wrap:nowrap}
   .topbar-right .iconbtn{padding:6px 9px; font-size:12px}
@@ -971,3 +971,18 @@ th{box-shadow:inset 0 -1px 0 var(--border)}
 .orgsplit-lab{font-size:11.5px; color:var(--muted); letter-spacing:.02em}
 .orgsplit-item{white-space:nowrap}
 .orgsplit-item b{font-variant-numeric:tabular-nums; margin-inline-start:3px}
+
+/* ---------- ป้ายผู้ใช้บนแถบหัวเรื่อง ----------
+   วงกลมตัวย่อแทนอีเมลเต็ม อีเมลกับบทบาทอยู่ใน tooltip
+   อยู่บนพื้นเขียวเข้ม จึงใช้สีอ่อนโปร่งแทนสีพื้นผิวปกติ */
+.userchip{
+  flex:none; width:30px; height:30px; border-radius:50%;
+  display:inline-flex; align-items:center; justify-content:center;
+  background:rgba(255,255,255,.16); border:1px solid var(--brand-line);
+  color:var(--on-brand); font-size:11.5px; font-weight:700;
+  letter-spacing:.02em; cursor:default; user-select:none;
+}
+/* ขอบทองบอกว่าบัญชีนี้แก้ข้อมูลได้ ผู้ดูอย่างเดียวไม่มีขอบเน้น
+   เป็นสัญญาณเงียบ ๆ ไม่ต้องอ่าน tooltip ก็รู้ว่าตัวเองกรอกได้ไหม */
+.userchip.role-editor,
+.userchip.role-admin{border-color:var(--gold)}

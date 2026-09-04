@@ -281,6 +281,8 @@ export function ResultsProvider({ children }) {
   const [saveError, setSaveError] = useState("");
   const [savedHint, setSavedHint] = useState("");
   const [userEmail, setUserEmail] = useState("");
+  // ชื่อที่ตั้งไว้ใน profiles.full_name ใช้ทำตัวย่อบนแถบหัวเรื่อง
+  const [userName, setUserName] = useState("");
 
   /* ---------------------------------------------------------------
      บทบาทและทะเบียนชื่อผู้ใช้
@@ -557,6 +559,7 @@ export function ResultsProvider({ children }) {
             setPeople(map);
             setHasRoles(true);
             const mine = (prof.data || []).find((p) => me && p.id === me.id);
+            setUserName(mine && mine.full_name ? mine.full_name : "");
             setRole(mine ? mine.role : "viewer");
           }
         }
@@ -758,6 +761,7 @@ export function ResultsProvider({ children }) {
       saveError,
       savedHint,
       userEmail,
+      userName,
       budgetHasSaved,
       monthlyHasIssue,
       hasIndicatorCols,
@@ -1141,7 +1145,7 @@ export function ResultsProvider({ children }) {
         window.location.href = "/login";
       },
     };
-  }, [results, raw, budget, risk, loaded, loadError, saveError, savedHint, userEmail, budgetHasSaved, monthlyHasIssue, hasIndicatorCols, asOf, fyStarted, role, hasRoles, people]);
+  }, [results, raw, budget, risk, loaded, loadError, saveError, savedHint, userEmail, userName, budgetHasSaved, monthlyHasIssue, hasIndicatorCols, asOf, fyStarted, role, hasRoles, people]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

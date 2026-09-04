@@ -1,0 +1,2831 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ห้องแล็บชิ้นส่วน UI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+
+</head>
+<body>
+
+<style>
+/* ============================================================
+   TOKENS
+   ============================================================ */
+:root{
+  --paper:#f4f5f7;
+  --stage:#ffffff;
+  --stage-2:#fafbfc;
+  --ink:#151821;
+  --ink-2:#3d4454;
+  --muted:#6a7183;
+  --line:#dde0e7;
+  --line-soft:#eaecf1;
+  --accent:#1d4ed8;
+  --accent-ink:#ffffff;
+  --accent-soft:rgba(29,78,216,.09);
+  --accent-line:rgba(29,78,216,.40);
+  --measure:#0d7f6f;
+  --measure-soft:rgba(13,127,111,.10);
+  --ok:#0f7b4f;
+  --ok-soft:rgba(15,123,79,.10);
+  --warn:#9a6200;
+  --warn-soft:rgba(154,98,0,.12);
+  --danger:#c42b1c;
+  --danger-soft:rgba(196,43,28,.10);
+  --grid-dot:rgba(21,24,33,.075);
+  --skeleton-a:#e7e9ee;
+  --skeleton-b:#f2f4f7;
+  --shadow-1:0 1px 2px rgba(21,24,33,.07);
+  --shadow-2:0 4px 14px rgba(21,24,33,.09),0 1px 3px rgba(21,24,33,.05);
+  --shadow-3:0 18px 44px rgba(21,24,33,.17),0 4px 10px rgba(21,24,33,.08);
+
+  --font-display:'Bai Jamjuree','IBM Plex Sans Thai',system-ui,sans-serif;
+  --font-body:'IBM Plex Sans Thai',system-ui,-apple-system,sans-serif;
+  --font-mono:'IBM Plex Mono','IBM Plex Sans Thai','SF Mono',Menlo,monospace;
+
+  --r-sm:6px; --r-md:10px; --r-lg:16px;
+  --rail:52px;
+}
+
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0e1015;
+    --stage:#171a21;
+    --stage-2:#1d2129;
+    --ink:#edeff4;
+    --ink-2:#c3c9d6;
+    --muted:#98a0b0;
+    --line:#2a2f3a;
+    --line-soft:#232833;
+    --accent:#7ab0ff;
+    --accent-ink:#07182e;
+    --accent-soft:rgba(122,176,255,.15);
+    --accent-line:rgba(122,176,255,.5);
+    --measure:#4fd1bd;
+    --measure-soft:rgba(79,209,189,.14);
+    --ok:#4ade9b;
+    --ok-soft:rgba(74,222,155,.13);
+    --warn:#e5a53a;
+    --warn-soft:rgba(229,165,58,.14);
+    --danger:#ff7a6b;
+    --danger-soft:rgba(255,122,107,.13);
+    --grid-dot:rgba(237,239,244,.075);
+    --skeleton-a:#242932;
+    --skeleton-b:#2d323d;
+    --shadow-1:0 1px 2px rgba(0,0,0,.4);
+    --shadow-2:0 4px 14px rgba(0,0,0,.45),0 1px 3px rgba(0,0,0,.3);
+    --shadow-3:0 18px 44px rgba(0,0,0,.6),0 4px 10px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0e1015;
+  --stage:#171a21;
+  --stage-2:#1d2129;
+  --ink:#edeff4;
+  --ink-2:#c3c9d6;
+  --muted:#98a0b0;
+  --line:#2a2f3a;
+  --line-soft:#232833;
+  --accent:#7ab0ff;
+  --accent-ink:#07182e;
+  --accent-soft:rgba(122,176,255,.15);
+  --accent-line:rgba(122,176,255,.5);
+  --measure:#4fd1bd;
+  --measure-soft:rgba(79,209,189,.14);
+  --ok:#4ade9b;
+  --ok-soft:rgba(74,222,155,.13);
+  --warn:#e5a53a;
+  --warn-soft:rgba(229,165,58,.14);
+  --danger:#ff7a6b;
+  --danger-soft:rgba(255,122,107,.13);
+  --grid-dot:rgba(237,239,244,.075);
+  --skeleton-a:#242932;
+  --skeleton-b:#2d323d;
+  --shadow-1:0 1px 2px rgba(0,0,0,.4);
+  --shadow-2:0 4px 14px rgba(0,0,0,.45),0 1px 3px rgba(0,0,0,.3);
+  --shadow-3:0 18px 44px rgba(0,0,0,.6),0 4px 10px rgba(0,0,0,.4);
+}
+
+/* ============================================================
+   BASE
+   ============================================================ */
+*,*::before,*::after{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-body);
+  font-size:16px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{font-family:var(--font-display);margin:0;text-wrap:balance;line-height:1.2}
+p{margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+}
+
+/* ============================================================
+   DECK CHROME
+   ============================================================ */
+.deck{
+  position:fixed;inset:0;
+  display:grid;
+  grid-template-rows:var(--rail) 1fr var(--rail);
+}
+
+.rail{
+  display:flex;align-items:center;gap:14px;
+  padding:0 clamp(12px,2.5vw,28px);
+  background:var(--stage);
+  border-bottom:1px solid var(--line);
+  min-width:0;
+}
+.rail--bottom{border-bottom:0;border-top:1px solid var(--line)}
+
+.mark{display:flex;align-items:baseline;gap:9px;min-width:0}
+.mark__name{
+  font-family:var(--font-display);font-weight:700;font-size:15px;
+  letter-spacing:-.01em;white-space:nowrap;
+}
+.mark__sub{
+  font-family:var(--font-mono);font-size:10.5px;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.1em;white-space:nowrap;
+}
+@media (max-width:720px){.mark__sub{display:none}}
+
+/* ruler-style progress */
+.ruler{
+  flex:1;display:flex;align-items:flex-end;gap:3px;height:22px;
+  min-width:0;overflow:hidden;
+}
+.ruler__tick{
+  flex:1 1 0;min-width:2px;height:7px;
+  background:var(--line);border:0;padding:0;cursor:pointer;border-radius:1px;
+  transition:background .18s,height .18s;
+}
+.ruler__tick.is-major{height:12px}
+.ruler__tick.is-done{background:var(--ink-2)}
+.ruler__tick.is-current{background:var(--accent);height:20px}
+.ruler__tick:hover{background:var(--accent-line)}
+
+.rail__btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  height:32px;padding:0 11px;
+  background:transparent;border:1px solid var(--line);border-radius:var(--r-sm);
+  font-family:var(--font-mono);font-size:11.5px;font-weight:500;
+  color:var(--ink-2);cursor:pointer;white-space:nowrap;
+  transition:border-color .15s,color .15s,background .15s;
+}
+.rail__btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.rail__btn:disabled{opacity:.35;cursor:not-allowed}
+.rail__btn--icon{width:32px;padding:0}
+
+.counter{
+  font-family:var(--font-mono);font-size:12px;color:var(--muted);
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+.counter b{color:var(--ink);font-weight:600}
+
+.keyhint{
+  display:flex;gap:5px;align-items:center;
+  font-family:var(--font-mono);font-size:10.5px;color:var(--muted);
+}
+.kbd{
+  display:inline-grid;place-items:center;min-width:19px;height:19px;padding:0 5px;
+  border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;
+  background:var(--stage-2);font-size:10px;font-weight:500;color:var(--ink-2);
+}
+@media (max-width:1000px){.keyhint{display:none}}
+
+/* ============================================================
+   SLIDE SURFACE
+   ============================================================ */
+.stage{position:relative;overflow:hidden;background:var(--paper)}
+.slide{
+  position:absolute;inset:0;
+  overflow-y:auto;overflow-x:hidden;
+  padding:clamp(20px,3.2vw,40px) clamp(16px,3.2vw,44px) 44px;
+  opacity:0;visibility:hidden;transform:translateX(22px);
+  transition:opacity .26s ease,transform .26s ease,visibility 0s .26s;
+}
+.slide.is-active{opacity:1;visibility:visible;transform:none;transition:opacity .3s ease,transform .3s ease}
+.slide.is-prev{transform:translateX(-22px)}
+
+.slide__inner{max-width:1320px;margin:0 auto}
+
+.eyebrow{
+  display:flex;align-items:center;gap:9px;margin-bottom:12px;
+  font-family:var(--font-mono);font-size:11px;font-weight:500;
+  text-transform:uppercase;letter-spacing:.13em;color:var(--accent);
+}
+.eyebrow::after{content:"";flex:1;height:1px;background:var(--accent-line);opacity:.45}
+
+.slide h2{
+  font-size:clamp(23px,2.9vw,33px);font-weight:700;letter-spacing:-.02em;
+  margin-bottom:8px;max-width:36ch;
+}
+.lede{
+  font-size:15px;color:var(--muted);
+  max-width:60ch;margin-bottom:clamp(14px,1.8vw,22px);
+}
+
+.cols{
+  display:grid;gap:clamp(18px,2.4vw,32px);
+  grid-template-columns:minmax(0,3.2fr) minmax(0,8.8fr);
+  align-items:start;
+}
+.cols--even{grid-template-columns:minmax(0,3.4fr) minmax(0,8.6fr)}
+.cols--wide{grid-template-columns:minmax(0,3.2fr) minmax(0,8.8fr)}
+@media (max-width:980px){
+  .cols,.cols--even,.cols--wide{grid-template-columns:minmax(0,1fr)}
+}
+
+/* ============================================================
+   NOTE COLUMN
+   ============================================================ */
+.note{display:flex;flex-direction:column;gap:13px}
+.note p{color:var(--ink-2);max-width:56ch}
+.note strong{color:var(--ink);font-weight:600}
+
+.h3{
+  font-family:var(--font-display);font-size:16px;font-weight:600;
+  letter-spacing:-.005em;margin-bottom:7px;
+}
+
+.deflist{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+.deflist li{
+  display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;
+  font-size:13.5px;line-height:1.5;color:var(--ink-2);
+}
+.deflist .tag{margin-top:2px}
+
+.tag{
+  display:inline-block;padding:2px 8px;border-radius:999px;
+  font-family:var(--font-mono);font-size:10.5px;font-weight:500;
+  letter-spacing:.04em;white-space:nowrap;
+  background:var(--accent-soft);color:var(--accent);
+}
+.tag--cyan{background:var(--measure-soft);color:var(--measure)}
+.tag--ok{background:var(--ok-soft);color:var(--ok)}
+.tag--warn{background:var(--warn-soft);color:var(--warn)}
+.tag--danger{background:var(--danger-soft);color:var(--danger)}
+.tag--plain{background:var(--line-soft);color:var(--muted)}
+
+.callout{
+  border-left:3px solid var(--accent);
+  background:var(--accent-soft);
+  padding:10px 13px;border-radius:0 var(--r-sm) var(--r-sm) 0;
+  font-size:13.5px;line-height:1.55;color:var(--ink-2);
+}
+.callout b{color:var(--ink)}
+.callout--cyan{border-left-color:var(--measure);background:var(--measure-soft)}
+.callout--warn{border-left-color:var(--warn);background:var(--warn-soft)}
+
+code{
+  font-family:var(--font-mono);font-size:.88em;
+  background:var(--line-soft);padding:1px 5px;border-radius:4px;color:var(--ink);
+}
+
+/* ============================================================
+   SPECIMEN STAGE
+   ============================================================ */
+.plate{
+  background:var(--stage);
+  border:1px solid var(--line);
+  border-radius:var(--r-lg);
+  overflow:hidden;
+  box-shadow:var(--shadow-1);
+}
+.plate__head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:9px 14px;border-bottom:1px solid var(--line-soft);
+  background:var(--stage-2);
+}
+.plate__title{
+  font-family:var(--font-mono);font-size:10.5px;font-weight:500;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--muted);
+}
+.plate__body{
+  padding:clamp(16px,2.2vw,26px);
+  background-image:radial-gradient(var(--grid-dot) 1px,transparent 1px);
+  background-size:14px 14px;
+  background-position:-1px -1px;
+}
+.plate__body--flush{padding:0;background-image:none}
+.plate + .plate{margin-top:16px}
+
+.stack{display:flex;flex-direction:column;gap:16px}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.row--tight{gap:8px}
+
+/* redline annotation */
+.redline{
+  position:relative;padding-left:18px;
+  font-family:var(--font-mono);font-size:11px;color:var(--accent);
+  letter-spacing:.02em;
+}
+.redline::before{
+  content:"";position:absolute;left:0;top:.62em;
+  width:12px;border-top:1px dashed var(--accent-line);
+}
+
+/* controls bar for demos */
+.ctl{
+  display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  padding:10px 14px;border-top:1px solid var(--line-soft);background:var(--stage-2);
+}
+.ctl__label{
+  font-family:var(--font-mono);font-size:10.5px;text-transform:uppercase;
+  letter-spacing:.1em;color:var(--muted);margin-right:2px;
+}
+.chip{
+  padding:5px 11px;border:1px solid var(--line);border-radius:999px;background:var(--stage);
+  font-family:var(--font-mono);font-size:11.5px;color:var(--ink-2);cursor:pointer;
+  transition:all .15s;
+}
+.chip:hover{border-color:var(--accent-line);color:var(--accent)}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.ctl input[type=range]{accent-color:var(--accent);width:110px}
+.ctl .val{font-family:var(--font-mono);font-size:11.5px;color:var(--ink);font-variant-numeric:tabular-nums;min-width:46px}
+
+/* ============================================================
+   DEMO COMPONENT KIT  (the things being taught)
+   ============================================================ */
+.d-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  height:38px;padding:0 16px;border-radius:var(--r-sm);
+  border:1px solid transparent;background:var(--accent);color:var(--accent-ink);
+  font-family:var(--font-body);font-size:14px;font-weight:600;cursor:pointer;
+  transition:filter .15s,background .15s,border-color .15s,box-shadow .15s;
+  white-space:nowrap;
+}
+.d-btn:hover{filter:brightness(1.08)}
+.d-btn:active{filter:brightness(.94)}
+.d-btn--secondary{background:var(--line-soft);color:var(--ink);border-color:transparent}
+.d-btn--outline{background:transparent;color:var(--ink);border-color:var(--line)}
+.d-btn--outline:hover{border-color:var(--accent);color:var(--accent);filter:none}
+.d-btn--ghost{background:transparent;color:var(--ink-2)}
+.d-btn--ghost:hover{background:var(--line-soft);filter:none}
+.d-btn--danger{background:var(--danger);color:#fff}
+.d-btn--link{background:transparent;color:var(--accent);text-decoration:underline;text-underline-offset:3px;padding:0;height:auto}
+.d-btn--sm{height:30px;padding:0 11px;font-size:12.5px}
+.d-btn--lg{height:46px;padding:0 22px;font-size:15.5px}
+.d-btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.d-btn.is-focus{outline:2px solid var(--accent);outline-offset:2px}
+.d-btn.is-hover{filter:brightness(1.08)}
+.d-btn.is-active{filter:brightness(.9);transform:translateY(1px)}
+
+.spin{
+  display:inline-block;
+  width:14px;height:14px;border-radius:50%;
+  border:2px solid currentColor;border-top-color:transparent;
+  animation:spin .7s linear infinite;flex:none;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* card */
+.d-card{
+  background:var(--stage);border:1px solid var(--line);border-radius:var(--r-md);
+  overflow:hidden;max-width:330px;
+}
+.d-card__media{
+  height:96px;
+  background:
+    linear-gradient(115deg,var(--accent-soft),var(--measure-soft)),
+    repeating-linear-gradient(45deg,transparent 0 9px,var(--line-soft) 9px 10px);
+}
+.d-card__body{padding:15px 16px;display:flex;flex-direction:column;gap:7px}
+.d-card__title{font-family:var(--font-display);font-size:16px;font-weight:600}
+.d-card__text{font-size:13.5px;color:var(--muted);line-height:1.55}
+.d-card__actions{display:flex;gap:8px;padding:0 16px 15px}
+.d-card.is-lit{outline:2px solid var(--accent);outline-offset:2px}
+
+/* field */
+.d-field{display:flex;flex-direction:column;gap:5px;max-width:320px}
+.d-field__label{font-size:13px;font-weight:600;color:var(--ink)}
+.d-field__label .req{color:var(--danger)}
+.d-input{
+  height:38px;padding:0 11px;border:1px solid var(--line);border-radius:var(--r-sm);
+  background:var(--stage);font-size:14px;transition:border-color .15s,box-shadow .15s;
+}
+.d-input::placeholder{color:var(--muted);opacity:.75}
+.d-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.d-input[aria-invalid="true"]{border-color:var(--danger);box-shadow:0 0 0 3px var(--danger-soft)}
+textarea.d-input{height:auto;padding:9px 11px;resize:vertical;min-height:74px;line-height:1.5}
+select.d-input{cursor:pointer}
+.d-help{font-size:12px;color:var(--muted)}
+.d-help--err{color:var(--danger);display:flex;gap:5px;align-items:center}
+
+/* switch */
+.d-switch{display:inline-flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.d-switch__track{
+  position:relative;width:42px;height:24px;border-radius:999px;
+  background:var(--line);transition:background .2s;flex:none;
+}
+.d-switch__thumb{
+  position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;
+  background:#fff;box-shadow:var(--shadow-1);transition:transform .2s;
+}
+.d-switch input{position:absolute;opacity:0;width:0;height:0}
+.d-switch input:checked + .d-switch__track{background:var(--ok)}
+.d-switch input:checked + .d-switch__track .d-switch__thumb{transform:translateX(18px)}
+.d-switch input:focus-visible + .d-switch__track{outline:2px solid var(--accent);outline-offset:2px}
+.d-switch__text{font-size:14px}
+
+.d-check,.d-radio{display:flex;align-items:center;gap:9px;cursor:pointer;font-size:14px;user-select:none}
+.d-check input,.d-radio input{width:17px;height:17px;accent-color:var(--accent);cursor:pointer;flex:none}
+
+/* segmented */
+.d-seg{display:inline-flex;padding:3px;background:var(--line-soft);border-radius:var(--r-sm);gap:2px}
+.d-seg button{
+  padding:6px 14px;border:0;background:transparent;border-radius:5px;
+  font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .15s;
+}
+.d-seg button[aria-pressed="true"]{background:var(--stage);color:var(--ink);box-shadow:var(--shadow-1)}
+
+/* badges & avatars */
+.d-badge{
+  display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;
+  font-size:12px;font-weight:600;background:var(--line-soft);color:var(--ink-2);
+}
+.d-badge--ok{background:var(--ok-soft);color:var(--ok)}
+.d-badge--warn{background:var(--warn-soft);color:var(--warn)}
+.d-badge--danger{background:var(--danger-soft);color:var(--danger)}
+.d-badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.d-avatar{
+  width:34px;height:34px;border-radius:50%;display:grid;place-items:center;
+  background:var(--measure-soft);color:var(--measure);
+  font-family:var(--font-display);font-size:13px;font-weight:600;flex:none;
+}
+.d-chip{
+  display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 6px 0 11px;
+  border-radius:999px;background:var(--line-soft);font-size:13px;
+}
+.d-chip button{
+  width:18px;height:18px;border-radius:50%;border:0;background:transparent;
+  color:var(--muted);cursor:pointer;display:grid;place-items:center;font-size:14px;line-height:1;
+}
+.d-chip button:hover{background:var(--line);color:var(--ink)}
+
+/* skeleton */
+.sk{border-radius:5px;background:linear-gradient(90deg,var(--skeleton-a) 25%,var(--skeleton-b) 37%,var(--skeleton-a) 63%);background-size:400% 100%;animation:shimmer 1.3s ease-in-out infinite}
+@keyframes shimmer{0%{background-position:100% 0}100%{background-position:0 0}}
+.sk--circle{border-radius:50%}
+
+/* progress */
+.d-prog{height:7px;border-radius:999px;background:var(--line-soft);overflow:hidden}
+.d-prog__bar{height:100%;background:var(--accent);border-radius:999px;transition:width .28s ease}
+.d-prog--indet .d-prog__bar{width:38%;animation:indet 1.25s ease-in-out infinite}
+@keyframes indet{0%{margin-left:-38%}100%{margin-left:100%}}
+
+/* alerts */
+.d-alert{
+  display:flex;gap:11px;padding:12px 14px;border-radius:var(--r-sm);
+  font-size:13.5px;line-height:1.5;border:1px solid transparent;
+}
+.d-alert__icon{font-family:var(--font-mono);font-weight:600;flex:none;line-height:1.4}
+.d-alert--info{background:var(--measure-soft);color:var(--measure);border-color:var(--measure-soft)}
+.d-alert--ok{background:var(--ok-soft);color:var(--ok)}
+.d-alert--warn{background:var(--warn-soft);color:var(--warn)}
+.d-alert--danger{background:var(--danger-soft);color:var(--danger)}
+.d-alert b{display:block;color:inherit}
+
+/* toast host */
+.toast-host{position:absolute;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:5;pointer-events:none}
+.d-toast{
+  display:flex;align-items:center;gap:10px;padding:11px 14px;min-width:230px;
+  background:var(--ink);color:var(--paper);border-radius:var(--r-sm);
+  box-shadow:var(--shadow-3);font-size:13.5px;
+  animation:toastIn .24s cubic-bezier(.2,.9,.3,1);
+}
+.d-toast.is-out{animation:toastOut .2s ease forwards}
+@keyframes toastIn{from{opacity:0;transform:translateY(10px) scale(.97)}}
+@keyframes toastOut{to{opacity:0;transform:translateY(6px)}}
+
+/* tabs */
+.d-tabs{display:flex;gap:2px;border-bottom:1px solid var(--line)}
+.d-tabs button{
+  padding:9px 15px;border:0;background:transparent;cursor:pointer;
+  font-size:14px;font-weight:500;color:var(--muted);
+  border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;
+}
+.d-tabs button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+.d-tabpanel{padding:15px 2px;font-size:14px;color:var(--ink-2)}
+
+/* accordion */
+.d-acc{border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden}
+.d-acc__item + .d-acc__item{border-top:1px solid var(--line)}
+.d-acc__btn{
+  width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:12px 14px;background:transparent;border:0;cursor:pointer;
+  font-size:14px;font-weight:600;text-align:left;color:var(--ink);
+}
+.d-acc__btn:hover{background:var(--stage-2)}
+.d-acc__mark{font-family:var(--font-mono);color:var(--accent);transition:transform .2s;flex:none}
+.d-acc__btn[aria-expanded="true"] .d-acc__mark{transform:rotate(45deg)}
+.d-acc__panel{padding:0 14px 13px;font-size:13.5px;color:var(--muted);line-height:1.6}
+
+/* breadcrumb / pagination / steps */
+.d-crumb{display:flex;flex-wrap:wrap;gap:7px;align-items:center;font-size:13px;color:var(--muted)}
+.d-crumb a{color:var(--muted);text-decoration:none}
+.d-crumb a:hover{color:var(--accent);text-decoration:underline}
+.d-crumb [aria-current]{color:var(--ink);font-weight:600}
+.d-page{display:flex;gap:4px}
+.d-page button{
+  min-width:32px;height:32px;padding:0 8px;border:1px solid var(--line);background:var(--stage);
+  border-radius:var(--r-sm);font-family:var(--font-mono);font-size:12.5px;cursor:pointer;color:var(--ink-2);
+}
+.d-page button[aria-current="page"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.d-page button:disabled{opacity:.35;cursor:not-allowed}
+.d-steps{display:flex;align-items:center;gap:0;flex-wrap:wrap}
+.d-step{display:flex;align-items:center;gap:8px}
+.d-step__dot{
+  width:26px;height:26px;border-radius:50%;display:grid;place-items:center;flex:none;
+  border:1.5px solid var(--line);font-family:var(--font-mono);font-size:11.5px;color:var(--muted);background:var(--stage);
+}
+.d-step.is-done .d-step__dot{background:var(--ok);border-color:var(--ok);color:#fff}
+.d-step.is-now .d-step__dot{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.d-step__label{font-size:13px;color:var(--muted)}
+.d-step.is-now .d-step__label{color:var(--ink);font-weight:600}
+.d-step__line{width:34px;height:1.5px;background:var(--line);margin:0 9px}
+.d-step__line.is-done{background:var(--ok)}
+
+/* table / list */
+.d-tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r-sm)}
+.d-table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:400px}
+.d-table th{
+  text-align:left;padding:9px 13px;background:var(--stage-2);color:var(--muted);
+  font-family:var(--font-mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;font-weight:500;
+  border-bottom:1px solid var(--line);
+}
+.d-table td{padding:10px 13px;border-bottom:1px solid var(--line-soft)}
+.d-table tr:last-child td{border-bottom:0}
+.d-table td.num{font-family:var(--font-mono);font-variant-numeric:tabular-nums;text-align:right}
+
+.d-list{display:flex;flex-direction:column;gap:2px}
+.d-listitem{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:var(--r-sm)}
+.d-listitem:hover{background:var(--stage-2)}
+.d-listitem__main{flex:1;min-width:0}
+.d-listitem__title{font-size:14px;font-weight:500}
+.d-listitem__sub{font-size:12.5px;color:var(--muted)}
+
+/* modal / drawer / popover / tooltip */
+.overlay-stage{position:relative;height:250px;border-radius:var(--r-sm);overflow:hidden;background:var(--stage-2);border:1px solid var(--line-soft)}
+.overlay-stage__bg{padding:16px;display:flex;flex-direction:column;gap:9px}
+.overlay-stage__bar{height:9px;border-radius:4px;background:var(--line-soft)}
+.scrim{position:absolute;inset:0;background:rgba(10,12,17,.42);display:grid;place-items:center;animation:fade .18s ease}
+@keyframes fade{from{opacity:0}}
+.d-modal{
+  width:min(300px,84%);background:var(--stage);border-radius:var(--r-md);
+  box-shadow:var(--shadow-3);padding:18px;display:flex;flex-direction:column;gap:11px;
+  animation:pop .2s cubic-bezier(.2,.9,.3,1);
+}
+@keyframes pop{from{opacity:0;transform:scale(.94)}}
+.d-drawer{
+  position:absolute;top:0;right:0;bottom:0;width:min(230px,70%);
+  background:var(--stage);box-shadow:var(--shadow-3);padding:18px;
+  display:flex;flex-direction:column;gap:11px;animation:slideIn .22s cubic-bezier(.2,.9,.3,1);
+}
+@keyframes slideIn{from{transform:translateX(100%)}}
+.d-pop{
+  position:absolute;background:var(--stage);border:1px solid var(--line);border-radius:var(--r-sm);
+  box-shadow:var(--shadow-2);padding:12px;font-size:13px;width:190px;z-index:3;
+  animation:pop .16s ease;
+}
+.d-tip{
+  position:absolute;background:var(--ink);color:var(--paper);padding:5px 9px;border-radius:5px;
+  font-size:12px;white-space:nowrap;z-index:3;animation:fade .12s ease;pointer-events:none;
+}
+.d-menu{
+  position:absolute;background:var(--stage);border:1px solid var(--line);border-radius:var(--r-sm);
+  box-shadow:var(--shadow-2);padding:5px;min-width:160px;z-index:3;animation:pop .16s ease;
+}
+.d-menu button{
+  display:block;width:100%;text-align:left;padding:7px 10px;border:0;background:transparent;
+  border-radius:5px;font-size:13.5px;cursor:pointer;color:var(--ink-2);
+}
+.d-menu button:hover{background:var(--stage-2);color:var(--ink)}
+.d-menu hr{border:0;border-top:1px solid var(--line-soft);margin:5px 0}
+
+/* empty state */
+.d-empty{display:flex;flex-direction:column;align-items:center;gap:11px;padding:26px 18px;text-align:center}
+.d-empty__art{
+  width:52px;height:52px;border-radius:var(--r-md);border:1.5px dashed var(--line);
+  display:grid;place-items:center;color:var(--muted);font-family:var(--font-mono);font-size:19px;
+}
+.d-empty__title{font-family:var(--font-display);font-size:15px;font-weight:600}
+.d-empty__text{font-size:13px;color:var(--muted);max-width:34ch}
+
+/* swatches & tokens */
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:9px}
+.swatch{border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden}
+.swatch__chip{height:44px}
+.swatch__meta{padding:6px 8px;font-family:var(--font-mono);font-size:10px;line-height:1.45;color:var(--muted)}
+.swatch__meta b{display:block;color:var(--ink);font-weight:600;font-size:10.5px}
+
+.scaleview{display:flex;flex-direction:column;gap:9px}
+.scalerow{display:flex;align-items:baseline;gap:14px;border-bottom:1px dashed var(--line-soft);padding-bottom:7px}
+.scalerow__px{font-family:var(--font-mono);font-size:11px;color:var(--accent);min-width:52px;font-variant-numeric:tabular-nums}
+.scalerow__t{font-family:var(--font-display);font-weight:600;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.ratio-out{
+  display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--r-sm);
+  background:var(--stage-2);border:1px solid var(--line-soft);flex-wrap:wrap;
+}
+.ratio-num{font-family:var(--font-mono);font-size:24px;font-weight:600;font-variant-numeric:tabular-nums}
+.preview-box{padding:20px;border-radius:var(--r-sm);display:flex;flex-direction:column;gap:5px;border:1px solid var(--line-soft)}
+
+/* comparison grid */
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:620px){.vs{grid-template-columns:1fr}}
+.vs__pane{border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden}
+.vs__head{
+  padding:7px 12px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.09em;
+  text-transform:uppercase;font-weight:500;
+}
+.vs__head--bad{background:var(--danger-soft);color:var(--danger)}
+.vs__head--good{background:var(--ok-soft);color:var(--ok)}
+.vs__body{padding:15px;display:flex;flex-direction:column;gap:11px}
+
+/* cheat sheet */
+.sheet-search{
+  width:100%;max-width:340px;height:38px;padding:0 13px;
+  border:1px solid var(--line);border-radius:var(--r-sm);background:var(--stage);font-size:14px;
+}
+.sheet-search:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.sheet{width:100%;border-collapse:collapse;font-size:13.5px;min-width:600px}
+.sheet th{
+  position:sticky;top:0;text-align:left;padding:9px 13px;background:var(--stage-2);
+  font-family:var(--font-mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;
+  color:var(--muted);font-weight:500;border-bottom:1px solid var(--line);
+}
+.sheet td{padding:9px 13px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+.sheet td:first-child{font-weight:600;white-space:nowrap}
+.sheet td.mono{font-family:var(--font-mono);font-size:12px;color:var(--muted)}
+.sheet tr.is-hidden{display:none}
+
+/* checklist */
+.checklist{display:flex;flex-direction:column;gap:3px}
+.checkitem{
+  display:flex;align-items:flex-start;gap:11px;padding:9px 11px;border-radius:var(--r-sm);
+  cursor:pointer;font-size:14px;transition:background .15s;
+}
+.checkitem:hover{background:var(--stage-2)}
+.checkitem input{width:17px;height:17px;margin-top:2px;accent-color:var(--ok);cursor:pointer;flex:none}
+.checkitem input:checked + span{color:var(--muted);text-decoration:line-through}
+
+/* overview */
+.overview{
+  position:fixed;inset:0;z-index:40;background:var(--paper);
+  padding:clamp(18px,3vw,36px);overflow-y:auto;
+}
+.overview[hidden]{display:none}
+.overview__grid{
+  display:grid;gap:11px;max-width:1100px;margin:0 auto;
+  grid-template-columns:repeat(auto-fill,minmax(215px,1fr));
+}
+.ovcard{
+  display:flex;gap:11px;align-items:flex-start;text-align:left;
+  padding:13px;border:1px solid var(--line);border-radius:var(--r-sm);
+  background:var(--stage);cursor:pointer;transition:all .15s;
+}
+.ovcard:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:var(--shadow-2)}
+.ovcard__n{font-family:var(--font-mono);font-size:11px;color:var(--accent);font-weight:600;flex:none;padding-top:2px}
+.ovcard__t{font-family:var(--font-display);font-size:14px;font-weight:600;line-height:1.35}
+.ovcard.is-current{border-color:var(--accent);background:var(--accent-soft)}
+
+
+.ic{width:18px;height:18px;flex:none;display:block}
+/* range slider สองหัว — ซ้อน input สองตัวบนรางเดียว ให้จับได้เฉพาะหัวจับ */
+.dual{position:relative;height:26px;width:100%}
+.dual__track,.dual__fill{position:absolute;top:11px;height:4px;border-radius:2px}
+.dual__track{left:0;right:0;background:var(--line-soft)}
+.dual__fill{background:var(--accent)}
+.dual input[type=range]{
+  position:absolute;left:0;top:0;width:100%;height:26px;margin:0;
+  -webkit-appearance:none;appearance:none;background:transparent;pointer-events:none;
+}
+.dual input[type=range]:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+.dual input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;pointer-events:auto;cursor:grab;
+  width:15px;height:15px;border-radius:50%;background:var(--stage);
+  border:2px solid var(--accent);box-shadow:var(--shadow-1);
+}
+.dual input[type=range]::-moz-range-thumb{
+  pointer-events:auto;cursor:grab;
+  width:15px;height:15px;border-radius:50%;background:var(--stage);
+  border:2px solid var(--accent);box-shadow:var(--shadow-1);
+}
+.d-btn .ic{width:17px;height:17px}
+
+/* ============================================================
+   BOARD — กระดานโชว์ component (พระเอกของทุกสไลด์)
+   ============================================================ */
+.board{
+  background:var(--stage);
+  border:1px solid var(--line);
+  border-radius:var(--r-lg);
+  box-shadow:var(--shadow-1);
+  padding:clamp(16px,2.2vw,26px);
+  background-image:radial-gradient(var(--grid-dot) 1px,transparent 1px);
+  background-size:14px 14px;background-position:-1px -1px;
+}
+.grid{display:grid;gap:clamp(14px,1.8vw,22px)}
+.grid--2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.grid--3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.grid--4{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:1100px){.grid--4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid--3{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:700px){.grid--2,.grid--3,.grid--4{grid-template-columns:minmax(0,1fr)}}
+
+/* ช่องวางของแต่ละชิ้น */
+.cell{
+  display:flex;flex-direction:column;gap:9px;align-items:flex-start;
+  padding:13px;border-radius:var(--r-md);
+  background:var(--stage);border:1px solid var(--line-soft);
+  transition:border-color .2s;
+}
+.cell--wide{grid-column:1/-1}
+.cell__name{
+  font-family:var(--font-mono);font-size:10.5px;font-weight:500;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
+}
+.cell__demo{display:flex;flex-wrap:wrap;gap:9px;align-items:center;width:100%}
+.cell.is-lit{border-color:var(--accent)}
+
+/* ============================================================
+   TOUR — ไฮไลต์ + ลูกศร + ก่อนหน้า/ถัดไป
+   ============================================================ */
+.tourlayer{position:absolute;inset:0;pointer-events:none;z-index:30}
+.tourlayer[hidden]{display:none}
+
+.spot{
+  position:absolute;border-radius:10px;pointer-events:none;
+  border:2px solid var(--accent);
+  box-shadow:0 0 0 4px var(--accent-soft);
+  transition:top .28s cubic-bezier(.4,0,.2,1),left .28s cubic-bezier(.4,0,.2,1),
+             width .28s cubic-bezier(.4,0,.2,1),height .28s cubic-bezier(.4,0,.2,1);
+}
+/* ม่านมืด 4 ชิ้นล้อมรอบจุดไฮไลต์ — คุมได้แน่นอนกว่า box-shadow spread ที่ถูก overflow ตัด */
+.veil{position:absolute;background:rgba(8,10,16,.58);pointer-events:none;
+  transition:top .28s cubic-bezier(.4,0,.2,1),left .28s cubic-bezier(.4,0,.2,1),
+             width .28s cubic-bezier(.4,0,.2,1),height .28s cubic-bezier(.4,0,.2,1);
+}
+:root[data-theme="dark"] .veil{background:rgba(0,0,0,.66)}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .veil{background:rgba(0,0,0,.66)}
+}
+
+.bubble{
+  position:absolute;width:min(340px,74vw);
+  background:var(--stage);border:1px solid var(--accent-line);
+  border-radius:var(--r-md);box-shadow:var(--shadow-3);
+  padding:15px 16px 13px;pointer-events:auto;
+  transition:top .3s cubic-bezier(.4,0,.2,1),left .3s cubic-bezier(.4,0,.2,1);
+}
+.bubble__arrow{
+  position:absolute;width:13px;height:13px;background:var(--stage);
+  border-left:1px solid var(--accent-line);border-top:1px solid var(--accent-line);
+}
+.bubble__arrow[data-dir="up"]{top:-7px;transform:rotate(45deg)}
+.bubble__arrow[data-dir="down"]{bottom:-7px;transform:rotate(225deg)}
+.bubble__arrow[data-dir="left"]{left:-7px;transform:rotate(-45deg)}
+.bubble__arrow[data-dir="right"]{right:-7px;transform:rotate(135deg)}
+
+.bubble__step{
+  font-family:var(--font-mono);font-size:10.5px;letter-spacing:.09em;
+  color:var(--accent);font-weight:500;margin-bottom:5px;
+}
+.bubble__name{
+  font-family:var(--font-display);font-size:19px;font-weight:700;
+  letter-spacing:-.01em;line-height:1.25;
+}
+.bubble__th{font-size:13px;color:var(--measure);font-weight:600;margin-top:1px}
+.bubble__use{font-size:13.5px;color:var(--ink-2);line-height:1.55;margin-top:7px}
+.bubble__foot{
+  display:flex;align-items:center;gap:7px;margin-top:13px;
+  padding-top:11px;border-top:1px solid var(--line-soft);
+}
+.bubble__dots{display:flex;gap:3px;flex:1;flex-wrap:wrap}
+.bubble__dot{width:5px;height:5px;border-radius:50%;background:var(--line);flex:none}
+.bubble__dot.is-on{background:var(--accent)}
+.bubble__dot.is-past{background:var(--ink-2)}
+
+.tbtn{
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  height:30px;padding:0 12px;border-radius:var(--r-sm);
+  border:1px solid var(--line);background:var(--stage);
+  font-size:13px;font-weight:600;color:var(--ink-2);cursor:pointer;
+  transition:all .15s;white-space:nowrap;
+}
+.tbtn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.tbtn:disabled{opacity:.35;cursor:not-allowed}
+.tbtn--go{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.tbtn--go:hover{filter:brightness(1.08);color:var(--accent-ink)}
+.tbtn--x{width:30px;padding:0;font-size:15px}
+
+/* ปุ่มเปิดทัวร์ตอนปิดอยู่ */
+.tourbar{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  margin-bottom:13px;
+}
+.tourbar__hint{font-size:13px;color:var(--muted)}
+
+.slidehead{margin-bottom:clamp(12px,1.6vw,18px)}
+
+/* หน้าปก — จัดกลางจอ ไม่มีกระดานตัวอย่าง */
+.uxui{display:grid;grid-template-columns:minmax(0,252px) minmax(0,1fr);gap:clamp(14px,1.8vw,20px);align-items:stretch}
+.uxui__side{display:flex;flex-direction:column;gap:clamp(12px,1.4vw,16px);min-height:0}
+.uxui__cases{display:flex;flex-direction:column;gap:3px;width:100%;flex:1;min-height:120px;overflow-y:auto;padding-right:3px}
+.uxui__case{
+  display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  padding:9px 11px;border:1px solid transparent;border-radius:var(--r-sm);
+  background:transparent;font-size:14px;font-weight:500;color:var(--ink-2);cursor:pointer;
+  transition:background .15s,color .15s,border-color .15s;
+}
+.uxui__case:hover{background:var(--stage-2);color:var(--ink)}
+.uxui__case[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent);font-weight:600}
+.uxui__num{
+  display:grid;place-items:center;width:22px;height:22px;flex:none;border-radius:50%;
+  background:var(--line-soft);color:var(--muted);font-family:var(--font-mono);font-size:11.5px;
+}
+.uxui__case[aria-pressed="true"] .uxui__num{background:var(--accent);color:var(--accent-ink)}
+.uxui__main{gap:12px}
+.uxui__head{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%}
+.uxui__screen{
+  width:100%;min-height:clamp(300px,42vh,420px);
+  border:1px solid var(--line);transition:padding .15s,border-radius .15s,background .15s;
+}
+@media (max-width:900px){
+  .uxui{grid-template-columns:minmax(0,1fr)}
+  .uxui__cases{flex-direction:row;flex-wrap:wrap}
+  .uxui__case{width:auto}
+}
+
+.cover{
+  min-height:100%;display:grid;place-content:center;justify-items:center;
+  text-align:center;gap:clamp(14px,2vw,22px);
+}
+.cover__eyebrow{
+  font-family:var(--font-mono);font-size:11.5px;font-weight:500;
+  text-transform:uppercase;letter-spacing:.18em;color:var(--accent);
+}
+.cover__title{
+  font-family:var(--font-display);font-weight:700;letter-spacing:-.025em;
+  font-size:clamp(34px,6vw,68px);line-height:1.1;max-width:16ch;
+}
+.cover__sub{
+  font-size:clamp(15px,1.5vw,19px);color:var(--ink-2);
+  max-width:44ch;line-height:1.6;
+}
+.cover__rule{width:56px;height:2px;background:var(--accent);border-radius:2px}
+.cover__keys{
+  display:flex;flex-wrap:wrap;justify-content:center;gap:7px;align-items:center;
+  font-size:12.5px;color:var(--muted);
+}
+
+/* ป้ายกำกับที่มีอักษรไทย — mono ไม่มีอักษรไทย และ letter-spacing ทำให้สระหลุดจากพยัญชนะ */
+.is-th{
+  font-family:var(--font-body)!important;
+  letter-spacing:.01em!important;
+  text-transform:none!important;
+}
+.is-th.eyebrow{font-size:12px;font-weight:600}
+.is-th.plate__title,.is-th.ctl__label{font-size:11.5px;font-weight:600}
+.is-th.redline{font-size:12.5px}
+.is-th.tag{font-size:11.5px}
+
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+</style>
+
+<div class="deck">
+  <!-- ===================== TOP RAIL ===================== -->
+  <header class="rail">
+    <div class="mark">
+      <span class="mark__name">ห้องแล็บชิ้นส่วน UI</span>
+      <span class="mark__sub">UX/UI Component Lab</span>
+    </div>
+    <nav class="ruler" id="ruler" aria-label="ความคืบหน้าสไลด์"></nav>
+    <button class="rail__btn" id="btnOverview">สารบัญ</button>
+    <button class="rail__btn rail__btn--icon" id="btnTheme" aria-label="สลับธีมสว่าง/มืด">◐</button>
+  </header>
+
+  <!-- ===================== SLIDES ===================== -->
+  <main class="stage" id="stage"></main>
+
+  <!-- ===================== BOTTOM RAIL ===================== -->
+  <footer class="rail rail--bottom">
+    <span class="counter"><b id="cNow">1</b> / <span id="cAll">1</span></span>
+    <span class="keyhint">
+      <span class="kbd">←</span><span class="kbd">→</span> เปลี่ยนสไลด์
+      <span style="margin-left:10px"></span><span class="kbd">G</span> สารบัญ
+      <span style="margin-left:10px"></span><span class="kbd">T</span> ธีม
+    </span>
+    <span style="flex:1"></span>
+    <span class="counter" id="slideName" style="text-align:right;overflow:hidden;text-overflow:ellipsis"></span>
+    <button class="rail__btn" id="btnPrev">← ก่อนหน้า</button>
+    <button class="rail__btn" id="btnNext">ถัดไป →</button>
+  </footer>
+</div>
+
+<div class="overview" id="overview" hidden>
+  <div style="max-width:1100px;margin:0 auto 20px;display:flex;align-items:center;gap:14px">
+    <h2 style="font-size:22px">สารบัญ</h2>
+    <span style="flex:1"></span>
+    <button class="rail__btn" id="btnCloseOverview">ปิด (Esc)</button>
+  </div>
+  <div class="overview__grid" id="overviewGrid"></div>
+</div>
+
+<script>
+const q = (r, s) => r.querySelector(s);
+const qa = (r, s) => Array.from(r.querySelectorAll(s));
+
+const SVG = (d, extra) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ic" aria-hidden="true">' + d + (extra || '') + '</svg>';
+const ICON = {
+  menu: SVG('<path d="M3 6h18M3 12h18M3 18h18"/>'),
+  search: SVG('<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>'),
+  bell: SVG('<path d="M18 8a6 6 0 10-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 01-3.4 0"/>'),
+  plus: SVG('<path d="M12 5v14M5 12h14"/>'),
+  trash: SVG('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>'),
+  star: SVG('<path d="M12 3l2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.4l6.1-.9z"/>'),
+  chevron: SVG('<path d="M6 9l6 6 6-6"/>'),
+  dots: SVG('<circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/>'),
+  home: SVG('<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>'),
+  user: SVG('<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/>'),
+  cart: SVG('<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.6 12h11l2.2-8H6"/>'),
+  eye: SVG('<path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/>'),
+  up: SVG('<path d="M12 19V5M6 11l6-6 6 6"/>'),
+  cal: SVG('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'),
+  clock: SVG('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>'),
+  filter: SVG('<path d="M3 5h18l-7 8v6l-4-2v-4z"/>'),
+  check: SVG('<path d="M4 12l5.5 5.5L20 7"/>'),
+  x: SVG('<path d="M6 6l12 12M18 6L6 18"/>')
+};
+
+const SLIDES = [];
+const DECK = {}; // engine จะเติม go() ให้ทีหลัง
+const cell = (name, demo, key, wide) =>
+  '<div class="cell' + (wide ? ' cell--wide' : '') + '" data-c="' + key + '">' +
+  '<span class="cell__name">' + name + '</span>' +
+  '<div class="cell__demo">' + demo + '</div></div>';
+
+/* ============================================================
+   01 — หน้าปก (จัดกลาง ไม่มีทัวร์ ไว้ค้างจอก่อนเริ่มสอน)
+   ============================================================ */
+SLIDES.push({
+  title: 'หน้าปก',
+  cover: true,
+  board: `
+    <div class="cover__eyebrow">workshop · ui component names</div>
+    <h1 class="cover__title">รู้จักชื่อชิ้นส่วน UI</h1>
+    <div class="cover__rule"></div>
+    <p class="cover__sub">
+      สิ่งที่กั้นเราไว้บ่อยที่สุดไม่ใช่ความยาก<br>แต่คือไม่รู้ว่าไอ้สิ่งนี้เรียกว่าอะไร
+    </p>
+    <button class="d-btn d-btn--lg" data-begin style="margin-top:6px">เริ่มเรียน →</button>
+    <div class="cover__keys">
+      <span class="kbd">→</span> เปลี่ยนสไลด์
+      <span style="opacity:.4">·</span>
+      <span class="kbd">G</span> สารบัญ
+      <span style="opacity:.4">·</span>
+      <span class="kbd">T</span> สลับธีม
+    </div>`,
+  init(root){
+    q(root, '[data-begin]').addEventListener('click', () => DECK.go(1));
+  }
+});
+
+/* ============================================================
+   02 — UX vs UI (5 สถานการณ์ · เลือกซ้าย ดูขวา)
+   ============================================================ */
+SLIDES.push({
+  title: 'UX ต่างจาก UI ยังไง',
+  eyebrow: '01 · ux vs ui',
+  h2: 'หน้าจอเดียวกัน พังได้คนละแบบ',
+  lead: 'เลือกสถานการณ์ทางซ้าย แล้วสลับสวิตช์ดูว่าอะไรเปลี่ยน',
+  board: `
+    <div class="uxui">
+      <div class="uxui__side">
+        <div class="cell" data-c="switches" style="gap:13px">
+          <span class="cell__name">สลับดู</span>
+          <label class="d-switch"><input type="checkbox" data-fix="ui">
+            <span class="d-switch__track"><span class="d-switch__thumb"></span></span>
+            <span class="d-switch__text" style="font-size:15px">แก้ <b style="color:var(--accent)">UI</b> ให้ดี</span></label>
+          <label class="d-switch"><input type="checkbox" data-fix="ux">
+            <span class="d-switch__track"><span class="d-switch__thumb"></span></span>
+            <span class="d-switch__text" style="font-size:15px">แก้ <b style="color:var(--measure)">UX</b> ให้ดี</span></label>
+        </div>
+        <div class="cell" data-c="picker" style="gap:9px;min-height:0">
+          <span class="cell__name">สถานการณ์ · 14 แบบ</span>
+          <div class="uxui__cases" data-cases></div>
+        </div>
+      </div>
+
+      <div class="cell uxui__main" data-c="screen">
+        <div class="uxui__head">
+          <span class="cell__name" data-title>หน้าจอ</span>
+          <span class="tag" data-verdict>พังทั้งคู่</span>
+        </div>
+        <div data-screen class="uxui__screen"></div>
+        <div class="redline" data-note></div>
+      </div>
+    </div>`,
+  tour: [
+    { c: 'picker', name: 'สถานการณ์', th: 'มี 5 แบบให้ลอง', use: 'ฟอร์มสมัคร · ปุ่มลบ · หน้าโหลด · จ่ายเงินไม่ผ่าน · ค้นหาไม่เจอ — เจอจริงทุกอันในงาน' },
+    { c: 'switches', name: 'สวิตช์สองตัว', th: 'UX กับ UI แยกกันได้จริง', use: 'เปิดทีละตัวจะเห็นว่าแก้คนละชั้น — เปิดตัวเดียวก็ยังพังอยู่ดี · เปลี่ยนสถานการณ์แล้วสวิตช์จะปิดใหม่ให้เอง' },
+    { c: 'screen', name: 'ผลลัพธ์', th: 'หน้าจอเดียวกัน 4 เวอร์ชัน', use: 'ป้ายมุมขวาบอกว่าผ่านหรือพัง บรรทัดล่างอธิบายว่าทำไม' }
+  ],
+  init(root){
+    const uglyInput = 'style="width:100%;height:30px;padding:0 7px;font-size:12.5px;border:1px solid #b9b9b9;border-radius:0;background:#fff;color:#222;display:block"';
+    const uglyLabel = 'style="font-size:11.5px;color:#8a8a8a;display:block;margin-bottom:2px"';
+    const uglyBtn = 'style="height:30px;padding:0 12px;font-size:12.5px;border:1px solid #b0b0b0;border-radius:0;background:#dcdcdc;color:#555;cursor:pointer"';
+    const uglyText = 'style="font-size:12px;color:#8a8a8a"';
+
+    const field = (label, ui, value) => ui
+      ? '<div class="d-field" style="max-width:none;margin-bottom:14px"><label class="d-field__label" style="font-size:14px">' + label + '</label><input class="d-input" style="height:42px;font-size:15px" value="' + (value || '') + '"></div>'
+      : '<div style="margin-bottom:7px"><span ' + uglyLabel + '>' + label + '</span><input ' + uglyInput + ' value="' + (value || '') + '"></div>';
+
+    const btn = (text, ui, kind) => ui
+      ? '<button class="d-btn d-btn--lg' + (kind ? ' d-btn--' + kind : '') + '">' + text + '</button>'
+      : '<button ' + uglyBtn + '>' + text + '</button>';
+
+    const H = (ui, t, sub) => ui
+      ? '<div style="font-family:var(--font-display);font-size:20px;font-weight:600;margin-bottom:6px">' + t + '</div>' +
+        (sub ? '<div style="font-size:14.5px;color:var(--muted);margin-bottom:18px">' + sub + '</div>' : '')
+      : '<div style="font-size:13px;font-weight:700;color:#333;margin-bottom:3px">' + t + '</div>' +
+        (sub ? '<div ' + uglyText + ' style="margin-bottom:12px">' + sub + '</div>' : '');
+    const P = (ui, t) => ui
+      ? '<p class="d-help" style="font-size:13.5px;margin:0 0 13px">' + t + '</p>'
+      : '<div ' + uglyText + ' style="margin:0 0 10px">' + t + '</div>';
+    const ALERT = (ui, tone, t) => ui
+      ? '<div class="d-alert d-alert--' + tone + '" style="margin-bottom:16px;font-size:14.5px"><span class="d-alert__icon">!</span><div>' + t + '</div></div>'
+      : '<div ' + uglyText + ' style="margin-bottom:12px">' + t + '</div>';
+    const bar = (w, h) => '<div style="height:' + (h || 10) + 'px;width:' + w + ';background:#ddd;border-radius:3px"></div>';
+
+    const CASES = [
+      { name: 'ฟอร์มสมัครสมาชิก', title: 'หน้าสมัครสมาชิก',
+        render(ux, ui){
+          const f = ux ? ['อีเมล', 'รหัสผ่าน'] : ['อีเมล', 'ยืนยันอีเมล', 'รหัสผ่าน', 'ยืนยันรหัสผ่าน', 'เบอร์โทร', 'วันเกิด', 'รหัสไปรษณีย์'];
+          return f.map((x) => field(x, ui)).join('') +
+            (ux ? P(ui, 'ที่เหลือกรอกทีหลังในหน้าโปรไฟล์ได้') : '') + btn(ux ? 'สร้างบัญชี' : 'ตกลง', ui);
+        },
+        note: { '00': 'กรอก 7 ช่องตั้งแต่แรก แถมตัวเล็กอ่านยาก ปุ่มไม่เหมือนปุ่ม',
+                '01': 'สวยขึ้น อ่านง่ายขึ้น แต่ยังบังคับกรอก 7 ช่อง คนกดออกกลางทางอยู่ดี',
+                '10': 'เหลือ 2 ช่องแล้ว ขั้นตอนดีขึ้นมาก แต่ยังอ่านยากและปุ่มยังจม',
+                '11': 'ขอเท่าที่จำเป็น + อ่านง่าย + ปุ่มชัด' } },
+
+      { name: 'ปุ่มลบข้อมูล', title: 'กล่องยืนยันการลบ',
+        render(ux, ui){
+          return H(ui, ux ? 'ลบ 3 ไฟล์ที่เลือกไว้?' : 'คำเตือน', ux ? 'ไฟล์จะย้ายไปถังขยะ กู้คืนได้ภายใน 30 วัน' : 'คุณแน่ใจหรือไม่?') +
+            '<div style="display:flex;gap:9px;justify-content:flex-end">' +
+            (ux ? btn('เก็บไว้', ui, ui ? 'ghost' : '') + ' ' + btn('ย้ายไปถังขยะ', ui, ui ? 'danger' : '')
+                : btn('ตกลง', ui) + ' ' + btn('ยกเลิก', ui)) + '</div>';
+        },
+        note: { '00': '“ตกลง/ยกเลิก” ต้องย้อนอ่านคำถามว่าตกลงคืออะไร แถมตัวเล็กจนไม่ทันสังเกตว่ากำลังจะลบ',
+                '01': 'สวยขึ้นแต่ปุ่มยังเขียนว่า “ตกลง” — สวยแค่ไหนก็ยังกดผิด',
+                '10': 'ปุ่มบอกผลลัพธ์ชัดแล้ว แต่ปุ่มลบยังดูเหมือนปุ่มธรรมดา ไม่มีสัญญาณอันตราย',
+                '11': 'อ่านปุ่มก็รู้ผลลัพธ์ + สีแดงเตือนอันตราย + บอกว่ากู้คืนได้' } },
+
+      { name: 'หน้ากำลังโหลด', title: 'หน้ารายการสินค้า',
+        render(ux, ui){
+          if (!ux) return ui
+            ? '<div style="display:grid;place-items:center;min-height:230px;color:var(--muted);font-size:17px">กำลังโหลด…</div>'
+            : '<div style="min-height:230px;font-size:12px;color:#8a8a8a">Loading...</div>';
+          const rows = [0,1,2,3].map(() => ui
+            ? '<div style="display:flex;gap:14px;align-items:center;margin-bottom:16px"><div class="sk sk--circle" style="width:44px;height:44px;flex:none"></div><div style="flex:1"><div class="sk" style="height:13px;width:46%;margin-bottom:8px"></div><div class="sk" style="height:11px;width:28%"></div></div><div class="sk" style="height:24px;width:76px;border-radius:12px"></div></div>'
+            : '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px"><div style="width:26px;height:26px;background:#ddd;border-radius:50%"></div>' + bar('100%') + '</div>').join('');
+          return rows + P(ui, 'กำลังโหลด 24 รายการ…');
+        },
+        note: { '00': 'หน้าขาวกับคำว่า Loading เฉย ๆ ไม่รู้ว่ากำลังจะได้อะไรและอีกนานแค่ไหน',
+                '01': 'ตัวหนังสือสวยขึ้น แต่ก็ยังเป็นหน้าขาวรอเฉย ๆ ความรู้สึกว่าช้าเท่าเดิม',
+                '10': 'มี skeleton บอกโครงแล้ว แต่กล่องเทาวางมั่ว ๆ ยังดูไม่เนียน',
+                '11': 'skeleton ตรงกับของจริง + บอกจำนวนที่กำลังโหลด รู้สึกเร็วขึ้นทั้งที่เวลาเท่าเดิม' } },
+
+      { name: 'จ่ายเงินไม่ผ่าน', title: 'หน้าชำระเงิน',
+        render(ux, ui){
+          return ALERT(ui, 'danger', ux ? 'บัตรถูกปฏิเสธจากธนาคาร — ลองใช้บัตรใบอื่น หรือโทรหาธนาคารผู้ออกบัตร' : 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง (0x8004)') +
+            field('หมายเลขบัตร', ui, ux ? '4242 4242 4242 4242' : '') +
+            field('ชื่อบนบัตร', ui, ux ? 'MANEE JAIDEE' : '') +
+            (ux ? '' : P(ui, 'กรุณากรอกข้อมูลใหม่ทั้งหมด')) + btn('ลองชำระอีกครั้ง', ui);
+        },
+        note: { '00': 'รหัส error ที่ไม่มีใครเข้าใจ + ล้างข้อมูลที่กรอกไปทั้งหมด ต้องพิมพ์เลขบัตรใหม่',
+                '01': 'กล่องแดงเด่นชัดมาก แต่บอกแค่ “เกิดข้อผิดพลาด” และยังล้างข้อมูลทิ้ง',
+                '10': 'บอกสาเหตุและทางแก้แล้ว ข้อมูลเดิมยังอยู่ครบ แต่ข้อความจางจนแทบมองไม่เห็น',
+                '11': 'บอกว่าเกิดอะไร แก้ยังไง เก็บข้อมูลเดิมไว้ และเห็นชัดตั้งแต่แรก' } },
+
+      { name: 'ค้นหาไม่เจอ', title: 'ผลการค้นหา',
+        render(ux, ui){
+          const head = ui
+            ? '<div style="display:flex;gap:10px;align-items:center;margin-bottom:20px"><input class="d-input" value="ลาเต้เย้น" style="flex:1;height:42px;font-size:15px"><button class="d-btn d-btn--lg">ค้นหา</button></div>'
+            : '<div style="display:flex;gap:5px;margin-bottom:12px"><input ' + uglyInput + ' value="ลาเต้เย้น"><button ' + uglyBtn + '>ค้นหา</button></div>';
+          if (!ux) return head + (ui
+            ? '<div style="text-align:center;padding:52px 20px;color:var(--muted);font-size:17px">ไม่พบข้อมูล</div>'
+            : '<div ' + uglyText + ' style="padding:22px 0">ไม่พบข้อมูล</div>');
+          return head + (ui
+            ? '<div class="d-empty" style="padding:26px 12px"><div class="d-empty__art" style="width:56px;height:56px;font-size:21px">?</div><div class="d-empty__title" style="font-size:18px">ไม่พบ “ลาเต้เย้น”</div><div class="d-empty__text" style="font-size:15px">คุณหมายถึง <b style="color:var(--accent)">ลาเต้เย็น</b> หรือเปล่า?</div><div class="row row--tight" style="justify-content:center;margin-top:4px"><button class="d-btn">ค้นหา “ลาเต้เย็น”</button><button class="d-btn d-btn--ghost">ล้างตัวกรอง</button></div></div>'
+            : '<div style="font-size:12.5px;color:#555;padding:12px 0">ไม่พบ “ลาเต้เย้น” — คุณหมายถึง ลาเต้เย็น หรือเปล่า?<div style="margin-top:9px;display:flex;gap:5px"><button ' + uglyBtn + '>ค้นหา “ลาเต้เย็น”</button><button ' + uglyBtn + '>ล้างตัวกรอง</button></div></div>');
+        },
+        note: { '00': 'บอกแค่ “ไม่พบข้อมูล” แล้วปล่อยให้ผู้ใช้เดาต่อเองว่าพิมพ์ผิดตรงไหน',
+                '01': 'จัดหน้าสวย แต่ยังเป็นทางตัน ผู้ใช้ต้องคิดเองว่าจะทำอะไรต่อ',
+                '10': 'เดาคำที่ถูกให้แล้วและมีทางไปต่อ แต่ข้อความจมจนแทบไม่เห็น',
+                '11': 'เดาคำที่ถูก + มีปุ่มไปต่อ + เห็นชัดว่าต้องทำอะไร' } },
+
+      { name: 'กดส่งแล้วเงียบ', title: 'ปุ่มส่งคำสั่งซื้อ',
+        render(ux, ui){
+          const b = ux
+            ? (ui ? '<button class="d-btn d-btn--lg" disabled><span class="spin"></span>กำลังส่ง…</button>' : '<button ' + uglyBtn + ' disabled>กำลังส่ง...</button>')
+            : btn('ยืนยันคำสั่งซื้อ', ui);
+          return H(ui, 'ยืนยันคำสั่งซื้อ', 'รวม ฿1,280 · ส่งธรรมดา 3–5 วัน') + b +
+            (ux ? P(ui, 'ปุ่มถูกปิดไว้ระหว่างส่ง กดซ้ำก็ไม่สั่งซ้ำ') : P(ui, 'กดแล้วไม่มีอะไรเปลี่ยน ผู้ใช้มักกดซ้ำ 3–4 ครั้ง'));
+        },
+        note: { '00': 'กดแล้วหน้าจอเงียบสนิท ผู้ใช้กดซ้ำจนสั่งซื้อซ้ำหลายรอบ',
+                '01': 'ปุ่มสวยแต่ยังเงียบเหมือนเดิม — ปัญหาไม่ได้อยู่ที่หน้าตา',
+                '10': 'ปิดปุ่มกันกดซ้ำแล้ว แต่ตัวบอกสถานะจืดจนไม่ทันเห็น',
+                '11': 'มี spinner + ปิดปุ่ม + บอกว่ากำลังทำอะไรอยู่' } },
+
+      { name: 'ลืมรหัสผ่าน', title: 'หน้ากู้คืนรหัสผ่าน',
+        render(ux, ui){
+          const f = ux ? ['อีเมลที่ใช้สมัคร'] : ['อีเมลที่ใช้สมัคร', 'เบอร์โทรที่ผูกไว้', 'วันเกิด', 'เลขบัตรประชาชน 4 หลักท้าย'];
+          return H(ui, 'ลืมรหัสผ่าน', ux ? 'เราจะส่งลิงก์ตั้งรหัสใหม่ไปที่อีเมลของคุณ' : 'กรอกข้อมูลเพื่อยืนยันตัวตน') +
+            f.map((x) => field(x, ui)).join('') + btn(ux ? 'ส่งลิงก์ตั้งรหัสใหม่' : 'ยืนยัน', ui);
+        },
+        note: { '00': 'ขอข้อมูล 4 อย่างทั้งที่คนลืมรหัสมักจำอะไรไม่ได้อยู่แล้ว แถมอ่านยาก',
+                '01': 'หน้าสวยขึ้น แต่ยังขอข้อมูลเยอะเกินจำเป็นอยู่ดี',
+                '10': 'ขอแค่อีเมลก็พอ ขั้นตอนสั้นลงมาก แต่หน้าตายังดูไม่น่าเชื่อถือ',
+                '11': 'ขอแค่อีเมล + บอกชัดว่าจะเกิดอะไรต่อ' } },
+
+      { name: 'ลบของในตะกร้า', title: 'ตะกร้าสินค้า',
+        render(ux, ui){
+          const item = (n, price) => ui
+            ? '<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line-soft)"><div style="width:44px;height:44px;border-radius:8px;background:var(--line-soft);flex:none"></div><div style="flex:1"><div style="font-size:15px;font-weight:500">' + n + '</div><div style="font-size:13px;color:var(--muted)">฿' + price + '</div></div>' + (ux ? '<div class="d-seg"><button aria-pressed="false">−</button><button aria-pressed="true">1</button><button aria-pressed="false">+</button></div>' : '') + '<button class="d-btn d-btn--ghost d-btn--sm">ลบ</button></div>'
+            : '<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid #e5e5e5"><div style="width:26px;height:26px;background:#ddd;flex:none"></div><div style="flex:1;font-size:12px;color:#333">' + n + ' — ฿' + price + '</div><button ' + uglyBtn + '>ลบ</button></div>';
+          return item('ลาเต้เย็น', '85') + item('ครัวซองต์', '65') +
+            (ux ? (ui
+              ? '<div class="d-toast" style="position:static;margin-top:16px;animation:none"><span>ลบ “บราวนี่” แล้ว</span><button class="d-btn d-btn--link d-btn--sm" style="color:var(--accent);margin-left:auto">เลิกทำ</button></div>'
+              : '<div ' + uglyText + ' style="margin-top:12px">ลบ “บราวนี่” แล้ว · <u>เลิกทำ</u></div>')
+              : P(ui, 'ลบแล้วหายทันที ไม่มีทางกู้คืน'));
+        },
+        note: { '00': 'กดลบพลาดแล้วจบเลย ต้องไปหาสินค้ามาใส่ใหม่เอง แถมปุ่มลบเล็กจนกดพลาดง่าย',
+                '01': 'ปุ่มใหญ่ขึ้นกดแม่นขึ้น แต่ลบพลาดก็ยังกู้ไม่ได้อยู่ดี',
+                '10': 'มีปุ่มเลิกทำแล้ว ปลอดภัยขึ้นเยอะ แต่ข้อความจมจนหาไม่เจอ',
+                '11': 'ปรับจำนวนได้ในที่เดียว + ลบแล้วมี toast ให้เลิกทำ' } },
+
+      { name: 'อัปโหลดไฟล์', title: 'ช่องอัปโหลดรูป',
+        render(ux, ui){
+          if (!ux) return (ui
+            ? '<div style="border:1.5px dashed var(--line);border-radius:10px;padding:34px;text-align:center;color:var(--muted);font-size:15px">เลือกไฟล์</div>'
+            : '<div style="border:1px solid #b9b9b9;padding:18px;text-align:center;font-size:12px;color:#8a8a8a">เลือกไฟล์</div>') +
+            ALERT(ui, 'danger', 'อัปโหลดไม่สำเร็จ');
+          return (ui
+            ? '<div style="border:1.5px dashed var(--line);border-radius:10px;padding:28px;text-align:center"><div style="font-size:15px;color:var(--ink-2)">ลากไฟล์มาวาง หรือ <b style="color:var(--accent)">เลือกจากเครื่อง</b></div><div style="font-size:13px;color:var(--muted);margin-top:5px">PNG, JPG · ไม่เกิน 10 MB</div></div>'
+            : '<div style="border:1px solid #b9b9b9;padding:16px;text-align:center;font-size:12px;color:#555">ลากไฟล์มาวาง หรือเลือกจากเครื่อง<div ' + uglyText + '>PNG, JPG · ไม่เกิน 10 MB</div></div>') +
+            (ui
+              ? '<div style="margin-top:18px"><div style="display:flex;justify-content:space-between;font-size:13.5px;color:var(--muted);margin-bottom:6px"><span>photo-01.jpg</span><span>68%</span></div><div class="d-prog"><div class="d-prog__bar" style="width:68%"></div></div></div>'
+              : '<div style="margin-top:12px"><div ' + uglyText + '>photo-01.jpg 68%</div><div style="height:6px;background:#ddd;margin-top:3px"><div style="height:6px;width:68%;background:#999"></div></div></div>');
+        },
+        note: { '00': 'ไม่บอกว่ารับไฟล์อะไรขนาดเท่าไร ผู้ใช้เลือกไฟล์ 40 MB แล้วค่อยมาบอกว่าไม่สำเร็จ',
+                '01': 'กล่องสวยขึ้น แต่ยังไม่บอกเงื่อนไขล่วงหน้า พังตอนท้ายเหมือนเดิม',
+                '10': 'บอกชนิดและขนาดตั้งแต่แรก + มี progress แต่ตัวเล็กอ่านยาก',
+                '11': 'บอกเงื่อนไขก่อนเลือก + ลากวางได้ + เห็น progress ชัด' } },
+
+      { name: 'เลือกวันที่', title: 'ฟอร์มจองโต๊ะ',
+        render(ux, ui){
+          if (!ux) return H(ui, 'เลือกวันที่เข้าใช้บริการ', 'รูปแบบ: DD/MM/YYYY (พ.ศ.)') +
+            field('วันที่', ui, '') + P(ui, 'กรอกผิดรูปแบบระบบจะไม่รับ') + btn('ถัดไป', ui);
+          const cal = ui
+            ? '<div style="border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:16px"><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;font-size:12px;color:var(--muted);text-align:center;margin-bottom:7px"><span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>ส</span><span>อา</span></div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;font-size:14px;text-align:center">' + Array.from({length:21},(_,i)=>'<span style="padding:7px 0;border-radius:6px;' + (i===11?'background:var(--accent);color:var(--accent-ink);font-weight:600':'color:var(--ink-2)') + '">' + (i+1) + '</span>').join('') + '</div></div>'
+            : '<div style="border:1px solid #b9b9b9;padding:8px;margin-bottom:10px;display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font-size:11px;text-align:center;color:#555">' + Array.from({length:21},(_,i)=>'<span style="padding:3px 0;' + (i===11?'background:#999;color:#fff':'') + '">' + (i+1) + '</span>').join('') + '</div>';
+          return H(ui, 'เลือกวันที่เข้าใช้บริการ', 'กดเลือกจากปฏิทินได้เลย') + cal +
+            (ui ? '<div class="row row--tight" style="margin-bottom:16px"><button class="d-btn d-btn--outline d-btn--sm">วันนี้</button><button class="d-btn d-btn--outline d-btn--sm">พรุ่งนี้</button><button class="d-btn d-btn--outline d-btn--sm">เสาร์นี้</button></div>' : '<div style="display:flex;gap:4px;margin-bottom:10px"><button ' + uglyBtn + '>วันนี้</button><button ' + uglyBtn + '>พรุ่งนี้</button></div>') +
+            btn('ถัดไป', ui);
+        },
+        note: { '00': 'บังคับพิมพ์เอง แถมใช้ พ.ศ. คนพิมพ์ ค.ศ. ก็โดนปฏิเสธโดยไม่รู้สาเหตุ',
+                '01': 'ช่องกรอกสวยขึ้น แต่ก็ยังต้องพิมพ์เองและพิมพ์ผิดง่ายเหมือนเดิม',
+                '10': 'มีปฏิทินให้กดแล้ว ไม่ต้องเดารูปแบบ แต่ตัวเลขเล็กจนกดพลาด',
+                '11': 'ปฏิทินกดง่าย + มีทางลัดวันนี้/พรุ่งนี้/เสาร์นี้' } },
+
+      { name: 'ตั้งค่าแจ้งเตือน', title: 'หน้าตั้งค่า',
+        render(ux, ui){
+          if (!ux){
+            const items = ['อีเมลสรุปรายวัน','อีเมลสรุปรายสัปดาห์','โปรโมชัน','ข่าวสาร','มีคนตอบกลับ','มีคนกดถูกใจ','มีคนติดตาม','อัปเดตระบบ','แจ้งเตือนความปลอดภัย','ข้อเสนอจากพาร์ตเนอร์'];
+            return items.map((t) => ui
+              ? '<label class="d-check" style="padding:5px 0;font-size:14.5px"><input type="checkbox">' + t + '</label>'
+              : '<div style="font-size:11.5px;color:#555;padding:1px 0"><input type="checkbox" style="width:12px;height:12px"> ' + t + '</div>').join('') +
+              '<div style="margin-top:14px">' + btn('บันทึก', ui) + '</div>';
+          }
+          const group = (title, rows) => (ui
+            ? '<div style="font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:16px 0 8px">' + title + '</div>'
+            : '<div ' + uglyText + ' style="margin:10px 0 4px;font-weight:700">' + title + '</div>') +
+            rows.map((t) => ui
+              ? '<label class="d-switch" style="padding:7px 0"><input type="checkbox" checked><span class="d-switch__track"><span class="d-switch__thumb"></span></span><span class="d-switch__text" style="font-size:14.5px">' + t + '</span></label><br>'
+              : '<div style="font-size:11.5px;color:#555;padding:1px 0"><input type="checkbox" checked style="width:12px;height:12px"> ' + t + '</div>').join('');
+          return group('สำคัญ', ['แจ้งเตือนความปลอดภัย', 'อัปเดตระบบ']) +
+                 group('กิจกรรม', ['มีคนตอบกลับ', 'มีคนติดตาม']) +
+                 group('การตลาด', ['โปรโมชัน']) +
+                 P(ui, 'ทุกอันมีผลทันที ไม่ต้องกดบันทึก');
+        },
+        note: { '00': 'ยัด 10 ข้อเรียงกันไม่มีกลุ่ม ต้องอ่านทีละบรรทัดถึงจะเจออันที่ต้องการ',
+                '01': 'ช่องติ๊กใหญ่ขึ้นอ่านง่ายขึ้น แต่ยังเป็นลิสต์ยาว 10 ข้อไม่มีกลุ่ม',
+                '10': 'จัดกลุ่มแล้วหาง่ายขึ้นมาก และมีผลทันทีไม่ต้องกดบันทึก แต่ยังดูรกตา',
+                '11': 'จัดกลุ่มตามความสำคัญ + ใช้ switch ที่มีผลทันที + ไม่มีปุ่มบันทึกให้ลืมกด' } },
+
+      { name: 'ตารางข้อมูลยาว', title: 'หน้ารายการคำสั่งซื้อ',
+        render(ux, ui){
+          const row = (n, s2, amt) => ui
+            ? '<tr><td>' + n + '</td><td><span class="d-badge">' + s2 + '</span></td><td class="num">' + amt + '</td></tr>'
+            : '<tr><td style="padding:3px 6px;font-size:11.5px;border-bottom:1px solid #e5e5e5">' + n + '</td><td style="padding:3px 6px;font-size:11.5px;border-bottom:1px solid #e5e5e5">' + s2 + '</td><td style="padding:3px 6px;font-size:11.5px;border-bottom:1px solid #e5e5e5">' + amt + '</td></tr>';
+          const tools = ux
+            ? (ui
+              ? '<div style="display:flex;gap:9px;margin-bottom:16px"><input class="d-input" placeholder="ค้นหาชื่อลูกค้า…" style="flex:1;height:40px"><button class="d-btn d-btn--outline">ตัวกรอง</button></div>'
+              : '<div style="display:flex;gap:4px;margin-bottom:9px"><input ' + uglyInput + ' placeholder="ค้นหา"><button ' + uglyBtn + '>ตัวกรอง</button></div>')
+            : '';
+          const table = (ui
+            ? '<div class="d-tablewrap"><table class="d-table"><thead><tr><th>ลูกค้า</th><th>สถานะ</th><th style="text-align:right">ยอด</th></tr></thead><tbody>'
+            : '<table style="width:100%;border-collapse:collapse"><thead><tr><th style="padding:3px 6px;font-size:10.5px;color:#8a8a8a;text-align:left">ลูกค้า</th><th style="padding:3px 6px;font-size:10.5px;color:#8a8a8a;text-align:left">สถานะ</th><th style="padding:3px 6px;font-size:10.5px;color:#8a8a8a;text-align:left">ยอด</th></tr></thead><tbody>') +
+            row('มานี ใจดี', 'จ่ายแล้ว', '48,200.00') + row('สมชาย พากเพียร', 'รอตรวจ', '1,580.50') +
+            row('ปิติ รุ่งเรือง', 'จ่ายแล้ว', '640.00') + row('ชูใจ มีสุข', 'ยกเลิก', '9,687.25') +
+            (ui ? '</tbody></table></div>' : '</tbody></table>');
+          const foot = ux
+            ? (ui
+              ? '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px"><span class="d-help" style="font-size:13.5px">แสดง 4 จาก 512 รายการ</span><div class="d-page"><button disabled>‹</button><button aria-current="page">1</button><button>2</button><button>3</button><button>›</button></div></div>'
+              : '<div ' + uglyText + ' style="margin-top:9px">แสดง 4 จาก 512 · หน้า 1 2 3</div>')
+            : P(ui, 'แสดงทั้งหมด 512 รายการในหน้าเดียว');
+          return tools + table + foot;
+        },
+        note: { '00': 'ยัด 512 แถวในหน้าเดียว ไม่มีค้นหาไม่มีแบ่งหน้า เลื่อนหาจนตาลาย',
+                '01': 'ตารางอ่านง่ายขึ้นเยอะ แต่ก็ยังต้องเลื่อนผ่าน 512 แถวอยู่ดี',
+                '10': 'มีค้นหาและแบ่งหน้าแล้ว หาเจอเร็วขึ้นมาก แต่ตัวเลขไม่ตรงคอลัมน์ เทียบยาก',
+                '11': 'ค้นหา + แบ่งหน้า + ตัวเลขชิดขวาหลักตรงกัน กวาดตาเทียบได้ทันที' } },
+
+      { name: 'กรอก OTP', title: 'หน้ายืนยันรหัส OTP',
+        render(ux, ui){
+          if (!ux) return H(ui, 'กรอกรหัส OTP', 'ระบบส่งรหัสไปแล้ว') + field('รหัส 6 หลัก', ui, '') + btn('ยืนยัน', ui);
+          const boxes = ui
+            ? '<div style="display:flex;gap:9px;margin-bottom:16px">' + Array.from({length:6},(_,i)=>'<input class="d-input" maxlength="1" value="' + (i<3?'4':'') + '" style="width:52px;height:60px;text-align:center;font-size:24px;font-family:var(--font-mono)">').join('') + '</div>'
+            : '<div style="display:flex;gap:3px;margin-bottom:10px">' + Array.from({length:6},(_,i)=>'<input maxlength="1" value="' + (i<3?'4':'') + '" style="width:26px;height:30px;text-align:center;font-size:13px;border:1px solid #b9b9b9;border-radius:0">').join('') + '</div>';
+          return H(ui, 'กรอกรหัส OTP', 'ส่งไปที่ 08x-xxx-4567 แล้ว') + boxes +
+            (ui
+              ? '<div style="display:flex;align-items:center;gap:14px"><button class="d-btn d-btn--lg">ยืนยัน</button><span class="d-help" style="font-size:13.5px">ขอรหัสใหม่ได้ใน 0:42</span></div>'
+              : '<div style="display:flex;align-items:center;gap:6px"><button ' + uglyBtn + '>ยืนยัน</button><span ' + uglyText + '>ขอรหัสใหม่ได้ใน 0:42</span></div>');
+        },
+        note: { '00': 'ช่องเดียวยาว ไม่บอกว่าส่งไปเบอร์ไหน ไม่มีปุ่มขอรหัสใหม่ ถ้าไม่ได้รับก็ตัน',
+                '01': 'ช่องกรอกสวยขึ้น แต่ยังไม่รู้ว่าส่งไปเบอร์ไหนและขอใหม่ยังไง',
+                '10': 'แยก 6 ช่อง + บอกเบอร์ + มีนับถอยหลังขอรหัสใหม่ แต่ช่องเล็กจนกรอกยาก',
+                '11': 'ช่องใหญ่กรอกง่าย + รู้ว่าส่งไปไหน + ขอรหัสใหม่ได้' } },
+
+      { name: 'ค่าส่งโผล่ทีหลัง', title: 'หน้าสรุปคำสั่งซื้อ',
+        render(ux, ui){
+          const line = (a, b2, strong) => ui
+            ? '<div style="display:flex;justify-content:space-between;padding:9px 0;font-size:' + (strong?'17px':'14.5px') + ';' + (strong?'font-weight:600;border-top:1px solid var(--line);margin-top:6px':'color:var(--ink-2)') + '"><span>' + a + '</span><span>' + b2 + '</span></div>'
+            : '<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:' + (strong?'12.5px':'11.5px') + ';color:#555;' + (strong?'font-weight:700;border-top:1px solid #ccc':'') + '"><span>' + a + '</span><span>' + b2 + '</span></div>';
+          if (!ux) return H(ui, 'สรุปคำสั่งซื้อ', '') + line('ค่าสินค้า', '฿1,280') + line('รวม', '฿1,280', true) +
+            ALERT(ui, 'warn', 'ค่าจัดส่ง ฿120 และ VAT ฿90 จะคิดเพิ่มในขั้นตอนถัดไป') + btn('ไปหน้าชำระเงิน', ui);
+          return H(ui, 'สรุปคำสั่งซื้อ', 'ราคานี้รวมทุกอย่างแล้ว') +
+            line('ค่าสินค้า', '฿1,280') + line('ค่าจัดส่ง', '฿120') + line('VAT 7%', '฿90') +
+            line('รวมทั้งหมด', '฿1,490', true) + btn('ไปหน้าชำระเงิน', ui);
+        },
+        note: { '00': 'บอกราคาไม่ครบ ค่าส่งกับ VAT โผล่ตอนท้าย เป็นสาเหตุอันดับต้น ๆ ที่คนทิ้งตะกร้า',
+                '01': 'ตัวเลขอ่านง่ายขึ้น แต่ก็ยังเซอร์ไพรส์ด้วยค่าใช้จ่ายที่ซ่อนไว้อยู่ดี',
+                '10': 'บอกครบทุกรายการตั้งแต่แรกแล้ว แต่ตัวเลขเล็กและไม่เน้นยอดรวม',
+                '11': 'เห็นครบทุกรายการ + ยอดรวมเด่นชัด ไม่มีเซอร์ไพรส์ทีหลัง' } }
+
+    ];
+
+    const list = q(root, '[data-cases]');
+    const screen = q(root, '[data-screen]');
+    const titleEl = q(root, '[data-title]');
+    const verdict = q(root, '[data-verdict]');
+    const note = q(root, '[data-note]');
+    const swUx = q(root, '[data-fix="ux"]');
+    const swUi = q(root, '[data-fix="ui"]');
+    let at = 0;
+
+    list.innerHTML = CASES.map((c, i) =>
+      '<button class="uxui__case" data-case="' + i + '" aria-pressed="' + (i === 0) + '">' +
+      '<span class="uxui__num">' + (i + 1) + '</span>' + c.name + '</button>').join('');
+
+    function paint(){
+      const c = CASES[at];
+      const ux = swUx.checked, ui = swUi.checked;
+      const key = (ux ? '1' : '0') + (ui ? '1' : '0');
+
+      screen.innerHTML = c.render(ux, ui);
+      screen.style.background = ui ? 'var(--stage)' : '#fbfbfb';
+      screen.style.borderRadius = ui ? '10px' : '2px';
+      screen.style.padding = ui ? 'clamp(20px,2.4vw,30px)' : '14px';
+
+      titleEl.textContent = c.title;
+      note.textContent = c.note[key];
+
+      const V = {
+        '00': ['พังทั้งคู่', 'tag--danger'],
+        '10': ['UX ผ่าน · UI พัง', 'tag--warn'],
+        '01': ['UI ผ่าน · UX พัง', 'tag--warn'],
+        '11': ['ผ่านทั้งคู่', 'tag--ok']
+      };
+      verdict.textContent = V[key][0];
+      verdict.className = 'tag ' + V[key][1];
+    }
+
+    qa(list, '[data-case]').forEach((b) => b.addEventListener('click', () => {
+      qa(list, '[data-case]').forEach((o) => o.setAttribute('aria-pressed', String(o === b)));
+      at = Number(b.dataset.case);
+      // เปลี่ยนสถานการณ์แล้วเริ่มจาก "พังทั้งคู่" ใหม่ทุกครั้ง
+      swUx.checked = false;
+      swUi.checked = false;
+      paint();
+    }));
+    swUx.addEventListener('change', paint);
+    swUi.addEventListener('change', paint);
+    paint();
+  }
+});
+
+/* ============================================================
+   03 — ปุ่ม
+   ============================================================ */
+SLIDES.push({
+  title: 'ปุ่มและการกระทำ',
+  eyebrow: '02 · buttons',
+  h2: 'ปุ่ม — 11 ชนิดที่เจอบ่อย',
+  lead: 'หน้าตาต่างกันเพื่อบอกว่าอันไหนสำคัญกว่ากัน',
+  board: `
+    <div class="grid grid--3">
+      ${cell('primary', '<button class="d-btn">บันทึก</button>', 'primary')}
+      ${cell('secondary', '<button class="d-btn d-btn--secondary">บันทึกร่าง</button>', 'secondary')}
+      ${cell('outline / ghost', '<button class="d-btn d-btn--outline">ยกเลิก</button><button class="d-btn d-btn--ghost">ข้าม</button>', 'outline')}
+      ${cell('destructive', '<button class="d-btn d-btn--danger">ลบถาวร</button>', 'danger')}
+      ${cell('link button', '<button class="d-btn d-btn--link">ลืมรหัสผ่าน?</button>', 'link')}
+      ${cell('icon button', '<button class="d-btn d-btn--outline" style="width:38px;padding:0" aria-label="ลบ">' + ICON.trash + '</button><button class="d-btn d-btn--ghost" style="width:38px;padding:0" aria-label="เพิ่มรายการโปรด">' + ICON.star + '</button>', 'iconbtn')}
+      ${cell('button group', '<div class="d-seg"><button aria-pressed="true">วัน</button><button aria-pressed="false">สัปดาห์</button><button aria-pressed="false">เดือน</button></div>', 'group')}
+      ${cell('split button', '<div style="display:flex"><button class="d-btn" style="border-radius:6px 0 0 6px">ส่งออก</button><button class="d-btn" style="border-radius:0 6px 6px 0;width:32px;padding:0;border-left:1px solid rgba(255,255,255,.35)" aria-label="ตัวเลือกเพิ่มเติม">' + ICON.chevron + '</button></div>', 'split')}
+      ${cell('toggle button', '<button class="d-btn d-btn--outline" data-toggle aria-pressed="false">' + ICON.star + ' ติดตาม</button>', 'toggle')}
+      ${cell('loading button', '<button class="d-btn" disabled><span class="spin"></span>กำลังบันทึก…</button>', 'loading')}
+      ${cell('disabled', '<button class="d-btn" disabled>ส่งคำสั่ง</button>', 'disabled')}
+      ${cell('FAB — floating action button', '<div style="position:relative;height:56px;width:100%;background:var(--stage-2);border-radius:8px"><button class="d-btn" style="position:absolute;right:10px;bottom:10px;width:44px;height:44px;padding:0;border-radius:50%;box-shadow:var(--shadow-2)" aria-label="เขียนใหม่">' + ICON.plus + '</button></div>', 'fab')}
+    </div>`,
+  tour: [
+    { c: 'primary', name: 'Primary button', th: 'ปุ่มหลัก', use: 'การกระทำหลักของหน้านั้น — ควรมีหน้าละอันเดียว' },
+    { c: 'secondary', name: 'Secondary button', th: 'ปุ่มรอง', use: 'ทางเลือกรองที่ยังอยากให้เห็นชัด' },
+    { c: 'outline', name: 'Outline / Ghost button', th: 'ปุ่มขอบ / ปุ่มโปร่ง', use: 'น้ำหนักเบาลงไปอีก เหมาะกับ “ยกเลิก” หรือปุ่มในแถบเครื่องมือ' },
+    { c: 'danger', name: 'Destructive button', th: 'ปุ่มทำลาย', use: 'ลบหรือยกเลิกถาวร — ควรมีขั้นตอนยืนยันเสมอ' },
+    { c: 'link', name: 'Link button', th: 'ปุ่มแบบลิงก์', use: 'พาไปที่อื่น ไม่ใช่การกระทำกับข้อมูล' },
+    { c: 'iconbtn', name: 'Icon button', th: 'ปุ่มไอคอน', use: 'มีแต่ไอคอน ประหยัดที่ — ต้องใส่ aria-label ไม่งั้นคนใช้ screen reader ไม่รู้ว่าปุ่มอะไร' },
+    { c: 'group', name: 'Button group / Segmented control', th: 'ปุ่มกลุ่ม', use: 'ตัวเลือก 2–4 อันที่สลับไปมาบ่อย เห็นทุกตัวเลือกพร้อมกัน' },
+    { c: 'split', name: 'Split button', th: 'ปุ่มแยกส่วน', use: 'ครึ่งซ้ายทำงานหลักทันที ครึ่งขวากดเปิดตัวเลือกอื่น' },
+    { c: 'toggle', name: 'Toggle button', th: 'ปุ่มสองสถานะ', use: 'กดค้างสถานะไว้ เช่น ติดตาม/เลิกติดตาม — ลองกดดูได้' },
+    { c: 'loading', name: 'Loading state', th: 'สถานะกำลังทำงาน', use: 'กดแล้วต้องปิดปุ่มไว้ ไม่งั้นผู้ใช้กดซ้ำจนสั่งซื้อซ้ำ' },
+    { c: 'disabled', name: 'Disabled state', th: 'สถานะกดไม่ได้', use: 'ต้องบอกเหตุผลข้าง ๆ ด้วย ไม่ใช่จางไว้เฉย ๆ' },
+    { c: 'fab', name: 'FAB — Floating Action Button', th: 'ปุ่มลอย', use: 'ปุ่มกลมลอยมุมจอ ใช้กับการกระทำหลักบนมือถือ เช่น เขียนโพสต์ใหม่' }
+  ],
+  init(root){
+    const t = q(root, '[data-toggle]');
+    if (t) t.addEventListener('click', () => {
+      const on = t.getAttribute('aria-pressed') === 'true';
+      t.setAttribute('aria-pressed', String(!on));
+      t.classList.toggle('d-btn--outline', on);
+      t.innerHTML = (on ? ICON.star + ' ติดตาม' : ICON.check + ' กำลังติดตาม');
+    });
+
+    // button group / segmented — เลือกได้
+    const seg = qa(root, '[data-c="group"] .d-seg button');
+    seg.forEach((b) => b.addEventListener('click', () => seg.forEach((o) => o.setAttribute('aria-pressed', String(o === b)))));
+
+    // ปุ่มตัวอย่างที่เหลือ — กดแล้วมีเสียงตอบรับให้เห็น
+    const flash = (btn, text) => {
+      if (btn.dataset.busy) return;
+      btn.dataset.busy = '1';
+      const html = btn.innerHTML;
+      btn.innerHTML = text;
+      setTimeout(() => { btn.innerHTML = html; delete btn.dataset.busy; }, 900);
+    };
+    const SAY = {
+      primary: 'บันทึกแล้ว ✓', secondary: 'เก็บร่างแล้ว ✓', danger: 'ต้องยืนยันก่อน',
+      link: 'ส่งลิงก์ไปอีเมลแล้ว', fab: '+'
+    };
+    Object.keys(SAY).forEach((k) => {
+      const b = q(root, '[data-c="' + k + '"] button');
+      if (b) b.addEventListener('click', () => flash(b, SAY[k]));
+    });
+    qa(root, '[data-c="outline"] button').forEach((b) => b.addEventListener('click', () => flash(b, 'รับทราบ')));
+
+    // icon button — กดแล้วสลับสถานะ
+    const star = q(root, '[data-c="iconbtn"] [aria-label="เพิ่มรายการโปรด"]');
+    let fav = false;
+    if (star) star.addEventListener('click', () => {
+      fav = !fav;
+      star.style.color = fav ? 'var(--warn)' : '';
+      star.style.borderColor = fav ? 'var(--warn)' : '';
+    });
+    const del = q(root, '[data-c="iconbtn"] [aria-label="ลบ"]');
+    if (del) del.addEventListener('click', () => flash(del, '✓'));
+
+    // split button — ครึ่งขวาเปิดเมนู
+    const splitCell = q(root, '[data-c="split"]');
+    const splitMain = splitCell.querySelector('button');
+    const splitMore = splitCell.querySelectorAll('button')[1];
+    splitMain.addEventListener('click', () => flash(splitMain, 'กำลังส่งออก…'));
+    splitMore.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const exist = splitCell.querySelector('[data-splitmenu]');
+      if (exist){ exist.remove(); return; }
+      const m = document.createElement('div');
+      m.dataset.splitmenu = '1';
+      m.className = 'd-menu';
+      m.style.cssText = 'position:absolute;left:0;top:100%;margin-top:5px';
+      m.innerHTML = '<button>ส่งออกเป็น CSV</button><button>ส่งออกเป็น PDF</button>';
+      const wrap = splitCell.querySelector('.cell__demo > div');
+      wrap.style.position = 'relative';
+      wrap.appendChild(m);
+      setTimeout(() => { const off = () => { m.remove(); document.removeEventListener('click', off); }; document.addEventListener('click', off); }, 0);
+    });
+  }
+});
+
+/* ============================================================
+   03 — การนำทาง
+   ============================================================ */
+SLIDES.push({
+  title: 'การนำทาง',
+  eyebrow: '03 · navigation',
+  h2: 'พาผู้ใช้ไปที่อื่น — 10 ชิ้นที่ต้องรู้จัก',
+  lead: 'รวม “เมนูสามขีด” ที่ทุกคนเห็นแต่ไม่รู้ว่าเรียกว่าอะไร',
+  board: `
+    <div class="grid grid--2">
+      <div class="cell cell--wide" data-c="navbar">
+        <span class="cell__name">navbar / app bar</span>
+        <div class="cell__demo" style="justify-content:space-between;background:var(--stage-2);border-radius:8px;padding:9px 12px">
+          <span style="display:flex;align-items:center;gap:11px">
+            <button class="d-btn d-btn--ghost" data-c2="hamburger" style="width:34px;padding:0" aria-label="เปิดเมนู">${ICON.menu}</button>
+            <b style="font-family:var(--font-display)">ร้านกาแฟดี</b>
+          </span>
+          <span style="display:flex;align-items:center;gap:7px">
+            <button class="d-btn d-btn--ghost" style="width:34px;padding:0" aria-label="ค้นหา">${ICON.search}</button>
+            <span data-c2="notifbadge" style="position:relative;display:inline-flex">
+              <button class="d-btn d-btn--ghost" style="width:34px;padding:0" aria-label="แจ้งเตือน">${ICON.bell}</button>
+              <span style="position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;border-radius:9px;background:var(--danger);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center">3</span>
+            </span>
+            <span class="d-avatar" data-c2="avatarbtn" style="width:30px;height:30px;font-size:11px;cursor:pointer">มน</span>
+          </span>
+        </div>
+        <div data-navpanel style="width:100%"></div>
+      </div>
+      ${cell('breadcrumb', '<div class="d-crumb"><a href="#">หน้าแรก</a><span>/</span><a href="#">เมนู</a><span>/</span><span aria-current="page">ลาเต้</span></div>', 'crumb', true)}
+      ${cell('tabs', '<div style="width:100%"><div class="d-tabs" data-tabs><button aria-selected="true">ทั้งหมด</button><button aria-selected="false">ร้อน</button><button aria-selected="false">เย็น</button></div><div class="d-tabpanel" data-tabpanel>ลาเต้ · อเมริกาโน่ · คาปูชิโน่ · มอคค่า</div></div>', 'tabs')}
+      ${cell('pagination', '<div class="d-page"><button disabled>‹</button><button aria-current="page">1</button><button>2</button><button>3</button><button>›</button></div>', 'pager')}
+      ${cell('stepper / wizard', '<div class="d-steps"><span class="d-step is-done"><span class="d-step__dot">✓</span><span class="d-step__label">ตะกร้า</span></span><span class="d-step__line is-done"></span><span class="d-step is-now"><span class="d-step__dot">2</span><span class="d-step__label">ชำระเงิน</span></span><span class="d-step__line"></span><span class="d-step"><span class="d-step__dot">3</span><span class="d-step__label">เสร็จ</span></span></div>', 'stepper', true)}
+      <div class="cell" data-c="sidebar">
+        <span class="cell__name">sidebar / side nav</span>
+        <div class="cell__demo" style="flex-direction:column;gap:2px;align-items:stretch">
+          <span class="d-listitem" style="background:var(--accent-soft);color:var(--accent);font-weight:600;font-size:13.5px">${ICON.home} หน้าแรก</span>
+          <span class="d-listitem" style="font-size:13.5px;color:var(--muted)">${ICON.cart} คำสั่งซื้อ</span>
+          <span class="d-listitem" style="font-size:13.5px;color:var(--muted)">${ICON.user} ลูกค้า</span>
+        </div>
+      </div>
+      <div class="cell" data-c="bottomnav">
+        <span class="cell__name">bottom nav / tab bar (มือถือ)</span>
+        <div class="cell__demo" style="justify-content:space-around;background:var(--stage-2);border-radius:8px;padding:7px 4px">
+          <span style="display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--accent);font-size:10.5px;font-weight:600">${ICON.home}หน้าแรก</span>
+          <span style="display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--muted);font-size:10.5px">${ICON.search}ค้นหา</span>
+          <span style="display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--muted);font-size:10.5px">${ICON.cart}ตะกร้า</span>
+          <span style="display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--muted);font-size:10.5px">${ICON.user}ฉัน</span>
+        </div>
+      </div>
+    </div>`,
+  tour: [
+    { c: 'navbar', name: 'Navbar / App bar', th: 'แถบด้านบน', use: 'แถบบนสุดที่มีโลโก้ ค้นหา แจ้งเตือน โปรไฟล์ — อยู่ทุกหน้า' },
+    { c2: 'hamburger', name: 'Hamburger menu', th: 'เมนูสามขีด / เมนูแฮมเบอร์เกอร์', use: 'ไอคอนสามขีดที่กดแล้วเมนูหลักเลื่อนออกมา — ใช้เมื่อจอแคบจนวางเมนูเต็มไม่ได้' },
+    { c2: 'notifbadge', name: 'Notification badge', th: 'ป้ายตัวเลขแจ้งเตือน', use: 'วงกลมแดงมีตัวเลขเกาะมุมไอคอน บอกว่ามีของใหม่กี่ชิ้น' },
+    { c: 'crumb', name: 'Breadcrumb', th: 'เส้นทางนำทาง', use: 'บอกว่าตอนนี้อยู่ชั้นไหนของเว็บ และกดย้อนขึ้นได้' },
+    { c: 'tabs', name: 'Tabs', th: 'แท็บ', use: 'สลับมุมมองของสิ่งเดียวกัน โดยไม่เปลี่ยนหน้า' },
+    { c: 'pager', name: 'Pagination', th: 'แบ่งหน้า', use: 'ข้อมูลเยอะจนต้องแบ่ง — ควรบอกจำนวนรวมด้วย' },
+    { c: 'stepper', name: 'Stepper / Wizard', th: 'แถบขั้นตอน', use: 'งานที่ต้องทำเรียงลำดับ ต้องบอกตั้งแต่แรกว่ามีทั้งหมดกี่ขั้น' },
+    { c: 'sidebar', name: 'Sidebar / Side nav', th: 'เมนูข้าง', use: 'เมนูหลักฝั่งซ้าย เหมาะกับระบบหลังบ้านที่มีหลายหน้า' },
+    { c: 'bottomnav', name: 'Bottom navigation / Tab bar', th: 'แถบล่างมือถือ', use: 'เมนูหลัก 3–5 อันที่ก้นจอ — นิ้วโป้งเอื้อมถึงง่ายที่สุด' }
+  ],
+  init(root){
+    const panel = q(root, '[data-navpanel]');
+    let open = null;
+    const closePanel = () => { panel.innerHTML = ''; open = null; };
+    const openPanel = (kind, html) => {
+      if (open === kind){ closePanel(); return; }
+      open = kind;
+      panel.innerHTML = '<div style="margin-top:9px;border:1px solid var(--line);border-radius:8px;background:var(--stage);padding:7px;box-shadow:var(--shadow-2)">' + html + '</div>';
+    };
+    const row = (t) => '<div style="padding:8px 11px;border-radius:6px;font-size:13.5px;color:var(--ink-2)">' + t + '</div>';
+
+    q(root, '[data-c2="hamburger"]').addEventListener('click', () =>
+      openPanel('menu', row('เมนูทั้งหมด') + row('โปรโมชัน') + row('สาขา') + row('ติดต่อเรา')));
+
+    q(root, '[data-c="navbar"] [aria-label="ค้นหา"]').addEventListener('click', () =>
+      openPanel('search', '<input class="d-input" placeholder="ค้นหาเมนู…" style="width:100%">'));
+
+    const bell = q(root, '[data-c="navbar"] [aria-label="แจ้งเตือน"]');
+    const dot = q(root, '[data-c2="notifbadge"] span:last-child');
+    bell.addEventListener('click', () => {
+      openPanel('bell', row('คำสั่งซื้อ #10428 จัดส่งแล้ว') + row('มีรีวิวใหม่ 2 รายการ') + row('โปรโมชันใหม่เริ่มพรุ่งนี้'));
+      if (open === 'bell' && dot){ dot.style.display = 'none'; }
+    });
+
+    q(root, '[data-c2="avatarbtn"]').addEventListener('click', () =>
+      openPanel('me', row('โปรไฟล์ของฉัน') + row('การตั้งค่า') + '<hr style="border:0;border-top:1px solid var(--line-soft);margin:5px 0">' + '<div style="padding:8px 11px;border-radius:6px;font-size:13.5px;color:var(--danger)">ออกจากระบบ</div>'));
+
+    // breadcrumb
+    qa(root, '.d-crumb a').forEach((a) => a.addEventListener('click', (e) => {
+      e.preventDefault();
+      const crumb = a.closest('.d-crumb');
+      const items = qa(crumb, 'a, [aria-current]');
+      const at = items.indexOf(a);
+      crumb.innerHTML = items.slice(0, at + 1).map((el, i, arr) =>
+        (i === arr.length - 1
+          ? '<span aria-current="page">' + el.textContent + '</span>'
+          : '<a href="#">' + el.textContent + '</a>') + (i < arr.length - 1 ? '<span>/</span>' : '')
+      ).join('');
+      qa(crumb, 'a').forEach((n) => n.addEventListener('click', (ev) => ev.preventDefault()));
+    }));
+
+    // tabs
+    const tabs = qa(root, '[data-tabs] button');
+    const tabpanel = q(root, '[data-tabpanel]');
+    const T = ['ลาเต้ · อเมริกาโน่ · คาปูชิโน่ · มอคค่า', 'ลาเต้ร้อน · อเมริกาโน่ร้อน · เอสเปรสโซ', 'ลาเต้เย็น · อเมริกาโน่เย็น · โคลด์บริว'];
+    tabs.forEach((b, i) => b.addEventListener('click', () => {
+      tabs.forEach((o) => o.setAttribute('aria-selected', String(o === b)));
+      tabpanel.textContent = T[i];
+    }));
+
+    // pagination
+    const pager = q(root, '[data-c="pager"] .d-page');
+    let page = 1;
+    const paintPager = () => {
+      pager.innerHTML = '<button data-p="prev"' + (page === 1 ? ' disabled' : '') + '>‹</button>' +
+        [1, 2, 3].map((n) => '<button data-p="' + n + '"' + (n === page ? ' aria-current="page"' : '') + '>' + n + '</button>').join('') +
+        '<button data-p="next"' + (page === 3 ? ' disabled' : '') + '>›</button>';
+      qa(pager, '[data-p]').forEach((b) => b.addEventListener('click', () => {
+        const v = b.dataset.p;
+        page = v === 'prev' ? Math.max(1, page - 1) : v === 'next' ? Math.min(3, page + 1) : Number(v);
+        paintPager();
+      }));
+    };
+    paintPager();
+
+    // stepper — กดที่ขั้นเพื่อย้าย
+    const stepCell = q(root, '[data-c="stepper"] .d-steps');
+    const LABELS = ['ตะกร้า', 'ชำระเงิน', 'เสร็จ'];
+    let cur = 1;
+    const paintSteps = () => {
+      stepCell.innerHTML = LABELS.map((l, i) => {
+        const state = i < cur ? 'is-done' : i === cur ? 'is-now' : '';
+        return (i ? '<span class="d-step__line ' + (i <= cur ? 'is-done' : '') + '"></span>' : '') +
+          '<span class="d-step ' + state + '" data-s="' + i + '" style="cursor:pointer"><span class="d-step__dot">' + (i < cur ? '✓' : i + 1) + '</span><span class="d-step__label">' + l + '</span></span>';
+      }).join('');
+      qa(stepCell, '[data-s]').forEach((el) => el.addEventListener('click', () => { cur = Number(el.dataset.s); paintSteps(); }));
+    };
+    paintSteps();
+
+    // sidebar + bottom nav — เลือกได้
+    const pick = (sel, onPick) => {
+      const items = qa(root, sel);
+      items.forEach((it) => {
+        it.style.cursor = 'pointer';
+        it.addEventListener('click', () => { items.forEach((o) => onPick(o, o === it)); });
+      });
+    };
+    pick('[data-c="sidebar"] .d-listitem', (el, on) => {
+      el.style.background = on ? 'var(--accent-soft)' : '';
+      el.style.color = on ? 'var(--accent)' : 'var(--muted)';
+      el.style.fontWeight = on ? '600' : '';
+    });
+    pick('[data-c="bottomnav"] .cell__demo > span', (el, on) => {
+      el.style.color = on ? 'var(--accent)' : 'var(--muted)';
+      el.style.fontWeight = on ? '600' : '';
+    });
+  }
+});
+
+/* ============================================================
+   04 — ช่องกรอกข้อความ
+   ============================================================ */
+SLIDES.push({
+  title: 'ช่องกรอกข้อความ',
+  eyebrow: '04 · text inputs',
+  h2: 'ฟอร์ม — ชิ้นส่วนรอบ ๆ ช่องกรอก',
+  lead: 'ช่องกรอกหนึ่งช่องมีชื่อเรียกย่อยหลายอัน ลองพิมพ์ดูได้',
+  board: `
+    <div class="grid grid--2">
+      <div class="cell" data-c="field">
+        <span class="cell__name">text field — ส่วนประกอบครบชุด</span>
+        <div class="cell__demo" style="flex-direction:column;align-items:stretch;gap:5px">
+          <label class="d-field__label" data-c2="label" for="t-mail">อีเมล <span class="req">*</span></label>
+          <input class="d-input" id="t-mail" data-c2="placeholder" placeholder="you@example.com" style="width:100%">
+          <span class="d-help" data-c2="helper">ใช้อีเมลนี้เข้าสู่ระบบ</span>
+        </div>
+      </div>
+      <div class="cell" data-c="errfield">
+        <span class="cell__name">error state</span>
+        <div class="cell__demo" style="flex-direction:column;align-items:stretch;gap:5px">
+          <label class="d-field__label">หมายเลขบัตร</label>
+          <input class="d-input" value="4242 4242 4242" aria-invalid="true" style="width:100%">
+          <span class="d-help d-help--err" data-c2="errtext">ยังไม่ครบ 16 หลัก — ขาดอีก 4 หลักสุดท้าย</span>
+        </div>
+      </div>
+      ${cell('textarea + character counter', '<div style="width:100%"><textarea class="d-input" data-note placeholder="ฝากข้อความถึงร้าน…" maxlength="80" style="width:100%"></textarea><span class="d-help"><span data-count>0</span>/80</span></div>', 'textarea')}
+      <div class="cell" data-c="search">
+        <span class="cell__name">search field</span>
+        <div class="cell__demo" style="flex-direction:column;align-items:stretch;gap:7px;width:100%">
+          <div style="position:relative;width:100%">
+            <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted)">${ICON.search}</span>
+            <input class="d-input" data-search placeholder="ลองพิมพ์ ลา หรือ ชา" style="width:100%;padding-left:37px;padding-right:34px">
+            <button class="d-btn d-btn--ghost" data-searchclear hidden style="position:absolute;right:3px;top:50%;transform:translateY(-50%);width:28px;height:28px;padding:0" aria-label="ล้างคำค้น">×</button>
+          </div>
+          <div data-searchout style="font-size:13px;color:var(--muted)"></div>
+        </div>
+      </div>
+      <div class="cell" data-c="password">
+        <span class="cell__name">password field + reveal toggle</span>
+        <div class="cell__demo" style="position:relative;width:100%">
+          <input class="d-input" data-pw type="password" value="raotworkshop" style="width:100%;padding-right:42px">
+          <button class="d-btn d-btn--ghost" data-pweye style="position:absolute;right:3px;top:50%;transform:translateY(-50%);width:34px;height:32px;padding:0" aria-label="แสดงรหัสผ่าน">${ICON.eye}</button>
+        </div>
+      </div>
+      <div class="cell" data-c="affix">
+        <span class="cell__name">input with prefix / suffix (affix)</span>
+        <div class="cell__demo" style="width:100%">
+          <div style="display:flex;width:100%">
+            <span style="display:grid;place-items:center;padding:0 11px;border:1px solid var(--line);border-right:0;border-radius:6px 0 0 6px;background:var(--stage-2);color:var(--muted);font-size:14px">฿</span>
+            <input class="d-input" value="1,250" style="flex:1;border-radius:0">
+            <span style="display:grid;place-items:center;padding:0 11px;border:1px solid var(--line);border-left:0;border-radius:0 6px 6px 0;background:var(--stage-2);color:var(--muted);font-size:13px">บาท</span>
+          </div>
+        </div>
+      </div>
+      ${cell('select / dropdown', '<select class="d-input" style="width:100%"><option>ส่งธรรมดา — ฟรี</option><option>ส่งด่วน — ฿60</option><option>รับเองที่ร้าน</option></select>', 'select')}
+      <div class="cell" data-c="combo">
+        <span class="cell__name">combobox / autocomplete</span>
+        <div class="cell__demo" style="flex-direction:column;align-items:stretch;gap:0;width:100%">
+          <input class="d-input" data-combo placeholder="พิมพ์ชื่อเมนู เช่น ลา" autocomplete="off" style="width:100%">
+          <div data-combolist style="background:var(--stage)"></div>
+        </div>
+      </div>
+    </div>`,
+  tour: [
+    { c: 'field', name: 'Text field / Input', th: 'ช่องกรอกข้อความ', use: 'รับข้อความสั้นบรรทัดเดียว — ชิ้นที่เจอบ่อยที่สุดในทุกฟอร์ม' },
+    { c2: 'label', name: 'Label', th: 'ป้ายกำกับ', use: 'ต้องมีเสมอและอยู่ตลอด — เครื่องหมาย * บอกว่าช่องนี้บังคับกรอก' },
+    { c2: 'placeholder', name: 'Placeholder', th: 'ข้อความตัวอย่างในช่อง', use: 'ตัวอย่างค่าที่กรอก หายทันทีที่พิมพ์ — ห้ามใช้แทน label เด็ดขาด' },
+    { c2: 'helper', name: 'Helper text', th: 'ข้อความช่วยเหลือ', use: 'คำอธิบายใต้ช่อง เช่น กติกาของรหัสผ่าน' },
+    { c2: 'errtext', name: 'Error text / Validation message', th: 'ข้อความแจ้งข้อผิดพลาด', use: 'ต้องบอกว่าผิดตรงไหนและแก้ยังไง ไม่ใช่แค่ “ข้อมูลไม่ถูกต้อง”' },
+    { c: 'textarea', name: 'Textarea + Character counter', th: 'ช่องหลายบรรทัด + ตัวนับอักษร', use: 'รับข้อความยาว · ถ้าจำกัดจำนวนอักษรต้องโชว์ตัวนับให้เห็น — ลองพิมพ์ดู' },
+    { c: 'search', name: 'Search field', th: 'ช่องค้นหา', use: 'มีไอคอนแว่นขยายนำหน้า คนจึงรู้ทันทีว่าพิมพ์เพื่อค้นหา' },
+    { c: 'password', name: 'Password field + Reveal toggle', th: 'ช่องรหัสผ่าน + ปุ่มดูรหัส', use: 'ปุ่มรูปตาให้กดดูว่าพิมพ์ถูกไหม ลดการพิมพ์ผิดได้เยอะ — ลองกด' },
+    { c: 'affix', name: 'Prefix / Suffix (Affix)', th: 'ส่วนต่อหน้า-ท้ายช่อง', use: 'หน่วยหรือสัญลักษณ์ที่ติดกับช่อง เช่น ฿ นำหน้า หรือ “บาท” ต่อท้าย' },
+    { c: 'select', name: 'Select / Dropdown', th: 'ลิสต์ให้เลือก', use: 'เลือกค่าหนึ่งจากหลายค่า เมื่อตัวเลือกเยอะเกินกว่าจะโชว์หมด' },
+    { c: 'combo', name: 'Combobox / Autocomplete', th: 'ช่องพิมพ์พร้อมแนะนำ', use: 'พิมพ์ไปกรองไป — ใช้เมื่อตัวเลือกเยอะมากจนเลื่อนหาไม่ไหว' }
+  ],
+  init(root){
+    const MENU = ['ลาเต้', 'ลาเต้เย็น', 'อเมริกาโน่', 'อเมริกาโน่เย็น', 'คาปูชิโน่', 'มอคค่า', 'เอสเปรสโซ', 'โคลด์บริว', 'ชาเขียว', 'ชาไทย', 'ชานม', 'โกโก้'];
+
+    // --- search field: พิมพ์แล้วกรองผลลัพธ์จริง ---
+    const sIn = q(root, '[data-search]');
+    const sOut = q(root, '[data-searchout]');
+    const sClear = q(root, '[data-searchclear]');
+    const runSearch = () => {
+      const t = sIn.value.trim();
+      sClear.hidden = !t;
+      if (!t){ sOut.textContent = 'พิมพ์เพื่อค้นหาจากเมนู ' + MENU.length + ' รายการ'; return; }
+      const hit = MENU.filter((m) => m.includes(t));
+      sOut.innerHTML = hit.length
+        ? 'พบ ' + hit.length + ' รายการ · ' + hit.map((m) => '<span class="d-badge" style="margin:2px 3px 0 0">' + m + '</span>').join('')
+        : '<span style="color:var(--danger)">ไม่พบ “' + t + '” — ลองคำอื่นหรือลบตัวกรองบางอัน</span>';
+    };
+    sIn.addEventListener('input', runSearch);
+    sClear.addEventListener('click', () => { sIn.value = ''; runSearch(); sIn.focus(); });
+    runSearch();
+
+    // --- combobox: กรองตามที่พิมพ์ + เลือกด้วยเมาส์หรือคีย์บอร์ด ---
+    const cIn = q(root, '[data-combo]');
+    const cList = q(root, '[data-combolist]');
+    let active = -1, shown = [];
+    const closeList = () => { cList.innerHTML = ''; shown = []; active = -1; cIn.setAttribute('aria-expanded', 'false'); };
+    const choose = (v) => { cIn.value = v; closeList(); };
+    const paintList = () => {
+      const t = cIn.value.trim();
+      shown = t ? MENU.filter((m) => m.includes(t)) : MENU.slice(0, 5);
+      if (!shown.length){
+        cList.innerHTML = '<div style="border:1px solid var(--line);border-top:0;border-radius:0 0 6px 6px;padding:9px 11px;font-size:13px;color:var(--muted)">ไม่พบเมนูที่ตรงกับ “' + t + '”</div>';
+        return;
+      }
+      cList.innerHTML = '<div style="border:1px solid var(--line);border-top:0;border-radius:0 0 6px 6px;padding:4px;max-height:150px;overflow:auto">' +
+        shown.map((m, i) =>
+          '<div data-opt="' + i + '" style="padding:6px 9px;border-radius:5px;font-size:13.5px;cursor:pointer;' +
+          (i === active ? 'background:var(--accent-soft);color:var(--accent);font-weight:600' : 'color:var(--ink-2)') + '">' + m + '</div>'
+        ).join('') + '</div>';
+      qa(cList, '[data-opt]').forEach((el) => {
+        el.addEventListener('mousedown', (e) => { e.preventDefault(); choose(shown[Number(el.dataset.opt)]); });
+        el.addEventListener('mouseenter', () => { active = Number(el.dataset.opt); paintList(); });
+      });
+    };
+    cIn.addEventListener('focus', () => { active = -1; paintList(); });
+    cIn.addEventListener('input', () => { active = -1; paintList(); });
+    cIn.addEventListener('blur', () => setTimeout(closeList, 120));
+    cIn.addEventListener('keydown', (e) => {
+      if (!shown.length && e.key !== 'ArrowDown') return;
+      if (e.key === 'ArrowDown'){ e.preventDefault(); if (!shown.length) paintList(); active = Math.min(shown.length - 1, active + 1); paintList(); }
+      else if (e.key === 'ArrowUp'){ e.preventDefault(); active = Math.max(0, active - 1); paintList(); }
+      else if (e.key === 'Enter'){ if (active >= 0){ e.preventDefault(); choose(shown[active]); } }
+      else if (e.key === 'Escape'){ closeList(); }
+    });
+
+    const n = q(root, '[data-note]'), c = q(root, '[data-count]');
+    if (n) n.addEventListener('input', () => { c.textContent = String(n.value.length); });
+    const pw = q(root, '[data-pw]'), eye = q(root, '[data-pweye]');
+    if (eye) eye.addEventListener('click', () => {
+      pw.type = pw.type === 'password' ? 'text' : 'password';
+      eye.setAttribute('aria-label', pw.type === 'password' ? 'แสดงรหัสผ่าน' : 'ซ่อนรหัสผ่าน');
+    });
+  }
+});
+
+/* ============================================================
+   05 — ตัวเลือก
+   ============================================================ */
+SLIDES.push({
+  title: 'ตัวเลือก',
+  eyebrow: '05 · choice controls',
+  h2: 'Checkbox · Radio · Switch — สามอันที่สับสนที่สุด',
+  lead: 'หน้าตาคล้ายกันแต่ใช้แทนกันไม่ได้ ลองกดทุกอัน',
+  board: `
+    <div class="grid grid--3">
+      <div class="cell" data-c="checkbox">
+        <span class="cell__name">checkbox</span>
+        <div class="cell__demo" style="flex-direction:column;align-items:flex-start;gap:8px">
+          <label class="d-check"><input type="checkbox" checked>อีเมลสรุปรายสัปดาห์</label>
+          <label class="d-check"><input type="checkbox">โปรโมชัน</label>
+          <label class="d-check" data-c2="indeterminate"><input type="checkbox" data-indet>เลือกทั้งหมด</label>
+        </div>
+      </div>
+      <div class="cell" data-c="radio">
+        <span class="cell__name">radio button</span>
+        <div class="cell__demo" style="flex-direction:column;align-items:flex-start;gap:8px">
+          <label class="d-radio"><input type="radio" name="tp" checked>รายเดือน ฿199</label>
+          <label class="d-radio"><input type="radio" name="tp">รายปี ฿1,990</label>
+          <label class="d-radio"><input type="radio" name="tp">ทดลองฟรี</label>
+        </div>
+      </div>
+      <div class="cell" data-c="switch">
+        <span class="cell__name">switch / toggle</span>
+        <div class="cell__demo" style="flex-direction:column;align-items:flex-start;gap:11px">
+          <label class="d-switch"><input type="checkbox" checked><span class="d-switch__track"><span class="d-switch__thumb"></span></span><span class="d-switch__text">โหมดกลางคืน</span></label>
+          <label class="d-switch"><input type="checkbox"><span class="d-switch__track"><span class="d-switch__thumb"></span></span><span class="d-switch__text">เสียงแจ้งเตือน</span></label>
+        </div>
+      </div>
+      ${cell('segmented control', '<div class="d-seg"><button aria-pressed="true">รายการ</button><button aria-pressed="false">ตาราง</button><button aria-pressed="false">ปฏิทิน</button></div>', 'segmented')}
+      ${cell('filter chip / tag', '<span class="d-chip">พร้อมส่ง<button aria-label="ลบ">×</button></span><span class="d-chip">฿0–200<button aria-label="ลบ">×</button></span><span class="d-chip">4★ ขึ้นไป<button aria-label="ลบ">×</button></span>', 'chip')}
+      ${cell('multi-select', '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;width:100%;border:1px solid var(--line);border-radius:6px;padding:6px 9px;min-height:38px"><span class="d-chip" style="height:24px;font-size:12px">ร้อน<button>×</button></span><span class="d-chip" style="height:24px;font-size:12px">หวานน้อย<button>×</button></span><span style="color:var(--muted);font-size:13.5px">เพิ่ม…</span></div>', 'multi')}
+    </div>
+    <div class="grid grid--2" style="margin-top:16px">
+      <div class="cell" data-c="rule-cb">
+        <span class="cell__name">กติกาที่ใช้ตัดสินใจ</span>
+        <div class="cell__demo" style="flex-direction:column;align-items:stretch;gap:9px">
+          <div class="d-alert d-alert--info"><span class="d-alert__icon">1</span><div><b>มีปุ่ม “บันทึก” ไหม?</b>ถ้ามี → Checkbox / Radio · ถ้าไม่มี กดแล้วเปลี่ยนเลย → Switch</div></div>
+          <div class="d-alert d-alert--ok"><span class="d-alert__icon">2</span><div><b>เลือกได้กี่อัน?</b>หลายอัน → Checkbox · อันเดียว → Radio</div></div>
+        </div>
+      </div>
+      <div class="cell" data-c="save">
+        <span class="cell__name">ผลของการกด</span>
+        <div class="cell__demo" style="flex-direction:column;align-items:flex-start;gap:9px">
+          <button class="d-btn" data-save disabled>บันทึกการตั้งค่า</button>
+          <span class="d-help" data-savehint>Switch มีผลทันที · Checkbox/Radio รอกดปุ่มนี้</span>
+        </div>
+      </div>
+    </div>`,
+  tour: [
+    { c: 'checkbox', name: 'Checkbox', th: 'ช่องติ๊ก', use: 'เลือกได้หลายอันจากชุดเดียวกัน หรือติ๊กยอมรับเงื่อนไข — มีผลตอนกดบันทึก' },
+    { c2: 'indeterminate', name: 'Indeterminate checkbox', th: 'สถานะครึ่ง ๆ', use: 'ขีดกลางแทนติ๊กถูก ใช้กับ “เลือกทั้งหมด” ตอนที่เลือกไปแค่บางอัน — ลองกดดู' },
+    { c: 'radio', name: 'Radio button', th: 'ปุ่มตัวเลือก', use: 'เลือกได้อันเดียวจากชุด และต้องเห็นตัวเลือกทั้งหมดพร้อมกัน · ห้ามมีตัวเลือกเดียวเพราะยกเลิกไม่ได้' },
+    { c: 'switch', name: 'Switch / Toggle', th: 'สวิตช์', use: 'เปิด/ปิดสิ่งหนึ่ง มีผลทันทีที่กด ไม่มีปุ่มยืนยัน เหมือนสวิตช์ไฟ' },
+    { c: 'segmented', name: 'Segmented control', th: 'ปุ่มกลุ่มสลับ', use: '2–4 ตัวเลือกที่สลับบ่อย — ทางเลือกที่ดีกว่า dropdown เมื่อตัวเลือกน้อย' },
+    { c: 'chip', name: 'Filter chip / Tag', th: 'ชิปตัวกรอง', use: 'ตัวกรองที่เลือกไว้แล้วและลบออกได้ทีละอัน — กดกากบาทดู' },
+    { c: 'multi', name: 'Multi-select', th: 'เลือกหลายค่า', use: 'ช่องเดียวเก็บได้หลายค่า แต่ละค่าโชว์เป็นชิปที่ลบได้' },
+    { c: 'rule-cb', name: 'วิธีเลือกให้ถูก', th: 'ถามสองข้อนี้', use: 'ผิดกันบ่อยที่สุดคือเอา Switch ไปใช้ในฟอร์มที่มีปุ่มบันทึก' },
+    { c: 'save', name: 'Save button', th: 'ปุ่มบันทึก', use: 'ลองกด Checkbox ข้างบนดู ปุ่มนี้จะเปิดใช้งาน — แต่กด Switch ปุ่มจะไม่ขยับ' }
+  ],
+  init(root){
+    const indet = q(root, '[data-indet]');
+    if (indet){ indet.indeterminate = true; indet.addEventListener('change', () => { indet.indeterminate = false; }); }
+    const save = q(root, '[data-save]'), hint = q(root, '[data-savehint]');
+    qa(root, '[data-c="checkbox"] input, [data-c="radio"] input').forEach((i) => i.addEventListener('change', () => {
+      save.disabled = false;
+      hint.textContent = 'มีการแก้ไขที่ยังไม่ได้บันทึก';
+      hint.className = 'd-help d-help--err';
+    }));
+    save.addEventListener('click', () => {
+      save.disabled = true;
+      hint.textContent = 'บันทึกแล้ว';
+      hint.className = 'd-help';
+    });
+
+    // segmented control
+    const seg = qa(root, '[data-c="segmented"] .d-seg button');
+    seg.forEach((b) => b.addEventListener('click', () => seg.forEach((o) => o.setAttribute('aria-pressed', String(o === b)))));
+
+    // filter chip + multi-select — กดกากบาทเพื่อลบ
+    qa(root, '[data-c="chip"] .d-chip button, [data-c="multi"] .d-chip button').forEach((b) =>
+      b.addEventListener('click', (e) => { e.stopPropagation(); b.closest('.d-chip').remove(); }));
+  }
+});
+
+/* ============================================================
+   06 — ตัวเลือกค่า
+   ============================================================ */
+SLIDES.push({
+  title: 'ตัวเลือกค่า',
+  eyebrow: '06 · value pickers',
+  h2: 'เลือกตัวเลข วันที่ ไฟล์ และอื่น ๆ',
+  lead: 'ทุกตัวปรับได้จริง ลองลากลองกดดู',
+  board: `
+    <div class="grid grid--2">
+      ${cell('slider', '<div style="width:100%"><input type="range" min="0" max="100" value="62" data-sl style="width:100%;accent-color:var(--accent)"><div class="d-help">ความหวาน <b data-sl-out>62</b>%</div></div>', 'slider')}
+      ${cell('range slider (สองหัว)', '<div style="width:100%"><div class="dual"><div class="dual__track"></div><div class="dual__fill" data-fill></div><input type="range" min="0" max="1000" step="10" value="220" data-lo aria-label="ราคาต่ำสุด"><input type="range" min="0" max="1000" step="10" value="690" data-hi aria-label="ราคาสูงสุด"></div><div class="d-help" data-range-out>฿220 – ฿690</div></div>', 'range')}
+      ${cell('stepper / number input', '<button class="d-btn d-btn--outline d-btn--sm" data-step="-1" style="width:34px;padding:0">−</button><input class="d-input" data-qty value="2" style="width:60px;text-align:center;font-family:var(--font-mono)"><button class="d-btn d-btn--outline d-btn--sm" data-step="1" style="width:34px;padding:0">+</button><span class="d-help" data-qty-out>รวม ฿240</span>', 'stepper')}
+      ${cell('rating', '<div class="row row--tight" data-rate><button class="d-btn d-btn--ghost" data-star="1" style="padding:0 3px;font-size:21px;height:30px">★</button><button class="d-btn d-btn--ghost" data-star="2" style="padding:0 3px;font-size:21px;height:30px">★</button><button class="d-btn d-btn--ghost" data-star="3" style="padding:0 3px;font-size:21px;height:30px">★</button><button class="d-btn d-btn--ghost" data-star="4" style="padding:0 3px;font-size:21px;height:30px">★</button><button class="d-btn d-btn--ghost" data-star="5" style="padding:0 3px;font-size:21px;height:30px">★</button><span class="d-help" data-rate-out>เต็ม 5 ดาว</span></div>', 'rating')}
+      <div class="cell" data-c="datepicker">
+        <span class="cell__name">date picker</span>
+        <div class="cell__demo" style="flex-direction:column;align-items:stretch;gap:8px;width:100%">
+          <div style="position:relative"><input class="d-input" value="12 ก.ย. 2569" readonly style="width:100%;padding-left:37px"><span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted)">${ICON.cal}</span></div>
+          <div style="border:1px solid var(--line);border-radius:8px;padding:9px">
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font-size:10px;color:var(--muted);text-align:center;margin-bottom:4px"><span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>ส</span><span>อา</span></div>
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font-size:11.5px;text-align:center" data-cal></div>
+          </div>
+        </div>
+      </div>
+      ${cell('time picker', '<div style="position:relative;width:100%"><input class="d-input" value="14:30" style="width:100%;padding-left:37px;font-family:var(--font-mono)"><span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted)">' + ICON.clock + '</span></div>', 'timepicker')}
+      ${cell('color picker', '<input type="color" value="#1d4ed8" style="width:44px;height:34px;border:1px solid var(--line);border-radius:6px;background:none;cursor:pointer"><code style="font-family:var(--font-mono)">#1d4ed8</code>', 'colorpicker')}
+      <div class="cell" data-c="dropzone">
+        <span class="cell__name">file upload / dropzone</span>
+        <div class="cell__demo" style="width:100%">
+          <div style="width:100%;border:1.5px dashed var(--line);border-radius:8px;padding:18px;text-align:center;color:var(--muted)">
+            <div style="display:flex;justify-content:center;margin-bottom:5px">${ICON.up}</div>
+            <div style="font-size:13.5px">ลากไฟล์มาวาง หรือ <span style="color:var(--accent);font-weight:600">เลือกจากเครื่อง</span></div>
+            <div style="font-size:11.5px;margin-top:3px">PNG, JPG ไม่เกิน 10 MB</div>
+          </div>
+        </div>
+      </div>
+    </div>`,
+  tour: [
+    { c: 'slider', name: 'Slider', th: 'แถบเลื่อน', use: 'ค่าต่อเนื่องที่ประมาณได้ เช่น เสียง ความสว่าง — ต้องโชว์ตัวเลขปัจจุบันเสมอ' },
+    { c: 'range', name: 'Range slider', th: 'แถบเลื่อนสองหัว', use: 'เลือกช่วง เช่น ช่วงราคา ช่วงวันที่' },
+    { c: 'stepper', name: 'Stepper / Number input', th: 'ตัวเพิ่มลด', use: 'จำนวนเต็มน้อย ๆ เช่นจำนวนสินค้า — ควรพิมพ์เองได้ด้วย ไม่ใช่กดอย่างเดียว' },
+    { c: 'rating', name: 'Rating', th: 'ให้คะแนนดาว', use: 'ต้องบอกว่าเต็มเท่าไร และกดดาวเดิมซ้ำเพื่อยกเลิกได้' },
+    { c: 'datepicker', name: 'Date picker / Calendar', th: 'ตัวเลือกวันที่', use: 'ปฏิทินให้กดเลือก — ดีกว่าให้พิมพ์เอง เพราะรูปแบบวันที่แต่ละคนเขียนไม่เหมือนกัน' },
+    { c: 'timepicker', name: 'Time picker', th: 'ตัวเลือกเวลา', use: 'เลือกชั่วโมง-นาที มักใช้คู่กับ date picker' },
+    { c: 'colorpicker', name: 'Color picker', th: 'ตัวเลือกสี', use: 'เลือกสี พร้อมโชว์รหัสสีเป็นตัวอักษรด้วย — ลองกดเปลี่ยนสีดู' },
+    { c: 'dropzone', name: 'File upload / Dropzone', th: 'ช่องอัปโหลดไฟล์', use: 'ลากไฟล์มาวางได้ หรือกดเลือก — ต้องบอกชนิดไฟล์และขนาดสูงสุดตั้งแต่แรก' }
+  ],
+  init(root){
+    const sl = q(root, '[data-sl]'), slOut = q(root, '[data-sl-out]');
+    sl.addEventListener('input', () => { slOut.textContent = sl.value; });
+
+    // range slider สองหัว — กันไม่ให้หัวซ้ายแซงหัวขวา
+    const lo = q(root, '[data-lo]'), hi = q(root, '[data-hi]');
+    const fill = q(root, '[data-fill]'), rOut = q(root, '[data-range-out]');
+    const paintRange = () => {
+      let a = Number(lo.value), b = Number(hi.value);
+      if (a > b - 20){ if (document.activeElement === lo) { a = b - 20; lo.value = String(a); } else { b = a + 20; hi.value = String(b); } }
+      const max = Number(lo.max);
+      fill.style.left = (a / max * 100) + '%';
+      fill.style.right = (100 - b / max * 100) + '%';
+      rOut.textContent = '฿' + a.toLocaleString('en-US') + ' – ฿' + b.toLocaleString('en-US');
+    };
+    lo.addEventListener('input', paintRange);
+    hi.addEventListener('input', paintRange);
+    paintRange();
+
+    const qty = q(root, '[data-qty]'), qtyOut = q(root, '[data-qty-out]');
+    const sync = () => {
+      let n = parseInt(qty.value, 10);
+      if (!Number.isFinite(n) || n < 1) n = 1;
+      if (n > 99) n = 99;
+      qty.value = String(n);
+      qtyOut.textContent = 'รวม ฿' + (n * 120).toLocaleString('en-US');
+    };
+    qa(root, '[data-step]').forEach((b) => b.addEventListener('click', () => {
+      qty.value = String((parseInt(qty.value, 10) || 1) + Number(b.dataset.step)); sync();
+    }));
+    qty.addEventListener('change', sync); sync();
+
+    const stars = qa(root, '[data-star]'), rateOut = q(root, '[data-rate-out]');
+    let rating = 0;
+    const paint = (n) => stars.forEach((s, i) => { s.style.color = i < n ? 'var(--warn)' : 'var(--line)'; });
+    stars.forEach((s) => {
+      s.addEventListener('click', () => {
+        const n = Number(s.dataset.star);
+        rating = rating === n ? 0 : n; paint(rating);
+        rateOut.textContent = rating ? rating + ' จาก 5 ดาว' : 'เต็ม 5 ดาว';
+      });
+      s.addEventListener('mouseenter', () => paint(Number(s.dataset.star)));
+    });
+    q(root, '[data-rate]').addEventListener('mouseleave', () => paint(rating));
+    paint(0);
+
+    const cal = q(root, '[data-cal]');
+    cal.innerHTML = Array.from({ length: 30 }, (_, i) => {
+      const d = i + 1;
+      const on = d === 12;
+      return '<span style="padding:4px 0;border-radius:5px;' + (on ? 'background:var(--accent);color:var(--accent-ink);font-weight:600' : 'color:var(--ink-2)') + '">' + d + '</span>';
+    }).join('');
+  }
+});
+
+/* ============================================================
+   07 — สถานะและ feedback
+   ============================================================ */
+SLIDES.push({
+  title: 'สถานะและการแจ้งผล',
+  eyebrow: '07 · status & feedback',
+  h2: 'บอกผู้ใช้ว่าเกิดอะไรขึ้น — 12 ชิ้น',
+  lead: 'กดปุ่มในกระดานเพื่อยิงของจริง',
+  board: `
+    <div class="grid grid--3">
+      ${cell('badge', '<span class="d-badge d-badge--ok"><span class="dot"></span>จ่ายแล้ว</span><span class="d-badge d-badge--warn"><span class="dot"></span>รอตรวจ</span><span class="d-badge d-badge--danger"><span class="dot"></span>ยกเลิก</span>', 'badge')}
+      ${cell('pill / tag', '<span class="d-badge">ใหม่</span><span class="d-badge">แนะนำ</span><span class="d-badge">ขายดี</span>', 'pill')}
+      ${cell('avatar + avatar group', '<span class="d-avatar">มน</span><span style="display:flex"><span class="d-avatar" style="border:2px solid var(--stage)">สม</span><span class="d-avatar" style="margin-left:-11px;border:2px solid var(--stage);background:var(--accent-soft);color:var(--accent)">ปิ</span><span class="d-avatar" style="margin-left:-11px;border:2px solid var(--stage);background:var(--line-soft);color:var(--muted);font-size:11px">+5</span></span>', 'avatar')}
+      ${cell('spinner / loader', '<span class="spin" style="width:22px;height:22px;border-width:2.5px;color:var(--accent)"></span><span class="d-help">กำลังโหลด…</span>', 'spinner')}
+      ${cell('skeleton', '<div style="width:100%"><div style="display:flex;gap:9px;align-items:center;margin-bottom:8px"><div class="sk sk--circle" style="width:30px;height:30px;flex:none"></div><div style="flex:1"><div class="sk" style="height:9px;width:52%;margin-bottom:5px"></div><div class="sk" style="height:8px;width:34%"></div></div></div><div class="sk" style="height:9px;margin-bottom:5px"></div><div class="sk" style="height:9px;width:72%"></div></div>', 'skeleton')}
+      ${cell('progress bar', '<div style="width:100%"><div class="d-prog"><div class="d-prog__bar" style="width:68%"></div></div><div class="d-help" style="margin-top:5px">อัปโหลด 68%</div></div>', 'progress')}
+      ${cell('indeterminate progress', '<div style="width:100%"><div class="d-prog d-prog--indet"><div class="d-prog__bar"></div></div><div class="d-help" style="margin-top:5px">ไม่รู้ว่าอีกนานแค่ไหน</div></div>', 'indet')}
+      ${cell('tooltip', '<button class="d-btn d-btn--outline d-btn--sm" data-tip="ข้อความสั้น ๆ ตอนชี้ค้าง">ชี้ค้างที่ปุ่มนี้</button>', 'tooltip')}
+      ${cell('toast / snackbar', '<button class="d-btn d-btn--sm" data-fire="ok">ยิง toast</button><button class="d-btn d-btn--outline d-btn--sm" data-fire="undo">toast + เลิกทำ</button>', 'toast')}
+      <div class="cell cell--wide" data-c="alert">
+        <span class="cell__name">alert / callout — 4 ระดับ</span>
+        <div class="cell__demo" style="flex-direction:column;align-items:stretch;gap:8px">
+          <div class="d-alert d-alert--info"><span class="d-alert__icon">i</span><div><b>Info</b>โหมดทดลองใช้ เหลืออีก 9 วัน</div></div>
+          <div class="d-alert d-alert--ok"><span class="d-alert__icon">✓</span><div><b>Success</b>ยืนยันอีเมลเรียบร้อยแล้ว</div></div>
+          <div class="d-alert d-alert--warn"><span class="d-alert__icon">!</span><div><b>Warning</b>ระบบจะปิดปรับปรุงคืนนี้ 02:00–04:00</div></div>
+          <div class="d-alert d-alert--danger"><span class="d-alert__icon">✕</span><div><b>Error</b>ชำระเงินไม่สำเร็จ ลองใช้บัตรใบอื่น</div></div>
+        </div>
+      </div>
+      <div class="cell" data-c="banner">
+        <span class="cell__name">banner</span>
+        <div class="cell__demo" style="width:100%">
+          <div class="d-alert d-alert--warn" style="align-items:center;width:100%"><span class="d-alert__icon">!</span><div style="flex:1;font-size:13px">พาดหัวทั้งระบบ</div><button class="d-btn d-btn--ghost d-btn--sm" style="width:26px;padding:0">×</button></div>
+        </div>
+      </div>
+      <div class="cell" data-c="empty">
+        <span class="cell__name">empty state</span>
+        <div class="cell__demo" style="width:100%">
+          <div class="d-empty" style="padding:14px 8px;width:100%">
+            <div class="d-empty__art" style="width:40px;height:40px;font-size:16px">+</div>
+            <div class="d-empty__title" style="font-size:14px">ยังไม่มีคำสั่งซื้อ</div>
+            <button class="d-btn d-btn--sm">เพิ่มสินค้าชิ้นแรก</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="toast-host" data-toasts></div>`,
+  tour: [
+    { c: 'badge', name: 'Badge / Status badge', th: 'ป้ายสถานะ', use: 'สถานะสั้น ๆ ที่กดไม่ได้ — ต้องมีข้อความด้วย ไม่ใช่สีอย่างเดียว' },
+    { c: 'pill', name: 'Pill / Tag', th: 'ป้ายกลม', use: 'ป้ายบอกหมวดหรือคุณสมบัติ เช่น “ใหม่” “ขายดี”' },
+    { c: 'avatar', name: 'Avatar & Avatar group', th: 'รูปโปรไฟล์ / กลุ่มรูป', use: 'แทนคน ต้องมีตัวย่อสำรองเมื่อไม่มีรูป · ซ้อนกันเพื่อบอกว่ามีหลายคน' },
+    { c: 'spinner', name: 'Spinner / Loader', th: 'วงกลมหมุน', use: 'รอสั้น ๆ หรือรอในพื้นที่เล็ก — ไม่บอกว่าอีกนานแค่ไหน' },
+    { c: 'skeleton', name: 'Skeleton', th: 'โครงร่างระหว่างโหลด', use: 'กล่องเทารูปร่างเหมือนของจริง ทำให้รู้สึกว่าเว็บเร็วขึ้นทั้งที่เวลาเท่าเดิม' },
+    { c: 'progress', name: 'Progress bar', th: 'แถบความคืบหน้า', use: 'ใช้เมื่อรู้เปอร์เซ็นต์ เช่นอัปโหลดไฟล์' },
+    { c: 'indet', name: 'Indeterminate progress', th: 'แถบวิ่งไม่รู้จบ', use: 'ใช้เมื่อไม่รู้ว่านานแค่ไหน แต่ยังอยากบอกว่าระบบกำลังทำงานอยู่' },
+    { c: 'tooltip', name: 'Tooltip', th: 'คำอธิบายตอนชี้', use: 'ข้อความสั้นตอน hover — ห้ามใส่ข้อมูลจำเป็น เพราะมือถือไม่มี hover' },
+    { c: 'toast', name: 'Toast / Snackbar', th: 'ข้อความเด้งชั่วคราว', use: 'บอกว่าสำเร็จแล้ว หายเองใน 3–5 วิ · ใส่ปุ่ม “เลิกทำ” ได้ — ลองกดทั้งสองปุ่ม' },
+    { c: 'alert', name: 'Alert / Callout', th: 'กล่องข้อความ', use: 'อยู่กับที่จนกว่าจะแก้ไข มี 4 ระดับ: info / success / warning / error' },
+    { c: 'banner', name: 'Banner', th: 'แถบประกาศ', use: 'ประกาศระดับทั้งหน้าหรือทั้งระบบ ปิดได้' },
+    { c: 'empty', name: 'Empty state', th: 'หน้าว่าง', use: 'ยังไม่มีข้อมูล — ผู้ใช้ใหม่ทุกคนเจอหน้านี้ก่อน ต้องบอกว่าให้ทำอะไรต่อ' }
+  ],
+  init(root){
+    const host = q(root, '[data-toasts]');
+    const toast = (text, tone) => {
+      const el = document.createElement('div');
+      el.className = 'd-toast';
+      el.innerHTML = '<span style="color:' + tone + ';font-weight:700">●</span><span>' + text + '</span>';
+      host.appendChild(el);
+      setTimeout(() => { el.classList.add('is-out'); setTimeout(() => el.remove(), 200); }, 2600);
+    };
+    q(root, '[data-fire="ok"]').addEventListener('click', () => toast('บันทึกฉบับร่างแล้ว', 'var(--ok)'));
+    q(root, '[data-fire="undo"]').addEventListener('click', () => {
+      const el = document.createElement('div');
+      el.className = 'd-toast'; el.style.pointerEvents = 'auto';
+      el.innerHTML = '<span>ย้าย 1 รายการไปถังขยะ</span><button class="d-btn d-btn--link d-btn--sm" style="color:var(--accent);margin-left:auto">เลิกทำ</button>';
+      host.appendChild(el);
+      const kill = () => { el.classList.add('is-out'); setTimeout(() => el.remove(), 200); };
+      el.querySelector('button').addEventListener('click', () => { kill(); toast('กู้คืนแล้ว', 'var(--ok)'); });
+      setTimeout(kill, 4200);
+    });
+
+    const tb = q(root, '[data-tip]');
+    let tip = null;
+    const show = () => {
+      if (tip) return;
+      tip = document.createElement('div');
+      tip.className = 'd-tip'; tip.textContent = tb.dataset.tip;
+      tb.parentElement.style.position = 'relative';
+      tip.style.left = '0px'; tip.style.top = (tb.offsetTop + tb.offsetHeight + 6) + 'px';
+      tb.parentElement.appendChild(tip);
+    };
+    const hide = () => { if (tip){ tip.remove(); tip = null; } };
+    tb.addEventListener('mouseenter', show); tb.addEventListener('focus', show);
+    tb.addEventListener('mouseleave', hide); tb.addEventListener('blur', hide);
+
+    // ปุ่มปิด banner
+    const bannerCell = q(root, '[data-c="banner"]');
+    const bx = bannerCell.querySelector('button');
+    const bannerHTML = bannerCell.querySelector('.cell__demo').innerHTML;
+    bx.addEventListener('click', () => {
+      const demo = bannerCell.querySelector('.cell__demo');
+      demo.innerHTML = '<button class="d-btn d-btn--outline d-btn--sm" data-undo>ปิดไปแล้ว · แสดงอีกครั้ง</button>';
+      demo.querySelector('[data-undo]').addEventListener('click', () => {
+        demo.innerHTML = bannerHTML;
+        demo.querySelector('button').addEventListener('click', () => bx.click());
+      });
+    });
+
+    // ปุ่มใน empty state
+    const eb = q(root, '[data-c="empty"] .d-empty button');
+    if (eb) eb.addEventListener('click', () => {
+      const box = eb.closest('.d-empty');
+      box.innerHTML = '<div class="d-empty__art" style="width:40px;height:40px;font-size:16px;border-style:solid;border-color:var(--ok);color:var(--ok)">✓</div>' +
+        '<div class="d-empty__title" style="font-size:14px">เพิ่มสินค้าแล้ว 1 ชิ้น</div>' +
+        '<div class="d-empty__text">หน้าว่างหายไปเมื่อมีข้อมูลจริง</div>';
+    });
+
+    return hide;
+  }
+});
+
+/* ============================================================
+   08 — กล่องและรายการ
+   ============================================================ */
+SLIDES.push({
+  title: 'กล่องและรายการ',
+  eyebrow: '08 · containers',
+  h2: 'ที่ใส่เนื้อหา — Card, Table, Accordion',
+  lead: 'กดยุบขยาย เรียงตาราง ลบชิปได้ทั้งหมด',
+  board: `
+    <div class="grid grid--2">
+      <div class="cell" data-c="card">
+        <span class="cell__name">card</span>
+        <div class="cell__demo" style="width:100%">
+          <div class="d-card" style="max-width:none;width:100%">
+            <div class="d-card__media" data-c2="media"></div>
+            <div class="d-card__body">
+              <div class="d-card__title" data-c2="title">ลาเต้เย็น</div>
+              <div class="d-card__text">นมสดออร์แกนิก เอสเปรสโซ 2 ช็อต</div>
+            </div>
+            <div class="d-card__actions" data-c2="actions">
+              <button class="d-btn d-btn--sm">ใส่ตะกร้า</button>
+              <button class="d-btn d-btn--ghost d-btn--sm">รายละเอียด</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="cell" data-c="list">
+        <span class="cell__name">list / list item</span>
+        <div class="cell__demo" style="flex-direction:column;align-items:stretch;gap:0;width:100%">
+          <div class="d-listitem"><span class="d-avatar">มน</span><div class="d-listitem__main"><div class="d-listitem__title">มานี ใจดี</div><div class="d-listitem__sub">#10428 · ฿640</div></div><span class="d-badge d-badge--ok">ส่งแล้ว</span></div>
+          <div class="d-listitem"><span class="d-avatar">สม</span><div class="d-listitem__main"><div class="d-listitem__title">สมชาย พากเพียร</div><div class="d-listitem__sub">#10427 · ฿320</div></div><span class="d-badge d-badge--warn">แพ็กอยู่</span></div>
+          <div class="d-listitem"><span class="d-avatar">ปิ</span><div class="d-listitem__main"><div class="d-listitem__title">ปิติ รุ่งเรือง</div><div class="d-listitem__sub">#10426 · ฿1,580</div></div><span class="d-badge">รอจ่าย</span></div>
+        </div>
+      </div>
+      <div class="cell cell--wide" data-c="table">
+        <span class="cell__name">table / data grid</span>
+        <div class="cell__demo" style="width:100%">
+          <div class="d-tablewrap" style="width:100%">
+            <table class="d-table">
+              <thead><tr><th data-c2="thead">ลูกค้า</th><th>สถานะ</th><th style="text-align:right">ยอดรวม</th></tr></thead>
+              <tbody>
+                <tr><td>มานี ใจดี</td><td><span class="d-badge d-badge--ok">จ่ายแล้ว</span></td><td class="num" data-c2="numcol">48,200.00</td></tr>
+                <tr><td>สมชาย พากเพียร</td><td><span class="d-badge d-badge--warn">รอตรวจ</span></td><td class="num">1,580.50</td></tr>
+                <tr><td>ปิติ รุ่งเรือง</td><td><span class="d-badge d-badge--danger">ยกเลิก</span></td><td class="num">640.00</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="cell" data-c="accordion">
+        <span class="cell__name">accordion / collapsible</span>
+        <div class="cell__demo" style="width:100%">
+          <div class="d-acc" data-acc style="width:100%">
+            <div class="d-acc__item"><button class="d-acc__btn" aria-expanded="true">ค่าส่งคิดยังไง<span class="d-acc__mark">×</span></button><div class="d-acc__panel">ซื้อครบ ฿500 ส่งฟรีทั่วประเทศ</div></div>
+            <div class="d-acc__item"><button class="d-acc__btn" aria-expanded="false">คืนสินค้าได้กี่วัน<span class="d-acc__mark">×</span></button><div class="d-acc__panel" hidden>ภายใน 14 วันนับจากวันที่ได้รับ</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="cell" data-c="divider">
+        <span class="cell__name">divider / separator</span>
+        <div class="cell__demo" style="flex-direction:column;align-items:stretch;gap:9px;width:100%">
+          <span style="font-size:13.5px;color:var(--ink-2)">บัญชี</span>
+          <hr style="border:0;border-top:1px solid var(--line);margin:0">
+          <span style="font-size:13.5px;color:var(--ink-2)">ความปลอดภัย</span>
+          <div style="display:flex;align-items:center;gap:9px"><hr style="flex:1;border:0;border-top:1px solid var(--line)"><span class="d-help">หรือ</span><hr style="flex:1;border:0;border-top:1px solid var(--line)"></div>
+        </div>
+      </div>
+    </div>`,
+  tour: [
+    { c: 'card', name: 'Card', th: 'การ์ด', use: 'กล่องที่รวมเนื้อหาเรื่องเดียวกันไว้ด้วยกัน และยืนได้ด้วยตัวเอง' },
+    { c2: 'media', name: 'Card media', th: 'ส่วนรูปของการ์ด', use: 'รูป กราฟ หรือไอคอนด้านบนการ์ด — มีหรือไม่มีก็ได้' },
+    { c2: 'title', name: 'Card title & supporting text', th: 'หัวข้อ + ข้อความประกอบ', use: 'บอกว่าการ์ดนี้เรื่องอะไร แล้วขยายความสั้น ๆ' },
+    { c2: 'actions', name: 'Card actions', th: 'ปุ่มท้ายการ์ด', use: 'ปุ่มของการ์ดใบนั้น — ทั้งหน้าควรวางชิดข้างเดียวกันหมด' },
+    { c: 'list', name: 'List / List item', th: 'รายการ', use: 'ของหลายชิ้นเรียงกัน อ่านทีละแถว — เหมาะกว่า card เมื่อต้องกวาดตาเร็ว' },
+    { c: 'table', name: 'Table / Data grid', th: 'ตาราง', use: 'เทียบข้อมูลข้ามแถวข้ามคอลัมน์' },
+    { c2: 'thead', name: 'Table header', th: 'หัวตาราง', use: 'ชื่อคอลัมน์ ปกติกดเพื่อเรียงลำดับได้ และตรึงไว้เมื่อเลื่อน' },
+    { c2: 'numcol', name: 'Numeric column', th: 'คอลัมน์ตัวเลข', use: 'ตัวเลขต้องชิดขวาและใช้ฟอนต์ที่ตัวเลขกว้างเท่ากัน หลักจึงตรงกันทุกแถว' },
+    { c: 'accordion', name: 'Accordion / Collapsible', th: 'ยุบ-ขยาย', use: 'ซ่อนเนื้อหายาวที่ไม่ได้ใช้บ่อย — ห้ามใช้ซ่อนของที่ผู้ใช้ต้องเห็น' },
+    { c: 'divider', name: 'Divider / Separator', th: 'เส้นคั่น', use: 'แบ่งกลุ่มเนื้อหาเมื่อระยะห่างอย่างเดียวยังไม่พอ' }
+  ],
+  init(root){
+    qa(root, '[data-acc] .d-acc__btn').forEach((b) => b.addEventListener('click', () => {
+      const open = b.getAttribute('aria-expanded') === 'true';
+      b.setAttribute('aria-expanded', String(!open));
+      b.nextElementSibling.hidden = open;
+    }));
+
+    // list + table row — เลือกได้
+    const rows = qa(root, '[data-c="list"] .d-listitem').concat(qa(root, '[data-c="table"] tbody tr'));
+    rows.forEach((r) => {
+      r.style.cursor = 'pointer';
+      r.addEventListener('click', () => {
+        rows.forEach((o) => { o.style.background = ''; o.style.outline = ''; });
+        r.style.background = 'var(--accent-soft)';
+      });
+    });
+
+    // card actions
+    const acts = qa(root, '[data-c2="actions"] button');
+    if (acts[0]){
+      let n = 0;
+      acts[0].addEventListener('click', () => { n++; acts[0].textContent = 'ในตะกร้า ' + n + ' ชิ้น'; });
+    }
+    if (acts[1]){
+      const text = q(root, '[data-c="card"] .d-card__text');
+      let open = false;
+      acts[1].addEventListener('click', () => {
+        open = !open;
+        text.textContent = open
+          ? 'นมสดออร์แกนิก เอสเปรสโซ 2 ช็อต · หวานน้อย ไม่ใส่วิปครีม · 180 kcal · เสิร์ฟในแก้ว 16 oz'
+          : 'นมสดออร์แกนิก เอสเปรสโซ 2 ช็อต';
+        acts[1].textContent = open ? 'ย่อกลับ' : 'รายละเอียด';
+      });
+    }
+  }
+});
+
+/* ============================================================
+   09 — ของที่ลอยทับ
+   ============================================================ */
+SLIDES.push({
+  title: 'ของที่ลอยทับหน้าจอ',
+  eyebrow: '09 · overlays',
+  h2: 'Modal · Drawer · Popover · Menu',
+  lead: 'กดปุ่มเพื่อเปิดของจริง กด Esc เพื่อปิด',
+  board: `
+    <div class="grid grid--2">
+      <div class="cell cell--wide" data-c="stage">
+        <span class="cell__name">เวทีทดลอง — กดปุ่มเพื่อเปิด</span>
+        <div class="cell__demo" style="flex-direction:column;align-items:stretch;gap:11px;width:100%">
+          <div class="row row--tight">
+            <button class="d-btn d-btn--sm" data-o="modal" data-c2="modalbtn">Modal</button>
+            <button class="d-btn d-btn--outline d-btn--sm" data-o="drawer" data-c2="drawerbtn">Drawer</button>
+            <button class="d-btn d-btn--outline d-btn--sm" data-o="sheet" data-c2="sheetbtn">Bottom sheet</button>
+            <button class="d-btn d-btn--outline d-btn--sm" data-o="pop" data-c2="popbtn">Popover</button>
+            <button class="d-btn d-btn--outline d-btn--sm" data-o="menu" data-c2="menubtn">Dropdown menu</button>
+          </div>
+          <div class="overlay-stage" data-stage style="height:230px">
+            <div class="overlay-stage__bg">
+              <div class="overlay-stage__bar" style="width:42%"></div>
+              <div class="overlay-stage__bar"></div>
+              <div class="overlay-stage__bar" style="width:78%"></div>
+              <div class="overlay-stage__bar" style="width:60%"></div>
+              <div class="overlay-stage__bar"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      ${cell('context menu — คลิกขวา', '<div data-ctx style="width:100%;padding:16px;border:1.5px dashed var(--line);border-radius:8px;text-align:center;color:var(--muted);font-size:13px;cursor:context-menu">คลิกขวาตรงนี้</div>', 'ctx')}
+      <div class="cell" data-c="palette">
+        <span class="cell__name">command palette</span>
+        <div class="cell__demo" style="width:100%">
+          <div style="width:100%;border:1px solid var(--line);border-radius:8px;overflow:hidden;box-shadow:var(--shadow-2)">
+            <div style="padding:9px 12px;border-bottom:1px solid var(--line-soft);font-size:13.5px;color:var(--muted)">พิมพ์คำสั่ง…</div>
+            <div style="padding:5px">
+              <div style="padding:7px 10px;border-radius:5px;background:var(--accent-soft);color:var(--accent);font-size:13px;font-weight:600;display:flex;justify-content:space-between">สร้างโปรเจกต์ใหม่ <span class="kbd">⌘N</span></div>
+              <div style="padding:7px 10px;font-size:13px;color:var(--ink-2);display:flex;justify-content:space-between">ไปที่การตั้งค่า <span class="kbd">⌘,</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`,
+  tour: [
+    { c2: 'modalbtn', name: 'Modal / Dialog', th: 'หน้าต่างเด้ง', use: 'บังทั้งหน้า ทำอย่างอื่นไม่ได้จนกว่าจะตอบ — ใช้เฉพาะตอนต้องตัดสินใจก่อนไปต่อ' },
+    { c2: 'drawerbtn', name: 'Drawer / Side sheet', th: 'ลิ้นชักด้านข้าง', use: 'เลื่อนออกมาจากขอบจอ เหมาะกับตัวกรองหรืองานย่อยที่ยาวหน่อย' },
+    { c2: 'sheetbtn', name: 'Bottom sheet', th: 'แผ่นเลื่อนขึ้นจากล่าง', use: 'เวอร์ชันมือถือของ drawer — เลื่อนขึ้นจากก้นจอ นิ้วโป้งเอื้อมถึง' },
+    { c2: 'popbtn', name: 'Popover', th: 'กล่องลอยติดปุ่ม', use: 'เกาะกับปุ่มที่กด มีเนื้อหาโต้ตอบได้ คลิกที่อื่นก็ปิด' },
+    { c2: 'menubtn', name: 'Dropdown menu', th: 'เมนูคำสั่ง', use: 'รายการคำสั่งให้เลือก — ต่างจาก Select ตรงที่ Select ใช้เลือก “ค่า”' },
+    { c: 'ctx', name: 'Context menu', th: 'เมนูคลิกขวา', use: 'เมนูที่โผล่ตรงตำแหน่งเมาส์เมื่อคลิกขวา — ลองคลิกขวาในกรอบดู' },
+    { c: 'palette', name: 'Command palette', th: 'ช่องค้นหาคำสั่ง', use: 'กด ⌘K แล้วพิมพ์ชื่อคำสั่ง เป็นทางลัดสำหรับผู้ใช้ระดับสูง' }
+  ],
+  init(root){
+    const stage = q(root, '[data-stage]');
+    const clear = () => qa(stage, '.scrim,.d-pop,.d-menu,[data-sheet]').forEach((n) => n.remove());
+
+    qa(root, '[data-o]').forEach((b) => b.addEventListener('click', (e) => {
+      e.stopPropagation(); clear();
+      const k = b.dataset.o;
+      if (k === 'modal'){
+        const s = document.createElement('div'); s.className = 'scrim';
+        s.innerHTML = '<div class="d-modal" role="dialog" aria-modal="true"><div style="font-family:var(--font-display);font-size:16px;font-weight:600">ลบรายการนี้?</div><div style="font-size:13.5px;color:var(--muted)">กู้คืนได้ภายใน 30 วัน</div><div style="display:flex;gap:8px;justify-content:flex-end"><button class="d-btn d-btn--ghost d-btn--sm" data-x>เก็บไว้</button><button class="d-btn d-btn--danger d-btn--sm" data-x>ย้ายไปถังขยะ</button></div></div>';
+        stage.appendChild(s);
+        qa(s, '[data-x]').forEach((x) => x.addEventListener('click', clear));
+        s.addEventListener('click', (ev) => { if (ev.target === s) clear(); });
+      }
+      if (k === 'drawer'){
+        const s = document.createElement('div'); s.className = 'scrim'; s.style.display = 'block';
+        s.innerHTML = '<div class="d-drawer"><div style="font-family:var(--font-display);font-size:15px;font-weight:600">ตัวกรอง</div><label class="d-check"><input type="checkbox" checked>พร้อมส่ง</label><label class="d-check"><input type="checkbox">ส่งฟรี</label><button class="d-btn d-btn--sm" data-x style="margin-top:auto">ใช้ตัวกรอง</button></div>';
+        stage.appendChild(s);
+        s.querySelector('[data-x]').addEventListener('click', clear);
+        s.addEventListener('click', (ev) => { if (ev.target === s) clear(); });
+      }
+      if (k === 'sheet'){
+        const s = document.createElement('div'); s.className = 'scrim'; s.style.display = 'block';
+        s.innerHTML = '<div data-sheet style="position:absolute;left:0;right:0;bottom:0;background:var(--stage);border-radius:14px 14px 0 0;padding:14px 18px 18px;box-shadow:var(--shadow-3);display:flex;flex-direction:column;gap:10px"><div style="width:34px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 4px"></div><div style="font-family:var(--font-display);font-size:15px;font-weight:600">แชร์ไปที่</div><div class="row row--tight"><button class="d-btn d-btn--outline d-btn--sm">คัดลอกลิงก์</button><button class="d-btn d-btn--outline d-btn--sm">LINE</button><button class="d-btn d-btn--ghost d-btn--sm" data-x>ปิด</button></div></div>';
+        stage.appendChild(s);
+        s.querySelector('[data-x]').addEventListener('click', clear);
+        s.addEventListener('click', (ev) => { if (ev.target === s) clear(); });
+      }
+      if (k === 'pop' || k === 'menu'){
+        const el = document.createElement('div');
+        el.className = k === 'pop' ? 'd-pop' : 'd-menu';
+        el.style.left = '16px'; el.style.top = '14px';
+        el.innerHTML = k === 'pop'
+          ? '<div style="font-weight:600;margin-bottom:6px;font-size:13.5px">แชร์ลิงก์</div><input class="d-input" value="ui.lab/x7f" style="height:30px;font-size:12px;width:100%"><button class="d-btn d-btn--sm" style="margin-top:8px;width:100%">คัดลอก</button>'
+          : '<button>เปลี่ยนชื่อ</button><button>ทำสำเนา</button><hr><button style="color:var(--danger)">ลบ</button>';
+        stage.appendChild(el);
+        setTimeout(() => { const off = () => { clear(); document.removeEventListener('click', off); }; document.addEventListener('click', off); }, 0);
+      }
+    }));
+
+    const ctx = q(root, '[data-ctx]');
+    ctx.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      qa(ctx.parentElement, '.d-menu').forEach((n) => n.remove());
+      const r = ctx.getBoundingClientRect();
+      const m = document.createElement('div');
+      m.className = 'd-menu';
+      m.style.left = (e.clientX - r.left) + 'px';
+      m.style.top = (e.clientY - r.top) + 'px';
+      m.innerHTML = '<button>เปิดในแท็บใหม่</button><button>คัดลอก</button><hr><button style="color:var(--danger)">ลบ</button>';
+      ctx.style.position = 'relative';
+      ctx.appendChild(m);
+      setTimeout(() => { const off = () => { m.remove(); document.removeEventListener('click', off); }; document.addEventListener('click', off); }, 0);
+    });
+
+    const esc = (e) => { if (e.key === 'Escape') clear(); };
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('keydown', esc); clear(); };
+  }
+});
+
+/* ============================================================
+   10 — บนมือถือโดยเฉพาะ
+   ============================================================ */
+SLIDES.push({
+  title: 'ชิ้นส่วนบนมือถือ',
+  eyebrow: '10 · mobile patterns',
+  h2: 'ของที่เจอเฉพาะบนมือถือ',
+  lead: 'ชื่อพวกนี้เจอบ่อยตอนคุยงานแอป',
+  board: `
+    <div class="grid grid--3">
+      <div class="cell" data-c="phone">
+        <span class="cell__name">โครงหน้าจอมือถือ</span>
+        <div class="cell__demo" style="justify-content:center;width:100%">
+          <div style="width:190px;border:1px solid var(--line);border-radius:18px;overflow:hidden;background:var(--stage);box-shadow:var(--shadow-2)">
+            <div data-c2="statusbar" style="display:flex;justify-content:space-between;padding:5px 12px;font-size:9.5px;color:var(--muted);font-family:var(--font-mono)"><span>9:41</span><span>▮▮▮</span></div>
+            <div style="display:flex;align-items:center;gap:8px;padding:8px 11px;border-bottom:1px solid var(--line-soft)">
+              <span data-phoneburger style="color:var(--ink-2);cursor:pointer">${ICON.menu}</span><b style="font-size:12.5px;font-family:var(--font-display)">ร้านกาแฟดี</b>
+            </div>
+            <div data-phonebody style="padding:11px;display:flex;flex-direction:column;gap:7px;position:relative;min-height:104px;overflow:hidden">
+              <div style="height:8px;border-radius:4px;background:var(--line-soft);width:70%"></div>
+              <div style="height:8px;border-radius:4px;background:var(--line-soft)"></div>
+              <div style="height:8px;border-radius:4px;background:var(--line-soft);width:52%"></div>
+              <button class="d-btn" data-c2="fab" style="position:absolute;right:11px;bottom:11px;width:38px;height:38px;padding:0;border-radius:50%;box-shadow:var(--shadow-2)" aria-label="เพิ่ม">${ICON.plus}</button>
+            </div>
+            <div data-c2="tabbar" style="display:flex;justify-content:space-around;padding:6px 4px;border-top:1px solid var(--line-soft)">
+              <span style="color:var(--accent)">${ICON.home}</span><span style="color:var(--muted)">${ICON.search}</span><span style="color:var(--muted)">${ICON.cart}</span><span style="color:var(--muted)">${ICON.user}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      ${cell('pull to refresh', '<div style="width:100%;text-align:center;padding:12px 0"><span class="spin" style="width:20px;height:20px;color:var(--accent);margin:0 auto"></span><div class="d-help" style="margin-top:7px">ลากลงจากบนสุดเพื่อโหลดใหม่</div></div>', 'ptr')}
+      ${cell('swipe action', '<div style="width:100%;display:flex;border-radius:8px;overflow:hidden;border:1px solid var(--line-soft)"><div style="flex:1;padding:11px;font-size:13px;background:var(--stage)">มานี ใจดี</div><div style="width:60px;display:grid;place-items:center;background:var(--danger);color:#fff;font-size:12px;font-weight:600">ลบ</div></div>', 'swipe')}
+      ${cell('action sheet', '<div style="width:100%;border-radius:10px;overflow:hidden;border:1px solid var(--line-soft)"><div style="padding:9px;text-align:center;font-size:13px;border-bottom:1px solid var(--line-soft)">ถ่ายรูป</div><div style="padding:9px;text-align:center;font-size:13px;border-bottom:1px solid var(--line-soft)">เลือกจากคลัง</div><div style="padding:9px;text-align:center;font-size:13px;color:var(--danger);font-weight:600">ยกเลิก</div></div>', 'sheet')}
+      ${cell('segmented (มือถือ)', '<div class="d-seg" style="width:100%"><button aria-pressed="true" style="flex:1">ของฉัน</button><button aria-pressed="false" style="flex:1">ทั้งหมด</button></div>', 'segmob')}
+      ${cell('skeleton list (โหลดครั้งแรก)', '<div style="width:100%;display:flex;flex-direction:column;gap:9px"><div style="display:flex;gap:8px;align-items:center"><div class="sk sk--circle" style="width:26px;height:26px;flex:none"></div><div class="sk" style="height:8px;flex:1"></div></div><div style="display:flex;gap:8px;align-items:center"><div class="sk sk--circle" style="width:26px;height:26px;flex:none"></div><div class="sk" style="height:8px;flex:1"></div></div></div>', 'sklist')}
+    </div>`,
+  tour: [
+    { c2: 'statusbar', name: 'Status bar', th: 'แถบสถานะของเครื่อง', use: 'แถบบนสุดของระบบ (เวลา แบต สัญญาณ) — เราออกแบบทับไม่ได้ แต่ต้องเผื่อที่ไว้' },
+    { c2: 'tabbar', name: 'Tab bar / Bottom navigation', th: 'แถบเมนูล่าง', use: 'เมนูหลัก 3–5 อันที่ก้นจอ — นิ้วโป้งเอื้อมถึงง่ายที่สุด' },
+    { c2: 'fab', name: 'FAB — Floating Action Button', th: 'ปุ่มลอย', use: 'ปุ่มกลมลอยมุมล่างขวา สำหรับการกระทำหลักหนึ่งอย่างของหน้านั้น' },
+    { c: 'ptr', name: 'Pull to refresh', th: 'ลากลงเพื่อรีเฟรช', use: 'ลากนิ้วลงจากบนสุดเพื่อโหลดข้อมูลใหม่ — เป็นมาตรฐานที่ผู้ใช้คาดหวังแล้ว' },
+    { c: 'swipe', name: 'Swipe action', th: 'ปัดเพื่อสั่งงาน', use: 'ปัดแถวไปข้างเพื่อโผล่ปุ่มลบหรือเก็บ — ต้องมีทางอื่นทำสิ่งเดียวกันด้วย' },
+    { c: 'sheet', name: 'Action sheet', th: 'แผงตัวเลือกจากด้านล่าง', use: 'ลิสต์ตัวเลือกที่เลื่อนขึ้นจากก้นจอ พร้อมปุ่มยกเลิกล่างสุด' },
+    { c: 'segmob', name: 'Segmented control', th: 'ปุ่มกลุ่มสลับ', use: 'บนมือถือมักยืดเต็มความกว้าง เพื่อให้พื้นที่กดใหญ่พอ' },
+    { c: 'sklist', name: 'Skeleton list', th: 'โครงร่างรายการ', use: 'ใช้ตอนเปิดแอปครั้งแรก ทำให้รู้สึกว่าโหลดเร็วกว่าหน้าขาว' }
+  ],
+  init(root){
+    const body = q(root, '[data-phonebody]');
+    const clearPhone = () => qa(body, '[data-pop]').forEach((n) => n.remove());
+
+    // tab bar — เลือกได้
+    const tabs = qa(root, '[data-c2="tabbar"] > span');
+    tabs.forEach((t) => {
+      t.style.cursor = 'pointer';
+      t.addEventListener('click', () => tabs.forEach((o) => { o.style.color = o === t ? 'var(--accent)' : 'var(--muted)'; }));
+    });
+
+    // FAB — เปิด action sheet ในเครื่อง
+    q(root, '[data-c2="fab"]').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (q(body, '[data-pop="sheet"]')){ clearPhone(); return; }
+      clearPhone();
+      const el = document.createElement('div');
+      el.dataset.pop = 'sheet';
+      el.style.cssText = 'position:absolute;left:0;right:0;bottom:0;background:var(--stage);border-top:1px solid var(--line);border-radius:10px 10px 0 0;padding:8px;box-shadow:var(--shadow-2)';
+      el.innerHTML = '<div style="width:26px;height:3px;border-radius:2px;background:var(--line);margin:0 auto 7px"></div>' +
+        '<div style="padding:6px 8px;font-size:11.5px;color:var(--ink-2)">ถ่ายรูป</div>' +
+        '<div style="padding:6px 8px;font-size:11.5px;color:var(--ink-2)">เลือกจากคลัง</div>' +
+        '<div data-close style="padding:6px 8px;font-size:11.5px;color:var(--danger);font-weight:600;cursor:pointer">ยกเลิก</div>';
+      body.appendChild(el);
+      el.querySelector('[data-close]').addEventListener('click', clearPhone);
+    });
+
+    // hamburger ในเครื่อง — เปิด drawer
+    q(root, '[data-phoneburger]').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (q(body, '[data-pop="drawer"]')){ clearPhone(); return; }
+      clearPhone();
+      const el = document.createElement('div');
+      el.dataset.pop = 'drawer';
+      el.style.cssText = 'position:absolute;left:0;top:0;bottom:0;width:66%;background:var(--stage);border-right:1px solid var(--line);padding:9px;box-shadow:var(--shadow-2);display:flex;flex-direction:column;gap:6px';
+      el.innerHTML = '<div style="font-size:11.5px;font-weight:600">เมนู</div>' +
+        '<div style="font-size:11.5px;color:var(--muted)">โปรโมชัน</div>' +
+        '<div style="font-size:11.5px;color:var(--muted)">สาขา</div>' +
+        '<div data-close style="margin-top:auto;font-size:11.5px;color:var(--accent);cursor:pointer">ปิด</div>';
+      body.appendChild(el);
+      el.querySelector('[data-close]').addEventListener('click', clearPhone);
+    });
+
+    // pull to refresh — กดเพื่อจำลอง
+    const ptr = q(root, '[data-c="ptr"] .cell__demo');
+    ptr.style.cursor = 'pointer';
+    ptr.addEventListener('click', () => {
+      const note = ptr.querySelector('.d-help');
+      note.textContent = 'กำลังโหลดใหม่…';
+      setTimeout(() => { note.textContent = 'อัปเดตล่าสุดเมื่อสักครู่ · กดอีกครั้งเพื่อลองใหม่'; }, 1200);
+    });
+
+    // swipe action — กดเพื่อเปิด/ปิดปุ่มลบ
+    const swipe = q(root, '[data-c="swipe"] .cell__demo > div');
+    const del = swipe.lastElementChild;
+    let open = true;
+    swipe.style.cursor = 'pointer';
+    swipe.addEventListener('click', () => {
+      open = !open;
+      del.style.width = open ? '60px' : '0px';
+      del.style.overflow = 'hidden';
+      del.style.transition = 'width .2s';
+    });
+
+    // action sheet — เลือกได้
+    qa(root, '[data-c="sheet"] .cell__demo > div > div').forEach((r) => {
+      r.style.cursor = 'pointer';
+      r.addEventListener('click', () => {
+        r.style.background = 'var(--accent-soft)';
+        setTimeout(() => { r.style.background = ''; }, 220);
+      });
+    });
+
+    // segmented
+    const seg = qa(root, '[data-c="segmob"] .d-seg button');
+    seg.forEach((b) => b.addEventListener('click', () => seg.forEach((o) => o.setAttribute('aria-pressed', String(o === b)))));
+
+    const off = () => clearPhone();
+    document.addEventListener('click', off);
+    return () => document.removeEventListener('click', off);
+  }
+});
+
+/* ============================================================
+   11 — ชีตสรุป
+   ============================================================ */
+SLIDES.push({
+  title: 'ชีตสรุปชื่อทั้งหมด',
+  eyebrow: '11 · cheat sheet',
+  h2: 'ชื่อ component ที่ผ่านมาทั้งหมด',
+  lead: 'พิมพ์ค้นหาได้ทั้งไทยและอังกฤษ',
+  board: `
+    <div style="display:flex;gap:11px;align-items:center;flex-wrap:wrap;margin-bottom:13px">
+      <input class="sheet-search" placeholder="ค้นหา… เช่น สามขีด, switch, โหลด" data-search>
+      <span class="tag tag--cyan" data-count></span>
+    </div>
+    <div style="overflow:auto;max-height:min(56vh,520px);border:1px solid var(--line);border-radius:8px">
+      <table class="sheet">
+        <thead><tr><th>ชื่ออังกฤษ</th><th>ชื่อไทยที่ใช้เรียก</th><th>ใช้เมื่อไหร่</th></tr></thead>
+        <tbody data-sheet></tbody>
+      </table>
+    </div>`,
+  tour: [],
+  init(root){
+    const ROWS = [];
+    SLIDES.forEach((s) => (s.tour || []).forEach((t) => {
+      if (t.name && t.th && t.use && !/^(กรอบไฮไลต์|ลูกศรชี้|ปุ่มเดินหน้า|พร้อมแล้ว|วิธีเลือก|ผลของการกด)/.test(t.name)) {
+        ROWS.push([t.name, t.th, t.use]);
+      }
+    }));
+    const extra = [
+      ['Icon', 'ไอคอน', 'สัญลักษณ์รูปภาพ — ควรมีข้อความกำกับเมื่อความหมายไม่ชัด'],
+      ['Kbd', 'ป้ายปุ่มคีย์บอร์ด', 'แสดงปุ่มลัด เช่น ⌘K'],
+      ['Link', 'ลิงก์', 'พาไปหน้าอื่น ต้องขีดเส้นใต้หรือแยกสีให้เห็นชัด'],
+      ['Scrollbar', 'แถบเลื่อน', 'บอกว่ายังมีเนื้อหาต่ออีก'],
+      ['Sticky header', 'หัวตรึง', 'หัวตารางหรือแถบบนที่ค้างไว้ตอนเลื่อน'],
+      ['Infinite scroll', 'เลื่อนโหลดต่อเนื่อง', 'โหลดเพิ่มอัตโนมัติเมื่อเลื่อนถึงท้าย — ทางเลือกแทน pagination'],
+      ['Carousel / Slider', 'สไลด์ภาพ', 'ภาพหลายรูปเลื่อนดูทีละใบ — ต้องมีจุดบอกจำนวน'],
+      ['Lightbox', 'ขยายภาพเต็มจอ', 'กดรูปแล้วขยายเต็มจอบนพื้นดำ'],
+      ['Wizard', 'ตัวช่วยทีละขั้น', 'อีกชื่อของ Stepper — งานที่ต้องทำเรียงลำดับ'],
+      ['Placeholder image', 'ภาพสำรอง', 'กล่องเทาแทนที่รูปที่ยังโหลดไม่เสร็จหรือไม่มี']
+    ];
+    ROWS.push(...extra);
+
+    const tbody = q(root, '[data-sheet]');
+    const count = q(root, '[data-count]');
+    tbody.innerHTML = ROWS.map(([a, b, c]) =>
+      '<tr><td>' + a + '</td><td class="mono">' + b + '</td><td>' + c + '</td></tr>').join('');
+    const rows = qa(tbody, 'tr');
+    const search = q(root, '[data-search]');
+    const filter = () => {
+      const t = search.value.trim().toLowerCase();
+      let n = 0;
+      rows.forEach((tr) => {
+        const hit = !t || tr.textContent.toLowerCase().includes(t);
+        tr.classList.toggle('is-hidden', !hit);
+        if (hit) n++;
+      });
+      count.textContent = n + ' จาก ' + rows.length + ' ชื่อ';
+    };
+    search.addEventListener('input', filter);
+    filter();
+  }
+});
+
+/* ============================================================
+   ENGINE — สไลด์ + ทัวร์
+   ============================================================ */
+(function(){
+  const stage = document.getElementById('stage');
+  const ruler = document.getElementById('ruler');
+  const cNow = document.getElementById('cNow');
+  const cAll = document.getElementById('cAll');
+  const slideName = document.getElementById('slideName');
+  const btnPrev = document.getElementById('btnPrev');
+  const btnNext = document.getElementById('btnNext');
+  const btnOverview = document.getElementById('btnOverview');
+  const btnCloseOverview = document.getElementById('btnCloseOverview');
+  const btnTheme = document.getElementById('btnTheme');
+  const overview = document.getElementById('overview');
+  const overviewGrid = document.getElementById('overviewGrid');
+
+  const THAI = /[฀-๿]/;
+  const MONO = '.eyebrow,.cell__name,.tag,.d-table th,.sheet th,.counter,.plate__title';
+  function markThai(scope){
+    scope.querySelectorAll(MONO).forEach((el) => {
+      if (THAI.test(el.textContent) && !el.classList.contains('is-th')) el.classList.add('is-th');
+    });
+  }
+  let queued = false;
+  new MutationObserver(() => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; markThai(stage); });
+  }).observe(stage, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['class'] });
+
+  const built = new Array(SLIDES.length).fill(false);
+  const cleanups = new Array(SLIDES.length).fill(null);
+  const tours = new Array(SLIDES.length).fill(null);
+  let cur = 0;
+
+  SLIDES.forEach(() => {
+    const el = document.createElement('section');
+    el.className = 'slide';
+    el.setAttribute('aria-hidden', 'true');
+    stage.appendChild(el);
+  });
+  const els = Array.from(stage.children);
+
+  function build(i){
+    if (built[i]) return;
+    const s = SLIDES[i];
+    const steps = s.tour || [];
+    if (s.cover){
+      els[i].innerHTML = '<div class="slide__inner cover">' + s.board + '</div>';
+      markThai(els[i]);
+      if (s.init){ try { cleanups[i] = s.init(els[i]) || null; } catch (err){ console.error('cover init', err); } }
+      built[i] = true;
+      return;
+    }
+    els[i].innerHTML =
+      '<div class="slide__inner">' +
+        '<div class="slidehead">' +
+          '<div class="eyebrow">' + s.eyebrow + '</div>' +
+          '<h2>' + s.h2 + '</h2>' +
+          '<p class="lede">' + s.lead + '</p>' +
+        '</div>' +
+        (steps.length
+          ? '<div class="tourbar">' +
+              '<button class="tbtn tbtn--go" data-starttour>▶ เริ่มทัวร์ · ' + steps.length + ' จุด</button>' +
+              '<span class="tourbar__hint">หรือกดเล่นในกระดานได้เลย</span>' +
+            '</div>'
+          : '') +
+        '<div class="tourwrap" style="position:relative">' +
+          '<div class="board">' + s.board + '</div>' +
+          '<div class="tourlayer" hidden>' +
+            '<div class="veil" data-v="t"></div><div class="veil" data-v="b"></div>' +
+            '<div class="veil" data-v="l"></div><div class="veil" data-v="r"></div>' +
+            '<div class="spot"></div>' +
+            '<div class="bubble">' +
+              '<span class="bubble__arrow"></span>' +
+              '<div class="bubble__step"></div>' +
+              '<div class="bubble__name"></div>' +
+              '<div class="bubble__th"></div>' +
+              '<div class="bubble__use"></div>' +
+              '<div class="bubble__foot">' +
+                '<span class="bubble__dots"></span>' +
+                '<button class="tbtn" data-tback>← ก่อนหน้า</button>' +
+                '<button class="tbtn tbtn--go" data-tnext>ถัดไป →</button>' +
+                '<button class="tbtn tbtn--x" data-tclose aria-label="ปิดทัวร์">×</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    markThai(els[i]);
+    if (s.init){
+      try { cleanups[i] = s.init(els[i]) || null; }
+      catch (err){ console.error('slide ' + (i + 1) + ' init', err); }
+    }
+    if (steps.length) tours[i] = makeTour(els[i], steps, i);
+    built[i] = true;
+  }
+
+  /* ---------------- tour ---------------- */
+  function makeTour(root, steps, slideIndex){
+    const wrap = root.querySelector('.tourwrap');
+    const layer = root.querySelector('.tourlayer');
+    const spot = root.querySelector('.spot');
+    const veils = {
+      t: root.querySelector('[data-v="t"]'), b: root.querySelector('[data-v="b"]'),
+      l: root.querySelector('[data-v="l"]'), r: root.querySelector('[data-v="r"]')
+    };
+    const bubble = root.querySelector('.bubble');
+    const arrow = root.querySelector('.bubble__arrow');
+    const elStep = root.querySelector('.bubble__step');
+    const elName = root.querySelector('.bubble__name');
+    const elTh = root.querySelector('.bubble__th');
+    const elUse = root.querySelector('.bubble__use');
+    const dots = root.querySelector('.bubble__dots');
+    const bBack = root.querySelector('[data-tback]');
+    const bNext = root.querySelector('[data-tnext]');
+    const bClose = root.querySelector('[data-tclose]');
+    const startBtn = root.querySelector('[data-starttour]');
+
+    let idx = -1;
+    let lit = null;
+
+    dots.innerHTML = steps.map(() => '<span class="bubble__dot"></span>').join('');
+    const dotEls = Array.from(dots.children);
+
+    const targetOf = (st) => wrap.querySelector('[data-c="' + (st.c || st.c2) + '"], [data-c2="' + (st.c2 || st.c) + '"]');
+
+    function place(){
+      const st = steps[idx];
+      const target = targetOf(st);
+      if (!target) return;
+
+      const wr = wrap.getBoundingClientRect();
+      const tr = target.getBoundingClientRect();
+      const pad = 6;
+      const top = tr.top - wr.top - pad;
+      const left = tr.left - wr.left - pad;
+      const w = tr.width + pad * 2;
+      const h = tr.height + pad * 2;
+
+      spot.style.top = top + 'px';
+      spot.style.left = left + 'px';
+      spot.style.width = w + 'px';
+      spot.style.height = h + 'px';
+
+      const W = wr.width, H = wr.height;
+      const box = (el, x, y, bw, bh) => {
+        el.style.left = Math.max(0, x) + 'px';
+        el.style.top = Math.max(0, y) + 'px';
+        el.style.width = Math.max(0, bw) + 'px';
+        el.style.height = Math.max(0, bh) + 'px';
+      };
+      box(veils.t, 0, 0, W, top);
+      box(veils.b, 0, top + h, W, H - (top + h));
+      box(veils.l, 0, top, left, h);
+      box(veils.r, left + w, top, W - (left + w), h);
+
+      const bw = bubble.offsetWidth || 320;
+      const bh = bubble.offsetHeight || 160;
+      const gap = 15;
+      let bTop, dir;
+      if (top + h + gap + bh <= wr.height){ bTop = top + h + gap; dir = 'up'; }
+      else if (top - gap - bh >= 0){ bTop = top - gap - bh; dir = 'down'; }
+      else { bTop = Math.max(8, Math.min(wr.height - bh - 8, top)); dir = null; }
+
+      const centre = left + w / 2 - bw / 2;
+      const bLeft = Math.max(8, Math.min(wr.width - bw - 8, centre));
+      bubble.style.top = bTop + 'px';
+      bubble.style.left = bLeft + 'px';
+
+      if (dir){
+        arrow.hidden = false;
+        arrow.dataset.dir = dir;
+        const ax = Math.max(14, Math.min(bw - 26, left + w / 2 - bLeft - 6));
+        arrow.style.left = ax + 'px';
+        arrow.style.right = 'auto';
+      } else {
+        arrow.hidden = true;
+      }
+    }
+
+    function show(n){
+      if (n < 0 || n >= steps.length) return;
+      idx = n;
+      const st = steps[idx];
+
+      if (lit) lit.classList.remove('is-lit');
+      const target = targetOf(st);
+      const cellEl = target && target.closest ? target.closest('.cell') : null;
+      lit = cellEl;
+      if (lit) lit.classList.add('is-lit');
+
+      elStep.textContent = 'จุดที่ ' + (idx + 1) + ' / ' + steps.length;
+      elName.textContent = st.name;
+      elTh.textContent = st.th;
+      elUse.textContent = st.use;
+      dotEls.forEach((d, i) => {
+        d.classList.toggle('is-on', i === idx);
+        d.classList.toggle('is-past', i < idx);
+      });
+      bBack.disabled = false;
+      bNext.textContent = idx === steps.length - 1 ? 'สไลด์ถัดไป →' : 'ถัดไป →';
+
+      layer.hidden = false;
+      if (target && target.scrollIntoView) target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      requestAnimationFrame(() => requestAnimationFrame(place));
+    }
+
+    function start(n){ show(n === 'last' ? steps.length - 1 : (typeof n === 'number' ? n : 0)); }
+    function stop(){
+      layer.hidden = true;
+      idx = -1;
+      if (lit){ lit.classList.remove('is-lit'); lit = null; }
+    }
+
+    startBtn.addEventListener('click', () => start(0));
+    bClose.addEventListener('click', stop);
+    bNext.addEventListener('click', () => {
+      if (idx === steps.length - 1){ stop(); go(slideIndex + 1); }
+      else show(idx + 1);
+    });
+    bBack.addEventListener('click', () => {
+      if (idx === 0){ stop(); go(slideIndex - 1); }
+      else show(idx - 1);
+    });
+
+    const onResize = () => { if (!layer.hidden) place(); };
+    window.addEventListener('resize', onResize);
+
+    return {
+      active: () => !layer.hidden,
+      start, stop,
+      next: () => bNext.click(),
+      back: () => bBack.click(),
+      dispose: () => window.removeEventListener('resize', onResize)
+    };
+  }
+
+  /* ---------------- ruler + overview ---------------- */
+  SLIDES.forEach((s, i) => {
+    const b = document.createElement('button');
+    b.className = 'ruler__tick' + ((i + 1) % 5 === 0 ? ' is-major' : '');
+    b.type = 'button';
+    b.title = (i + 1) + '. ' + s.title;
+    b.setAttribute('aria-label', 'ไปสไลด์ ' + (i + 1) + ': ' + s.title);
+    b.addEventListener('click', () => go(i));
+    ruler.appendChild(b);
+
+    const c = document.createElement('button');
+    c.className = 'ovcard';
+    c.type = 'button';
+    c.innerHTML = '<span class="ovcard__n">' + String(i + 1).padStart(2, '0') + '</span><span class="ovcard__t">' + s.title + '</span>';
+    c.addEventListener('click', () => { closeOverview(); go(i); });
+    overviewGrid.appendChild(c);
+  });
+  const ticks = Array.from(ruler.children);
+  const ovcards = Array.from(overviewGrid.children);
+  cAll.textContent = String(SLIDES.length);
+
+  function go(i){
+    if (i < 0 || i >= SLIDES.length) return;
+    if (tours[cur] && tours[cur].active()) tours[cur].stop();
+    build(i);
+    if (i + 1 < SLIDES.length) build(i + 1);
+
+    els.forEach((el, n) => {
+      el.classList.toggle('is-active', n === i);
+      el.classList.toggle('is-prev', n < i);
+      el.setAttribute('aria-hidden', String(n !== i));
+    });
+    ticks.forEach((t, n) => {
+      t.classList.toggle('is-current', n === i);
+      t.classList.toggle('is-done', n < i);
+    });
+    ovcards.forEach((c, n) => c.classList.toggle('is-current', n === i));
+
+    cur = i;
+    cNow.textContent = String(i + 1);
+    slideName.textContent = SLIDES[i].title;
+    btnPrev.disabled = i === 0;
+    btnNext.disabled = i === SLIDES.length - 1;
+    els[i].scrollTop = 0;
+    markThai(els[i]);
+    try { history.replaceState(null, '', '#' + (i + 1)); } catch {}
+
+  }
+
+  function openOverview(){ overview.hidden = false; btnCloseOverview.focus(); }
+  function closeOverview(){ overview.hidden = true; }
+
+  btnPrev.addEventListener('click', () => go(cur - 1));
+  btnNext.addEventListener('click', () => go(cur + 1));
+  btnOverview.addEventListener('click', () => overview.hidden ? openOverview() : closeOverview());
+  btnCloseOverview.addEventListener('click', closeOverview);
+
+  function applyTheme(t){
+    if (t === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', t);
+    try { localStorage.setItem('uilab:theme', t); } catch {}
+  }
+  // เปิดมาเป็นธีมสว่างเสมอ ไม่ตามระบบ — ปุ่ม ◐ สลับเป็น มืด / ตามระบบ ได้
+  let theme = 'light';
+  try { theme = localStorage.getItem('uilab:theme') || 'light'; } catch {}
+  applyTheme(theme);
+  btnTheme.addEventListener('click', () => {
+    theme = theme === 'light' ? 'dark' : theme === 'dark' ? 'auto' : 'light';
+    applyTheme(theme);
+  });
+
+  document.addEventListener('keydown', (e) => {
+    const tag = (e.target && e.target.tagName) || '';
+    if (e.key === 'Escape'){
+      if (!overview.hidden){ closeOverview(); return; }
+      if (tours[cur] && tours[cur].active()){ tours[cur].stop(); return; }
+    }
+    if (/INPUT|TEXTAREA|SELECT/.test(tag)) return;
+
+    const t = tours[cur];
+    if (e.key === 'ArrowRight' || e.key === 'PageDown'){
+      e.preventDefault();
+      if (t && t.active()) t.next(); else go(cur + 1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'PageUp'){
+      e.preventDefault();
+      if (t && t.active()) t.back(); else go(cur - 1);
+    } else if (e.key === 'Home'){ e.preventDefault(); go(0); }
+    else if (e.key === 'End'){ e.preventDefault(); go(SLIDES.length - 1); }
+    else if (e.key === 'g' || e.key === 'G'){ overview.hidden ? openOverview() : closeOverview(); }
+    else if (e.key === 't' || e.key === 'T'){ btnTheme.click(); }
+    else if (e.key === ' ' && t && !t.active()){ e.preventDefault(); t.start(0); }
+  });
+
+  DECK.go = go;
+
+  const fromHash = () => Math.max(0, Math.min(SLIDES.length - 1, (parseInt(location.hash.slice(1), 10) || 1) - 1));
+  window.addEventListener('hashchange', () => { const i = fromHash(); if (i !== cur) go(i); });
+  go(fromHash());
+})();
+</script>
+
+</body>
+</html>
