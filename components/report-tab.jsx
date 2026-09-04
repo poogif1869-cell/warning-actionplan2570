@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { MONTHS, STATUSES, monthsOf } from "@/lib/plan";
 import { money, pct } from "@/lib/format";
 import {
@@ -26,7 +27,19 @@ import {
    กิจกรรมไม่มีช่องผลลัพธ์ เพราะผลลัพธ์ (Outcome) เป็นตัวชี้วัดของทั้งโครงการ
 
    **ไม่มีช่องกรอกงบประมาณที่นี่** งบบันทึกที่หน้า "งบประมาณโครงการ" ที่เดียว */
+/* ---------------------------------------------------------------------
+   ⚠️ ลิ้นชักรายละเอียดโครงการถูกใช้ใน 5 หน้า (ภาพรวม · แจ้งเตือน · โครงการ ·
+   ความเชื่อมโยงแผน · ความเสี่ยง) แต่ **ผลการดำเนินงานต้องกรอกได้ที่หน้า
+   โครงการ/กิจกรรม ที่เดียว** ตามที่ตกลงกันไว้ว่าข้อมูลหนึ่งชนิดมีที่กรอกที่เดียว
+
+   หน้าอื่นเปิดลิ้นชักได้ตามปกติ แต่เป็นอ่านอย่างเดียว
+   --------------------------------------------------------------------- */
+const HOME_PATH = "/projects";
+
 export default function ReportTab({ item }) {
+  const pathname = usePathname();
+  const editable = pathname === HOME_PATH;
+
   const {
     results,
     budget,
@@ -143,7 +156,18 @@ export default function ReportTab({ item }) {
   }
 
   return (
-    <>
+    /* fieldset ปิดช่องกรอกทั้งก้อนในทีเดียว ไม่ต้องใส่ disabled ทีละ input
+       (มีเป็นสิบช่อง และเพิ่มใหม่เมื่อไหร่ก็ลืมได้ง่าย)
+       ต้องมี min-width:0 ใน CSS ไม่งั้น fieldset จะดันความกว้างจนตารางล้น */
+    <fieldset className="plainset" disabled={!editable}>
+      {!editable ? (
+        <div className="banner">
+          หน้านี้ดูได้อย่างเดียว — <b>รายงานผลการดำเนินงานกรอกที่หน้า
+          “โครงการ/กิจกรรม”</b> ที่เดียว เพื่อไม่ให้ข้อมูลชุดเดียวกัน
+          ถูกแก้จากหลายที่จนตามไม่ทันว่าใครแก้อะไร
+        </div>
+      ) : null}
+
       {/* ---------- 1. งบประมาณของโครงการ ---------- */}
       <h4>งบประมาณโครงการ</h4>
       <BudgetTiles
@@ -345,14 +369,18 @@ export default function ReportTab({ item }) {
         </>
       ) : null}
 
-      <div className="btnrow">
-        <button className="btn" onClick={save} disabled={saving}>
-          {saving ? "กำลังบันทึก…" : saved ? "บันทึกแล้ว ✓" : "บันทึกรายงาน"}
-        </button>
-      </div>
-      <div className="small muted" style={{ marginTop: 6 }}>
-        ระบบบันทึกอัตโนมัติหลังหยุดพิมพ์อยู่แล้ว ปุ่มนี้ไว้กดยืนยันให้แน่ใจว่าขึ้นครบ
-      </div>
-    </>
+      {editable ? (
+        <>
+          <div className="btnrow">
+            <button className="btn" onClick={save} disabled={saving}>
+              {saving ? "กำลังบันทึก…" : saved ? "บันทึกแล้ว ✓" : "บันทึกรายงาน"}
+            </button>
+          </div>
+          <div className="small muted" style={{ marginTop: 6 }}>
+            ระบบบันทึกอัตโนมัติหลังหยุดพิมพ์อยู่แล้ว ปุ่มนี้ไว้กดยืนยันให้แน่ใจว่าขึ้นครบ
+          </div>
+        </>
+      ) : null}
+    </fieldset>
   );
 }

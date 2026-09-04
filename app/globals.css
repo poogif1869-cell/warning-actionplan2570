@@ -1025,3 +1025,12 @@ th{box-shadow:inset 0 -1px 0 var(--border)}
 
 /* ฉากหลังของกล่องยืนยัน — สูงกว่าแผงแชทและปุ่มลอย แต่ต่ำกว่าตัวกล่องเอง */
 .scrim.scrim-top{z-index:69}
+
+/* fieldset ที่ใช้ปิดช่องกรอกทั้งก้อน — ไม่ต้องการหน้าตาของ fieldset เอง
+   min-width:0 สำคัญมาก: ค่าเริ่มต้นของ fieldset คือ min-content
+   ถ้าไม่ตั้ง ตารางกว้าง ๆ ข้างในจะดัน fieldset จนหน้าเลื่อนแนวนอนทั้งหน้า */
+.plainset{border:0; padding:0; margin:0; min-width:0; display:block}
+/* ช่องที่ถูกปิดยังต้องอ่านออก แค่บอกว่าแก้ไม่ได้ ไม่ใช่จางจนอ่านไม่เห็น */
+.plainset:disabled input,
+.plainset:disabled select,
+.plainset:disabled textarea{opacity:.85; cursor:default}

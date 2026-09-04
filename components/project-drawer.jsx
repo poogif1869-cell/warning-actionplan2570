@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { MONTHS, byUid } from "@/lib/plan";
 import { RISK_TYPES, RISK_LEVELS, CONTROL_FIELDS, riskLevelInfo } from "@/lib/rollup";
 import { money, pct } from "@/lib/format";
@@ -10,8 +11,21 @@ import ReportTab from "@/components/report-tab";
 import PrintButton from "@/components/print-button";
 
 /* ลิ้นชักรายละเอียดโครงการ — ใช้ร่วมกันทุกหน้า
-   รวมรายงานผลรายเดือน (ผลผลิต/ผลลัพธ์), รายการงบประมาณ และรายงานความเสี่ยงรายเดือน */
+
+   ⚠️ **ข้อมูลแต่ละชนิดกรอกได้ที่หน้าเจ้าของเท่านั้น** ลิ้นชักตัวเดียวกันนี้
+   โผล่ใน 5 หน้า ถ้าเปิดให้แก้ทุกที่ ข้อมูลชุดเดียวกันจะถูกแก้จากหลายทาง
+   จนตามไม่ทันว่าใครแก้อะไร
+
+     ผลการดำเนินงาน (ReportTab) -> หน้า /projects
+     รายงานความเสี่ยงรายเดือน   -> หน้า /risk
+     ล้างข้อมูลโครงการ          -> หน้า /projects (ลบทั้งสามชนิดพร้อมกัน)
+     รายการงบประมาณ            -> หน้า /budget เท่านั้น (ไม่มีในลิ้นชักอยู่แล้ว)
+*/
 export default function ProjectDrawer({ uid, alerts, onClose }) {
+  const pathname = usePathname();
+  const canEditRisk = pathname === "/risk";
+  const canClear = pathname === "/projects";
+
   const { risk, asOfMonth, setRisk, clearProject } = useResults();
   const [tab, setTab] = useState("report");
 
@@ -162,6 +176,13 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
               )}
 
               <h4>รายงานความเสี่ยงรายเดือน</h4>
+              {!canEditRisk ? (
+                <div className="banner">
+                  ตารางนี้ดูได้อย่างเดียว — <b>รายงานความเสี่ยงกรอกที่หน้า “ความเสี่ยง”</b>{" "}
+                  ที่เดียว
+                </div>
+              ) : null}
+              <fieldset className="plainset" disabled={!canEditRisk}>
               <div className="tablewrap">
                 <table className="mrep stack">
                   <thead>
@@ -224,6 +245,7 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
                   </tbody>
                 </table>
               </div>
+              </fieldset>
             </>
           ) : null}
 
@@ -281,22 +303,26 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
                 </>
               ) : null}
 
-              <div className="btnrow">
-                <button
-                  className="btn ghost"
-                  onClick={() => {
-                    if (
-                      confirm(
-                        "ล้างข้อมูลที่กรอกไว้ของโครงการนี้ทั้งหมด (ผลรายเดือน รายการงบประมาณ และรายงานความเสี่ยง)?\nทุกคนจะเห็นผลทันที"
-                      )
-                    ) {
-                      clearProject(uid);
-                    }
-                  }}
-                >
-                  ล้างข้อมูลที่กรอกของโครงการนี้
-                </button>
-              </div>
+              {/* ปุ่มนี้ลบข้อมูลทั้งสามชนิดพร้อมกัน จึงอยู่ที่หน้าโครงการที่เดียว
+                  ไม่ควรลบข้อมูลความเสี่ยงหรืองบประมาณจากหน้าที่ไม่ได้เป็นเจ้าของ */}
+              {canClear ? (
+                <div className="btnrow">
+                  <button
+                    className="btn ghost"
+                    onClick={() => {
+                      if (
+                        confirm(
+                          "ล้างข้อมูลที่กรอกไว้ของโครงการนี้ทั้งหมด (ผลรายเดือน รายการงบประมาณ และรายงานความเสี่ยง)?\nทุกคนจะเห็นผลทันที"
+                        )
+                      ) {
+                        clearProject(uid);
+                      }
+                    }}
+                  >
+                    ล้างข้อมูลที่กรอกของโครงการนี้
+                  </button>
+                </div>
+              ) : null}
             </>
           ) : null}
         </div>

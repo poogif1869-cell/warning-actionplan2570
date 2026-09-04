@@ -15,8 +15,18 @@ import PrintButton from "@/components/print-button";
 const S_COLORS = ["", "var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)"];
 
 export default function OverviewPage() {
-  const { results, risk, asOfMonth, asOfLabel, loaded, exportJson, importJson, refresh, saveNow } =
-    useResults();
+  const {
+    results,
+    risk,
+    asOfMonth,
+    asOfLabel,
+    loaded,
+    isAdmin,
+    exportJson,
+    importJson,
+    refresh,
+    saveNow,
+  } = useResults();
   const [msg, setMsg] = useState("");
   // กลุ่มโครงการที่กำลังกางดูอยู่ ตั้งจากการกดตัวเลข/แท่งกราฟที่ไหนก็ได้ในหน้านี้
   const [group, setGroup] = useState(null);
@@ -369,21 +379,35 @@ export default function OverviewPage() {
             <button className="btn ghost" disabled={busy} onClick={download}>
               ส่งออกไฟล์สำรอง (.json)
             </button>
-            <button
-              className="btn ghost"
-              disabled={busy}
-              onClick={() => fileRef.current && fileRef.current.click()}
-            >
-              นำเข้าไฟล์สำรอง
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="application/json,.json"
-              style={{ display: "none" }}
-              onChange={pickFile}
-            />
+
+            {/* นำเข้าไฟล์สำรอง = เขียนทับข้อมูลของทุกหน้าพร้อมกันจากหน้าภาพรวม
+                ซึ่งขัดกับกติกาที่ว่าข้อมูลแต่ละชนิดกรอกได้ที่หน้าเจ้าของเท่านั้น
+                จึงจำกัดไว้เฉพาะผู้ดูแลระบบ เป็นเครื่องมือกู้คืน ไม่ใช่ช่องทางกรอกปกติ */}
+            {isAdmin ? (
+              <>
+                <button
+                  className="btn ghost"
+                  disabled={busy}
+                  onClick={() => fileRef.current && fileRef.current.click()}
+                >
+                  นำเข้าไฟล์สำรอง
+                </button>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="application/json,.json"
+                  style={{ display: "none" }}
+                  onChange={pickFile}
+                />
+              </>
+            ) : null}
           </div>
+
+          {!isAdmin ? (
+            <div className="small muted" style={{ marginTop: 10 }}>
+              การนำเข้าไฟล์สำรองเขียนทับข้อมูลทุกหน้าพร้อมกัน จึงสงวนไว้ให้ผู้ดูแลระบบ
+            </div>
+          ) : null}
           {msg ? (
             <div className="banner" style={{ marginTop: 14, marginBottom: 0 }}>
               {msg}
