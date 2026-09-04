@@ -9,6 +9,7 @@ import Assistant from "@/components/assistant";
 import InstallButton from "@/components/install-button";
 import ThemeToggle from "@/components/theme-toggle";
 import UserChip from "@/components/user-chip";
+import ConfirmDialog from "@/components/confirm-dialog";
 
 const NAV = [
   { href: "/", label: "ภาพรวม" },
@@ -37,6 +38,7 @@ export default function Shell({ children }) {
     saveNow,
   } = useResults();
   const [signingOut, setSigningOut] = useState(false);
+  const [askSignOut, setAskSignOut] = useState(false);
 
   const critCount = useMemo(() => {
     if (!loaded) return 0;
@@ -88,7 +90,11 @@ export default function Shell({ children }) {
             <UserChip />
             <ThemeToggle />
             <InstallButton />
-            <button className="iconbtn" onClick={handleSignOut} disabled={signingOut}>
+            <button
+              className="iconbtn"
+              onClick={() => setAskSignOut(true)}
+              disabled={signingOut}
+            >
               {signingOut ? "กำลังออก…" : "ออกจากระบบ"}
             </button>
           </div>
@@ -141,6 +147,25 @@ export default function Shell({ children }) {
 
         {children}
       </main>
+
+      {askSignOut ? (
+        <ConfirmDialog
+          title="ออกจากระบบ?"
+          confirmLabel="ออกจากระบบ"
+          danger
+          busy={signingOut}
+          onConfirm={handleSignOut}
+          onCancel={() => setAskSignOut(false)}
+        >
+          <p>
+            ระบบจะบันทึกสิ่งที่ยังค้างอยู่ขึ้น Supabase ให้ก่อนออก
+            จึงไม่มีข้อมูลที่พิมพ์ไว้หายไป
+          </p>
+          <p className="small muted">
+            เข้าใช้งานอีกครั้งต้องกรอกอีเมลและรหัสผ่านใหม่
+          </p>
+        </ConfirmDialog>
+      ) : null}
 
       {/* ปุ่มลอยมุมขวาล่าง อยู่นอก main จะได้ไม่ถูกกฎ print ของแต่ละหน้าจับ */}
       <Assistant />

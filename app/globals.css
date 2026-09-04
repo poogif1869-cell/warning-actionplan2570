@@ -779,14 +779,25 @@ th{box-shadow:inset 0 -1px 0 var(--border)}
   display:flex; flex-direction:column; align-items:flex-end; gap:9px;
 }
 
+/* ปุ่มถาม AI ใช้ "ทอง" ไม่ใช่เขียวเหมือนของอื่นในเว็บ
+
+   เดิมเป็นเขียวไล่เฉดชุดเดียวกับแถบหัวเรื่อง เลยกลืนไปกับพื้นเว็บที่เขียวอ่อน
+   ทองเป็นสีขับเน้นของ กยท. อยู่แล้ว และเป็นสีเดียวในจานที่ตัดกับเขียวจริง ๆ
+
+   สีตรึงค่าไว้ ไม่ผูกกับตัวแปรธีม เพราะเป็นปุ่มลอยที่ต้องเด่นเท่ากันทั้งสองโหมด
+   ตัวหนังสือเป็นเขียวเข้มเพื่อให้อ่านออกบนพื้นทองซึ่งสว่าง */
 .chatfab{
   display:inline-flex; align-items:center; gap:9px;
-  padding:9px 17px 9px 12px; border:0; border-radius:999px; cursor:pointer;
-  background:linear-gradient(118deg,var(--brand-2),var(--brand-3));
-  color:var(--on-brand); font-size:14px; font-weight:600;
-  box-shadow:0 3px 10px rgba(11,58,35,.22),0 10px 28px rgba(11,58,35,.18);
+  padding:10px 18px 10px 12px; border:0; border-radius:999px; cursor:pointer;
+  background:linear-gradient(118deg,#f0b642,#d18c14);
+  color:#12261b; font-size:14.5px; font-weight:700;
+  box-shadow:
+    0 0 0 3px rgba(224,163,58,.28),
+    0 4px 12px rgba(120,80,10,.32),
+    0 12px 30px rgba(120,80,10,.24);
 }
-.chatfab:hover{filter:brightness(1.08)}
+.chatfab:hover{filter:brightness(1.06)}
+.chatfab:active{transform:translateY(1px)}
 .chatfab.isopen{padding:11px 17px}
 .chatfab-x{font-size:16px; line-height:1}
 
@@ -795,9 +806,8 @@ th{box-shadow:inset 0 -1px 0 var(--border)}
    ไม่ใช่ SVG จึงเปลี่ยนสีตามธีมไม่ได้ — แต่ตัวภาพมีวงขอบเขียวกับพื้นขาวในตัว
    จึงอ่านออกทั้งบนพื้นอ่อนและพื้นเข้ม ไม่ต้องมีวงรองแบบตราสัญลักษณ์ */
 .robot{display:block; flex-shrink:0; border-radius:50%; object-fit:cover}
-
-/* บนปุ่มพื้นเขียวเข้ม เติมวงขาวบาง ๆ ให้ขอบเขียวของภาพไม่จมไปกับพื้นปุ่ม */
-.chatfab .robot{box-shadow:0 0 0 1.5px rgba(255,255,255,.55)}
+/* วงขาวรอบหุ่นบนพื้นทอง ให้ขอบเขียวของภาพไม่จมไปกับพื้นปุ่ม */
+.chatfab .robot{box-shadow:0 0 0 2px rgba(255,255,255,.85)}
 
 .chatavatar{margin-top:4px}
 .chatavatar.thinking{animation:robot-bob 1.1s ease-in-out infinite}
@@ -986,3 +996,32 @@ th{box-shadow:inset 0 -1px 0 var(--border)}
    เป็นสัญญาณเงียบ ๆ ไม่ต้องอ่าน tooltip ก็รู้ว่าตัวเองกรอกได้ไหม */
 .userchip.role-editor,
 .userchip.role-admin{border-color:var(--gold)}
+
+/* ---------- กล่องยืนยัน ----------
+   ฉากหลังต้องยกสูงกว่าแผงแชท (61) กับปุ่มลอย (60) ด้วย ไม่งั้นถ้าเปิดแชทค้างไว้
+   แล้วกดออกจากระบบ แผงแชทจะลอยอยู่เหนือฉากหลัง ดูเหมือนกดได้ทั้งที่ไม่ควร
+   z-index สูงกว่า .scrim (40) และลิ้นชัก (41) เพราะต้องซ้อนทับได้ทุกอย่าง
+   รวมถึงตอนที่ลิ้นชักโครงการเปิดอยู่ */
+.confirmbox{
+  position:fixed; z-index:70;
+  inset-block-start:50%; inset-inline-start:50%;
+  transform:translate(-50%,-50%);
+  width:min(420px,calc(100vw - 32px));
+  background:var(--surface); color:var(--text);
+  border:1px solid var(--border); border-radius:var(--radius);
+  border-top:3px solid var(--gold);
+  box-shadow:0 10px 24px rgba(11,58,35,.2),0 24px 60px rgba(11,58,35,.24);
+  padding:20px 22px 18px;
+}
+.confirmbox h3{font-size:17px; margin-bottom:10px}
+.confirmbody p{margin:0 0 8px; font-size:14px; color:var(--muted)}
+.confirmbody p:last-child{margin-bottom:0}
+.confirmbox .btnrow{margin-top:16px}
+
+/* กล่องยืนยันต้องไม่ติดไปในไฟล์ PDF */
+@media print{
+  .confirmbox{display:none !important}
+}
+
+/* ฉากหลังของกล่องยืนยัน — สูงกว่าแผงแชทและปุ่มลอย แต่ต่ำกว่าตัวกล่องเอง */
+.scrim.scrim-top{z-index:69}
