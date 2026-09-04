@@ -8,7 +8,7 @@
    ===================================================================== */
 
 import { useMemo, useState } from "react";
-import { ITEMS, PROJECTS, MONTHS, MONTHS_SHORT } from "@/lib/plan";
+import { PROJECTS, MONTHS, MONTHS_SHORT } from "@/lib/plan";
 import { STRATEGIES, ORG_UNITS, inUnit } from "@/lib/rollup";
 import { money, fmt } from "@/lib/format";
 
@@ -26,24 +26,55 @@ export function ItemPicker({ value, onChange, onlyProjects, label, exclude }) {
   const [q, setQ] = useState("");
   const [sNo, setSNo] = useState("");
   const [org, setOrg] = useState("");
+  const [showAll, setShowAll] = useState(false);
+  const [openUid, setOpenUid] = useState("");
 
-  const pool = onlyProjects ? PROJECTS : ITEMS.filter((x) => x.lvl >= 1);
+  /* ---------------------------------------------------------------
+     ยังไม่ค้นอะไรเลย = ไม่ต้องเทรายชื่อ 121 โครงการมาให้
 
+     รายชื่อยาว ๆ ที่โผล่มาก่อนที่จะรู้ว่าจะหาอะไร ไม่ได้ช่วยอะไรเลย
+     นอกจากทำให้ต้องเลื่อนผ่าน และเสี่ยงกดผิดโครงการ
+     ต้องพิมพ์ค้น เลือกยุทธศาสตร์ เลือกหน่วยงาน หรือกด "แสดงทั้งหมด" ก่อน
+     --------------------------------------------------------------- */
+  const needle = q.toLowerCase().trim();
+  const active = Boolean(needle || sNo || org || showAll);
+
+  /* ---------------------------------------------------------------
+     ระดับบนสุดของรายการเป็น "โครงการ" เสมอ กิจกรรมอยู่ใต้โครงการของตัวเอง
+     ไม่ปนกันเป็นรายการแบนเหมือนเดิม — 553 แถวเรียงกันดูไม่ออกว่า
+     กิจกรรมไหนอยู่ใต้โครงการไหน
+
+     คำค้นที่ตรงกับ "กิจกรรม" ก็ให้โครงการแม่โผล่ขึ้นมาด้วย และกางให้เอง
+     ไม่งั้นค้นชื่อกิจกรรมแล้วไม่เจออะไรเลย ทั้งที่มีอยู่จริง
+     --------------------------------------------------------------- */
   const list = useMemo(() => {
-    const needle = q.toLowerCase().trim();
-    return pool.filter((p) => {
+    if (!active) return [];
+
+    const hit = (x) =>
+      !needle || (x.code + " " + x.name + " " + (x.org || "")).toLowerCase().includes(needle);
+
+    return PROJECTS.filter((p) => {
       if (exclude && exclude(p)) return false;
       if (sNo && p.sNo !== sNo) return false;
       if (org && !inUnit(p, org)) return false;
-      if (needle) {
-        const hay = (p.code + " " + p.name + " " + (p.org || "")).toLowerCase();
-        if (!hay.includes(needle)) return false;
-      }
-      return true;
-    });
-  }, [pool, q, sNo, org, exclude]);
+      if (!needle) return true;
+      return hit(p) || (p._kids || []).some(hit);
+    }).map((p) => ({
+      p,
+      // กิจกรรมที่ตรงคำค้น ใช้ทั้งกางอัตโนมัติและบอกจำนวนที่ตรง
+      hits: needle && !hit(p) ? (p._kids || []).filter(hit) : [],
+    }));
+  }, [active, needle, sNo, org, exclude]);
 
   const shown = list.slice(0, 60);
+
+  function reset() {
+    setQ("");
+    setSNo("");
+    setOrg("");
+    setShowAll(false);
+    setOpenUid("");
+  }
 
   return (
     <div className="pickbox">
@@ -61,10 +92,10 @@ export function ItemPicker({ value, onChange, onlyProjects, label, exclude }) {
         <div className="field">
           <label htmlFor="pick-s">ยุทธศาสตร์</label>
           <select id="pick-s" value={sNo} onChange={(e) => setSNo(e.target.value)}>
-            <option value="">ทั้งหมด</option>
+            <option value="">— ไม่กรอง —</option>
             {STRATEGIES.map((s) => (
               <option key={s.no} value={s.no}>
-                ยุทธศาสตร์ที่ {s.no}
+                ยุทธศาสตร์ที่ {s.no} ({fmt(s.count)})
               </option>
             ))}
           </select>
@@ -72,49 +103,113 @@ export function ItemPicker({ value, onChange, onlyProjects, label, exclude }) {
         <div className="field">
           <label htmlFor="pick-o">หน่วยงาน</label>
           <select id="pick-o" value={org} onChange={(e) => setOrg(e.target.value)}>
-            <option value="">ทั้งหมด</option>
+            <option value="">— ไม่กรอง —</option>
             {ORG_UNITS.map((u) => (
               <option key={u.key} value={u.key}>
-                {u.name}
+                {u.name} ({fmt(u.count)})
               </option>
             ))}
           </select>
         </div>
-      </div>
-
-      <div className="small muted" style={{ marginBottom: 6 }}>
-        พบ {fmt(list.length)} รายการ
-        {list.length > shown.length
-          ? " · แสดง " + shown.length + " รายการแรก พิมพ์คำค้นเพิ่มเพื่อให้แคบลง"
-          : ""}
-      </div>
-
-      <div className="picklist">
-        {shown.length === 0 ? (
-          <div className="small muted" style={{ padding: 12 }}>
-            ไม่พบรายการที่ตรงกับที่ค้น
-          </div>
-        ) : (
-          shown.map((p) => (
+        <div className="field">
+          <label>&nbsp;</label>
+          <div className="btnrow" style={{ marginTop: 0 }}>
             <button
               type="button"
-              key={p.uid}
-              className={"pickrow" + (p.uid === value ? " on" : "")}
-              onClick={() => onChange(p.uid)}
+              className={showAll ? "btn" : "btn ghost"}
+              onClick={() => setShowAll(!showAll)}
             >
-              <span className="pickmark">{p.uid === value ? "✓" : ""}</span>
-              <span className="pickname">
-                <b>{p.code}</b> {p.name}
-                <span className="small muted">
-                  {" "}
-                  · {p.lvl === 1 ? "โครงการ" : "กิจกรรม"}
-                  {p.org ? " · " + p.org : ""} · {money(p.budget)} บาท
-                </span>
-              </span>
+              {showAll ? "กำลังแสดงทั้งหมด" : "แสดงทั้งหมด"}
             </button>
-          ))
-        )}
+            {active ? (
+              <button type="button" className="btn ghost" onClick={reset}>
+                ล้าง
+              </button>
+            ) : null}
+          </div>
+        </div>
       </div>
+
+      {!active ? (
+        <div className="picknone">
+          พิมพ์ค้นหาชื่อหรือรหัสโครงการ · เลือกยุทธศาสตร์หรือหน่วยงาน ·
+          หรือกด <b>แสดงทั้งหมด</b> เพื่อดูโครงการทั้ง {fmt(PROJECTS.length)} โครงการ
+        </div>
+      ) : (
+        <>
+          <div className="small muted" style={{ marginBottom: 7 }}>
+            พบ {fmt(list.length)} โครงการ
+            {list.length > shown.length
+              ? " · แสดง " + shown.length + " โครงการแรก พิมพ์คำค้นเพิ่มเพื่อให้แคบลง"
+              : ""}
+          </div>
+
+          <div className="picklist">
+            {shown.length === 0 ? (
+              <div className="small muted" style={{ padding: 14 }}>
+                ไม่พบโครงการที่ตรงกับที่ค้น
+              </div>
+            ) : (
+              shown.map(({ p, hits }) => {
+                const kids = p._kids || [];
+                const open = openUid === p.uid || hits.length > 0;
+                return (
+                  <div className="pickgroup" key={p.uid}>
+                    <button
+                      type="button"
+                      className={"pickrow proj" + (p.uid === value ? " on" : "")}
+                      onClick={() => onChange(p.uid)}
+                    >
+                      <span className="pickmark">{p.uid === value ? "✓" : ""}</span>
+                      <span className="pickname">
+                        <b>{p.code}</b> {p.name}
+                        <span className="pickmeta">
+                          โครงการ
+                          {p.org ? " · " + p.org : ""} · {money(p.budget)} บาท
+                          {kids.length ? " · " + kids.length + " กิจกรรม" : ""}
+                        </span>
+                      </span>
+                    </button>
+
+                    {/* กิจกรรมซ่อนไว้จนกว่าจะกดกาง — ค่าเริ่มต้นคนหาโครงการ
+                        ไม่ได้หากิจกรรม การกางทุกอันไว้ทำให้รายการยาวขึ้นสี่เท่า */}
+                    {kids.length && !onlyProjects ? (
+                      <button
+                        type="button"
+                        className="pickexp"
+                        aria-expanded={open}
+                        onClick={() => setOpenUid(open && !hits.length ? "" : p.uid)}
+                      >
+                        {open ? "▾" : "▸"} กิจกรรมภายใต้โครงการนี้ ({kids.length})
+                        {hits.length ? " · ตรงกับที่ค้น " + hits.length : ""}
+                      </button>
+                    ) : null}
+
+                    {open && !onlyProjects
+                      ? kids.map((k) => (
+                          <button
+                            type="button"
+                            key={k.uid}
+                            className={"pickrow act" + (k.uid === value ? " on" : "")}
+                            onClick={() => onChange(k.uid)}
+                          >
+                            <span className="pickmark">{k.uid === value ? "✓" : ""}</span>
+                            <span className="pickname">
+                              <b>{k.code}</b> {k.name}
+                              <span className="pickmeta">
+                                กิจกรรม · {money(k.budget)} บาท
+                              </span>
+                            </span>
+                          </button>
+                        ))
+                      : null}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

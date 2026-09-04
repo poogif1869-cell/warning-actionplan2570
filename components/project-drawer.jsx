@@ -23,7 +23,8 @@ import DownloadButton from "@/components/download-button";
 */
 export default function ProjectDrawer({ uid, alerts, onClose }) {
   const pathname = usePathname();
-  const canClear = pathname === "/projects";
+  // ตัด "/" ท้ายทิ้งก่อนเทียบ ด้วยเหตุผลเดียวกับใน report-tab.jsx
+  const canClear = String(pathname || "").replace(/\/+$/, "") === "/projects";
 
   const { clearProject } = useResults();
   const [tab, setTab] = useState("report");

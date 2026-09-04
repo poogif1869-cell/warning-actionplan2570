@@ -43,7 +43,12 @@ const HOME_PATH = "/projects";
 export default function ReportTab({ item }) {
   const pathname = usePathname();
   const router = useRouter();
-  const editable = pathname === HOME_PATH;
+
+  /* ตัด "/" ท้ายทิ้งก่อนเทียบ — บนมือถือ (โดยเฉพาะตอนเปิดจากไอคอน PWA
+     หรือจากลิงก์ที่พิมพ์เอง) path อาจกลายเป็น "/projects/" ซึ่งไม่เท่ากับ
+     "/projects" ตรง ๆ แล้วหน้าจะกลายเป็นดูอย่างเดียวทั้งที่อยู่หน้าเดียวกัน */
+  const here = String(pathname || "").replace(/\/+$/, "") || "/";
+  const editable = here === HOME_PATH;
 
   const {
     results,
@@ -89,7 +94,13 @@ export default function ReportTab({ item }) {
      "ทั้งปี" ไม่ผูกกับเดือนใดเดือนหนึ่ง จึงไม่บังคับ — แต่เตือนให้เลือกเดือน
      เพราะรายงานผลเป็นงานรายเดือน
      --------------------------------------------------------------- */
-  const budgetReady = !allMonths && budgetSubmitted(item.uid, asOfMonth);
+  /* โครงการที่ไม่ได้รับงบเลย ไม่ต้องส่งงบก่อน — ไม่มีอะไรให้ส่ง
+     ดูจากงบตามแผนของทั้งโครงการรวมกิจกรรมลูก ถ้าเป็นศูนย์ทั้งหมด
+     แปลว่าเป็นงานที่ทำโดยไม่ใช้งบ บังคับไปก็ได้แค่รายการ 0 บาทเปล่า ๆ */
+  const noBudget =
+    (item.budget || 0) === 0 && kids.every((k) => (k.budget || 0) === 0);
+
+  const budgetReady = !allMonths && (noBudget || budgetSubmitted(item.uid, asOfMonth));
   const [ackWarn, setAckWarn] = useState(false);
 
   /* พาไปที่โครงการนี้ในหน้างบประมาณเลย ไม่ใช่ให้ไปค้นเองใหม่

@@ -23,7 +23,7 @@ export const APPROVAL_FIELDS = [
   {
     key: "res_date",
     label: "เมื่อวันที่",
-    placeholder: "เช่น 15 ม.ค. 2570",
+    date: true,
   },
   {
     key: "doc_no",
@@ -33,9 +33,32 @@ export const APPROVAL_FIELDS = [
   {
     key: "doc_date",
     label: "ลงวันที่",
-    placeholder: "เช่น 20 ม.ค. 2570",
+    date: true,
   },
 ];
+
+/* ---------------------------------------------------------------------
+   วันที่เก็บเป็น yyyy-mm-dd (ค.ศ.) ตามที่ <input type="date"> ให้มา
+   แต่ **แสดงผลเป็น พ.ศ. เสมอ** เพราะหนังสือราชการใช้ พ.ศ.
+
+   เก็บเป็น ค.ศ. เพราะเรียงลำดับและเทียบวันได้ตรง ๆ ถ้าเก็บเป็นข้อความไทย
+   ("15 ม.ค. 70") จะเรียงตามตัวอักษรแล้วได้ลำดับมั่ว
+   คอลัมน์ในฐานข้อมูลยังเป็น text เหมือนเดิม จึงไม่ต้องแก้ schema
+   และข้อมูลเก่าที่เคยกรอกเป็นข้อความไทยไว้ก็ยังแสดงได้ตามเดิม
+   --------------------------------------------------------------------- */
+const TH_MONTH = [
+  "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
+  "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค.",
+];
+
+export function thaiDate(v) {
+  const s = String(v || "").trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return s; // ข้อความเดิมที่ไม่ใช่รูปแบบวันที่ ให้แสดงตามที่กรอกไว้
+  const y = Number(m[1]) + 543;
+  const mo = TH_MONTH[Number(m[2]) - 1] || m[2];
+  return Number(m[3]) + " " + mo + " " + y;
+}
 
 /* กรอกครบทั้งสี่ช่องหรือยัง — ช่องว่างล้วน ๆ ไม่นับว่ากรอก */
 export function isApprovalComplete(v) {
@@ -47,9 +70,9 @@ export function approvalText(e) {
   if (!e) return "";
   const parts = [];
   if (e.res_no) parts.push("มติ คกก.กยท. ครั้งที่ " + e.res_no);
-  if (e.res_date) parts.push("เมื่อ " + e.res_date);
+  if (e.res_date) parts.push("เมื่อ " + thaiDate(e.res_date));
   if (e.doc_no) parts.push("หนังสือ " + e.doc_no);
-  if (e.doc_date) parts.push("ลงวันที่ " + e.doc_date);
+  if (e.doc_date) parts.push("ลงวันที่ " + thaiDate(e.doc_date));
   return parts.join(" · ");
 }
 
@@ -73,11 +96,16 @@ export default function ApprovalFields({ value, onChange, idPrefix }) {
               </label>
               <input
                 id={pre + "-" + f.key}
-                type="text"
+                type={f.date ? "date" : "text"}
                 value={v[f.key] == null ? "" : v[f.key]}
                 placeholder={f.placeholder}
                 onChange={(e) => onChange({ ...v, [f.key]: e.target.value })}
               />
+              {/* ช่องวันที่แสดงเป็น ค.ศ. ตามที่เบราว์เซอร์กำหนด กลับเป็น พ.ศ. ไม่ได้
+                  จึงเขียน พ.ศ. กำกับไว้ใต้ช่อง ให้ตรวจกับหนังสือได้โดยไม่ต้องบวกเอง */}
+              {f.date && filled ? (
+                <div className="small muted">= {thaiDate(v[f.key])} (พ.ศ.)</div>
+              ) : null}
             </div>
           );
         })}

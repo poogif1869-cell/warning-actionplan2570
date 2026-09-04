@@ -118,7 +118,29 @@ export default function BudgetEntries({ uid, month, title }) {
     setBusy(false);
   }
 
+  /* ---------------------------------------------------------------
+     เดือนที่ดำเนินโครงการแต่ไม่ได้ใช้งบ ต้องมีรายการ 0 บาท แล้วกดส่ง
+
+     ถ้าปล่อยให้ส่งเดือนที่ไม่มีรายการเลย จะแยกไม่ออกระหว่าง
+     "เดือนนี้ไม่ได้ใช้งบ" กับ "ยังไม่ได้กรอก" — ซึ่งต่างกันสิ้นเชิง
+     อันแรกคือรายงานครบแล้ว อันหลังคืองานค้าง
+
+     รายการ 0 บาทจึงเป็นการบอกอย่างชัดเจนว่า "ดูแล้ว ไม่มีค่าใช้จ่าย"
+     --------------------------------------------------------------- */
+  async function addZero() {
+    setBusy(true);
+    await addBudgetEntry(uid, month, { note: "เดือนนี้ไม่มีค่าใช้จ่าย" });
+    setBusy(false);
+  }
+
   async function submitMonth() {
+    if (!list.length) {
+      alert(
+        "เดือน " + MONTHS[month] + " ยังไม่มีรายการเลย\n\n" +
+          "ถ้าเดือนนี้ไม่ได้ใช้งบ ให้กด “ไม่มีค่าใช้จ่ายเดือนนี้” เพื่อลงรายการ 0 บาทก่อน"
+      );
+      return;
+    }
     if (
       !confirm(
         "ส่งข้อมูลงบประมาณเดือน " +
@@ -200,33 +222,29 @@ export default function BudgetEntries({ uid, month, title }) {
                         style={{ ...cell, textAlign: "start" }}
                       />
                     </td>
+                    {/* ---------- ส่วนงานที่ใช้งบ ----------
+                        เป็นช่องพิมพ์ ไม่ใช่ดรอปดาวน์บังคับเลือก — ส่วนงานที่มา
+                        ร่วมใช้งบบางทีเป็นชื่อที่ไม่มีในทะเบียนหน่วยงานของแผน
+                        (คณะทำงานเฉพาะกิจ ศูนย์ในพื้นที่ ฯลฯ) บังคับเลือกแล้ว
+                        จะกรอกตามความจริงไม่ได้
+
+                        datalist ยังช่วยเติมชื่อที่มีอยู่ให้ จะได้ไม่พิมพ์ต่างกัน
+                        นิดหน่อยจนกลายเป็นคนละส่วนงานเวลารวมยอด
+
+                        **ไม่กรอกก็ได้** ยอดยังถูกนับรวมเป็นงบของโครงการตามปกติ
+                        ช่องนี้มีไว้แยกยอดตามส่วนงานเท่านั้น ไม่ใช่เงื่อนไขของการนับ */}
                     <td className="wide" data-label="ส่วนงานที่ใช้งบ">
-                      <select
+                      <input
+                        list={"orglist-" + uid}
+                        placeholder="ไม่ระบุก็ได้"
+                        readOnly={ro}
                         disabled={ro}
                         value={e.org || ""}
                         onChange={(ev) =>
                           updateBudgetEntry(uid, e.id, { org: ev.target.value })
                         }
                         style={{ ...cell, textAlign: "start" }}
-                      >
-                        <option value="">— ไม่ระบุ —</option>
-                        {orgChoices.own.length ? (
-                          <optgroup label="หน่วยงานของโครงการนี้">
-                            {orgChoices.own.map((n) => (
-                              <option key={n} value={n}>
-                                {n}
-                              </option>
-                            ))}
-                          </optgroup>
-                        ) : null}
-                        <optgroup label="หน่วยงานอื่น">
-                          {orgChoices.rest.map((n) => (
-                            <option key={n} value={n}>
-                              {n}
-                            </option>
-                          ))}
-                        </optgroup>
-                      </select>
+                      />
                     </td>
                     <td className="wide" data-label="รายละเอียด">
                       <input
@@ -307,6 +325,14 @@ export default function BudgetEntries({ uid, month, title }) {
               </tr>
             </tbody>
           </table>
+
+
+          {/* รายชื่อไว้เติมอัตโนมัติ ไม่ใช่ตัวเลือกบังคับ — พิมพ์ชื่ออื่นได้เสมอ */}
+          <datalist id={"orglist-" + uid}>
+            {orgChoices.own.concat(orgChoices.rest).map((n) => (
+              <option key={n} value={n} />
+            ))}
+          </datalist>
         </div>
       ) : (
         <div className="small muted" style={{ marginBottom: 8 }}>
@@ -341,6 +367,14 @@ export default function BudgetEntries({ uid, month, title }) {
               <button className="btn ghost" onClick={add} disabled={busy}>
                 + เพิ่มรายการ
               </button>
+
+              {/* ทางลัดสำหรับเดือนที่ทำโครงการแต่ไม่ได้ใช้งบ
+                  โผล่เฉพาะตอนยังไม่มีรายการเลย ถ้ามีรายการแล้วปุ่มนี้ไม่มีความหมาย */}
+              {!list.length ? (
+                <button className="btn ghost" onClick={addZero} disabled={busy}>
+                  ไม่มีค่าใช้จ่ายเดือนนี้ (ลง 0)
+                </button>
+              ) : null}
 
               {budgetHasSaved ? (
                 <button className="btn ghost" onClick={saveAll} disabled={busy || !draft.length}>

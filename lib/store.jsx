@@ -931,7 +931,7 @@ export function ResultsProvider({ children }) {
       },
 
       /* ---------- รายการงบประมาณ ---------- */
-      async addBudgetEntry(uid, month) {
+      async addBudgetEntry(uid, month, extra) {
         if (denyReadOnly()) return;
         const supabase = getSupabase();
         /* คอลัมน์เสริมสองตัวเพิ่มมาคนละรอบ ต้องต่อทีละตัวตามที่ฐานข้อมูลมีจริง
@@ -951,6 +951,8 @@ export function ResultsProvider({ children }) {
             fuel: 0,
             ...(budgetHasOther ? { other: 0 } : {}),
             ...(budgetHasSaved ? { saved: false } : {}),
+            // ค่าตั้งต้นเพิ่มเติม เช่น หมายเหตุของรายการ 0 บาท
+            ...(extra && extra.note ? { note: extra.note } : {}),
           })
           // cols ต่อคอลัมน์เสริมให้แล้วด้านบน อย่าต่อซ้ำอีก
           .select(cols)

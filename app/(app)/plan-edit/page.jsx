@@ -246,10 +246,11 @@ export default function PlanEditPage() {
 
     if (schedErr) out.push(schedErr);
     if (needsApproval && !isApprovalComplete(approval)) out.push("มติอนุมัติให้ครบทั้งสี่ช่อง");
+    if (!String(note || "").trim()) out.push("เหตุผลที่ปรับแผน");
     return out;
   }, [
     mode, form, codeErr, target, anyPart, delScope, delKids,
-    schedErr, needsApproval, approval,
+    schedErr, needsApproval, approval, note,
   ]);
 
   const ok = missing.length === 0 && canEdit && hasPlanEdits;
@@ -876,15 +877,24 @@ export default function PlanEditPage() {
             </>
           ) : null}
 
+          {/* เหตุผลบังคับกรอก — ถังการแก้ไขที่บอกได้แค่ว่า "เปลี่ยนจาก A เป็น B"
+              ตอบไม่ได้ว่าทำไม พออีกหกเดือนมีคนถามว่าทำไมงบโครงการนี้ลด
+              จะไม่มีใครตอบได้ เลขมติบอกแค่ว่าใครอนุมัติ ไม่ได้บอกว่าเพราะอะไร */}
           <div className="field">
-            <label htmlFor="pe-note">หมายเหตุ (ไม่บังคับ)</label>
+            <label htmlFor="pe-note">
+              เหตุผลที่ปรับแผน<span className="req"> *</span>
+            </label>
             <textarea
               id="pe-note"
-              rows={2}
+              rows={3}
               value={note}
-              placeholder="เหตุผลของการเปลี่ยนแปลง เพื่อให้คนอ่านถังการแก้ไขเข้าใจ"
+              placeholder="เช่น ปรับลดงบตามมติที่ให้ชะลอการจัดซื้อครุภัณฑ์ไปปีถัดไป"
               onChange={(e) => setNote(e.target.value)}
             />
+            <div className="small muted">
+              บังคับกรอก — ถังการแก้ไขบอกได้ว่าเปลี่ยนอะไร แต่ตอบไม่ได้ว่าทำไม
+              ถ้าไม่เขียนไว้ตรงนี้
+            </div>
           </div>
 
           {missing.length ? (

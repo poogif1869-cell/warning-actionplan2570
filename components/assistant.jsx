@@ -385,7 +385,7 @@ export default function Assistant() {
 
   return (
     <>
-      <div className="chatdock">
+      <div className={"chatdock" + (open ? " isopen" : "")}>
         {greet && !open ? (
           <div className="chatgreet" role="status">
             <span>{GREETING}</span>
