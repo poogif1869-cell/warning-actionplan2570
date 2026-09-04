@@ -10,7 +10,7 @@ import { money, mb, fmt, pct } from "@/lib/format";
 import MonthPicker from "@/components/month-picker";
 import Bars from "@/components/bars";
 import ProjectList from "@/components/project-list";
-import PrintButton from "@/components/print-button";
+import DownloadButton from "@/components/download-button";
 
 const S_COLORS = ["", "var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)"];
 
@@ -95,7 +95,52 @@ export default function OverviewPage() {
         <h2>
           สถานะการแจ้งเตือน
           <small>{asOfLabel}</small>
-          <PrintButton className="iconbtn" title="รายงานภาพรวมแผนปฏิบัติการ" subtitle={asOfLabel} />
+          <DownloadButton
+            className="iconbtn"
+            title="รายงานภาพรวมแผนปฏิบัติการ"
+            subtitle={asOfLabel}
+            sheets={() => [
+              {
+                name: "สรุปตามยุทธศาสตร์",
+                widths: [14, 50, 12, 18],
+                rows: [
+                  ["ยุทธศาสตร์", "ชื่อยุทธศาสตร์", "จำนวนโครงการ", "งบตามแผน"],
+                  ...STRATEGIES.map((s) => ["ที่ " + s.no, s.name, s.count, s.budget]),
+                ],
+              },
+              {
+                name: "สรุปตามแหล่งเงิน",
+                widths: [16, 44, 12, 18, 18, 18],
+                rows: [
+                  ["รหัสแหล่งเงิน", "ชื่อแหล่งเงิน", "จำนวนโครงการ", "เพดานงบ", "จัดสรรแล้ว", "คงเหลือจากเพดาน"],
+                  ...FUND_ROLLUP.map((f) => [f.code, f.name, f.count, f.ceiling || 0, f.used, f.left]),
+                ],
+              },
+              {
+                name: "สรุปตามแผนงาน",
+                widths: [56, 12, 18],
+                rows: [
+                  ["แผนงาน", "จำนวนโครงการ", "งบตามแผน"],
+                  ...PROGRAMS.map((g) => [g.name, g.count, g.budget]),
+                ],
+              },
+              {
+                name: "โครงการทั้งหมด",
+                widths: [12, 52, 22, 14, 16, 16],
+                rows: [
+                  ["รหัส", "โครงการ", "หน่วยงาน", "ยุทธศาสตร์", "แหล่งเงิน", "งบตามแผน"],
+                  ...PROJECTS.map((p) => [
+                    p.code,
+                    p.name,
+                    p.org || "",
+                    p.sNo ? "ที่ " + p.sNo : "",
+                    p.fund || "",
+                    p.budget || 0,
+                  ]),
+                ],
+              },
+            ]}
+          />
         </h2>
         <div className="tiles">
           <div className="tile crit">

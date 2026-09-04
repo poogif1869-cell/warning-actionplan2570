@@ -11,11 +11,11 @@ import {
 } from "@/lib/plan";
 import { money, fmt, pct } from "@/lib/format";
 import { ORG_UNITS, inUnit } from "@/lib/rollup";
-import { useResults, projectTrack, monthlyOf } from "@/lib/store";
+import { useResults, projectTrack, monthlyOf, budgetRollup } from "@/lib/store";
 import { buildAlerts, groupByUid, worstSev, rolledReport, SEV_LABEL } from "@/lib/alerts";
 import MonthPicker from "@/components/month-picker";
 import ProjectDrawer from "@/components/project-drawer";
-import PrintButton from "@/components/print-button";
+import DownloadButton from "@/components/download-button";
 
 export default function ProjectsPage() {
   const { results, budget, risk, asOfMonth, loaded } = useResults();
@@ -113,10 +113,30 @@ export default function ProjectsPage() {
             แสดง {fmt(rows.length)} รายการ · งบระดับโครงการที่แสดง {money(shownBudget)} บาท
             {grouped ? " · แบ่งตามกลยุทธ์ " + grouped.length + " กลุ่ม" : ""}
           </small>
-          <PrintButton
+          <DownloadButton
             className="iconbtn"
-            label="ดาวน์โหลด PDF"
             title="รายงานโครงการและกิจกรรม"
+            sheets={() => [
+              {
+                name: "โครงการและกิจกรรม",
+                widths: [12, 52, 20, 10, 14, 16, 16, 14, 14, 14],
+                rows: [
+                  ["รหัส", "ชื่อรายการ", "หน่วยงาน", "ระดับ", "ยุทธศาสตร์", "กลยุทธ์", "แหล่งเงิน", "งบตามแผน", "เบิกจ่าย", "สถานะ"],
+                  ...rows.map((p) => [
+                    p.code,
+                    p.name,
+                    p.org || "",
+                    p.lvl === 1 ? "โครงการ" : "กิจกรรม",
+                    p.sNo ? "ที่ " + p.sNo : "",
+                    p.tNo ? "ที่ " + p.tNo : "",
+                    p.fund || "",
+                    p.budget || 0,
+                    budgetRollup(budget, p, null).total,
+                    projectTrack(results, p.uid).status || "ยังไม่ระบุ",
+                  ]),
+                ],
+              },
+            ]}
             subtitle={
               (sNo ? "ยุทธศาสตร์ที่ " + sNo : "ทุกยุทธศาสตร์") +
               (org ? " · " + org : "") +

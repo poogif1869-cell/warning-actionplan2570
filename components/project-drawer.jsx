@@ -8,7 +8,7 @@ import { money, pct } from "@/lib/format";
 import { useResults, riskAt } from "@/lib/store";
 import { KIND_LABEL, SEV_LABEL } from "@/lib/alerts";
 import ReportTab from "@/components/report-tab";
-import PrintButton from "@/components/print-button";
+import DownloadButton from "@/components/download-button";
 
 /* ลิ้นชักรายละเอียดโครงการ — ใช้ร่วมกันทุกหน้า
 
@@ -96,7 +96,7 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
             </div>
           </h3>
           {/* พิมพ์เฉพาะเนื้อในลิ้นชัก โดยซ่อนหน้าเบื้องหลังทิ้ง (ดู body.printing-drawer) */}
-          <PrintButton
+          <DownloadButton
             className="iconbtn"
             label="PDF"
             mode="drawer"

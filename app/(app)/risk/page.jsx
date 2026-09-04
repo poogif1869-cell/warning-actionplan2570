@@ -15,7 +15,7 @@ import { buildAlerts, RISK_KINDS, KIND_LABEL, SEV_LABEL } from "@/lib/alerts";
 import MonthPicker from "@/components/month-picker";
 import ProjectDrawer from "@/components/project-drawer";
 import Bars from "@/components/bars";
-import PrintButton from "@/components/print-button";
+import DownloadButton from "@/components/download-button";
 
 export default function RiskPage() {
   const { results, risk, asOfMonth, asOfLabel, allMonths, loaded, setRisk } = useResults();
@@ -102,7 +102,29 @@ export default function RiskPage() {
         <h2>
           แดชบอร์ดความเสี่ยง
           <small>อิงรายงานล่าสุดของ{asOfLabel}</small>
-          <PrintButton className="iconbtn" title="รายงานความเสี่ยง" subtitle={asOfLabel} />
+          <DownloadButton
+            className="iconbtn"
+            title="รายงานความเสี่ยง"
+            subtitle={asOfLabel}
+            sheets={() => [
+              {
+                name: "ทะเบียนความเสี่ยง",
+                widths: [12, 44, 18, 14, 12, 36, 36],
+                rows: [
+                  ["รหัส", "โครงการ", "หน่วยงาน", "งบตามแผน", "ระดับล่าสุด", "สถานการณ์", "มาตรการจัดการ"],
+                  ...registerRows.map((r) => [
+                    r.p.code,
+                    r.p.name,
+                    r.p.org || "",
+                    r.p.budget || 0,
+                    r.level == null ? "ยังไม่รายงาน" : riskLevelInfo(r.level).label,
+                    (r.entry && r.entry.situation) || "",
+                    (r.entry && r.entry.action) || "",
+                  ]),
+                ],
+              },
+            ]}
+          />
         </h2>
 
         <div className="tiles">

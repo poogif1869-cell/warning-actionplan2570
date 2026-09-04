@@ -8,7 +8,7 @@ import { ORG_UNITS, inUnit } from "@/lib/rollup";
 import { money, mb, fmt, pct } from "@/lib/format";
 import MonthPicker from "@/components/month-picker";
 import ProjectDrawer from "@/components/project-drawer";
-import PrintButton from "@/components/print-button";
+import DownloadButton from "@/components/download-button";
 
 const KINDS = Object.keys(KIND_LABEL);
 
@@ -62,7 +62,29 @@ export default function AlertsPage() {
         <h2>
           สรุปการแจ้งเตือน
           <small>{asOfLabel}</small>
-          <PrintButton className="iconbtn" title="รายงานการแจ้งเตือน" subtitle={asOfLabel} />
+          <DownloadButton
+            className="iconbtn"
+            title="รายงานการแจ้งเตือน"
+            subtitle={asOfLabel}
+            sheets={() => [
+              {
+                name: "การแจ้งเตือน",
+                widths: [10, 22, 14, 44, 40, 16, 14],
+                rows: [
+                  ["ความรุนแรง", "ประเภท", "รหัสโครงการ", "เรื่อง", "รายละเอียด", "หน่วยงาน", "งบตามแผน"],
+                  ...shown.map((a) => [
+                    SEV_LABEL[a.sev] || a.sev,
+                    KIND_LABEL[a.kind] || a.kind,
+                    a.code || "",
+                    a.title || "",
+                    a.detail || "",
+                    a.org || "",
+                    a.budget || 0,
+                  ]),
+                ],
+              },
+            ]}
+          />
         </h2>
 
         <div className="tiles">

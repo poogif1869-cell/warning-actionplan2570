@@ -16,7 +16,7 @@ import MonthBudget from "@/components/month-budget";
 import BudgetReport from "@/components/budget-report";
 import Bars from "@/components/bars";
 import Donut from "@/components/donut";
-import PrintButton from "@/components/print-button";
+import DownloadButton from "@/components/download-button";
 
 const S_COLORS = ["", "var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)"];
 
@@ -222,11 +222,34 @@ export default function BudgetPage() {
             <h2>
               แดชบอร์ดสรุปงบประมาณ
               <small>{asOfLabel}</small>
-              <PrintButton
+              <DownloadButton
                 className="iconbtn"
-                label="ดาวน์โหลด PDF"
                 title="แดชบอร์ดสรุปงบประมาณ"
                 subtitle={asOfLabel}
+                sheets={() => [
+                  {
+                    name: "สรุปตามหน่วยงาน",
+                    widths: [24, 12, 16, 16, 16].concat(COST_FIELDS.map(() => 16)),
+                    rows: [
+                      ["หน่วยงานเจ้าของโครงการ", "โครงการ", "งบตามแผน", "เบิกจ่าย", "คงเหลือ"].concat(
+                        COST_FIELDS.map((c) => c.label)
+                      ),
+                      ...byOrg.map((u) =>
+                        [u.name, u.count, u.planned, u.used, u.planned - u.used].concat(
+                          COST_FIELDS.map((c) => u.cost[c.key] || 0)
+                        )
+                      ),
+                    ],
+                  },
+                  {
+                    name: "สรุปตามแหล่งงบประมาณ",
+                    widths: [16, 40, 12, 16, 16, 16],
+                    rows: [
+                      ["รหัสแหล่งเงิน", "ชื่อแหล่งเงิน", "โครงการ", "เพดานงบ", "งบตามแผน", "เบิกจ่าย"],
+                      ...byFund.map((f) => [f.code, f.name, f.count, f.ceiling || 0, f.planned, f.used]),
+                    ],
+                  },
+                ]}
               />
             </h2>
 
@@ -558,8 +581,48 @@ export default function BudgetPage() {
                     ดาวน์โหลด PDF
                   </button>
                 ) : (
-                  <PrintButton
-                    label="ดาวน์โหลด PDF"
+                  <DownloadButton
+                    sheets={() => [
+                      {
+                        name: "รายการเบิกจ่าย",
+                        widths: [12, 40, 10, 14, 20, 30].concat(COST_FIELDS.map(() => 14)).concat([16]),
+                        rows: [
+                          ["รหัสโครงการ", "โครงการ", "เดือน", "วันที่", "ส่วนงานที่ใช้งบ", "รายละเอียด"]
+                            .concat(COST_FIELDS.map((c) => c.label))
+                            .concat(["รวมรายการ"]),
+                          ...rows.flatMap(({ p, roll }) =>
+                            [...roll.own, ...roll.byActivity.flatMap((a) => a.list)].map((e) =>
+                              [
+                                p.code,
+                                p.name,
+                                MONTHS[e.month] || "",
+                                e.occurred_on || "",
+                                e.org || "",
+                                e.note || "",
+                              ]
+                                .concat(COST_FIELDS.map((c) => Number(String(e[c.key] || "0").replace(/,/g, "")) || 0))
+                                .concat([entriesTotal([e])])
+                            )
+                          ),
+                        ],
+                      },
+                      {
+                        name: "สรุปรายโครงการ",
+                        widths: [12, 44, 20, 16, 16, 16, 12],
+                        rows: [
+                          ["รหัส", "โครงการ", "หน่วยงาน", "งบตามแผน", "เบิกจ่าย", "คงเหลือ", "จำนวนรายการ"],
+                          ...rows.map(({ p, roll }) => [
+                            p.code,
+                            p.name,
+                            p.org || "",
+                            p.budget || 0,
+                            roll.total,
+                            (p.budget || 0) - roll.total,
+                            roll.count,
+                          ]),
+                        ],
+                      },
+                    ]}
                     title={
                       pdfScope === "org"
                         ? "รายงานงบประมาณ หน่วยงาน " + (orgName || "(ยังไม่เลือก)")

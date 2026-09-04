@@ -6,7 +6,7 @@ import { STRATEGIES } from "@/lib/rollup";
 import { money, fmt, pct } from "@/lib/format";
 import { useResults, kpiActual } from "@/lib/store";
 import Bars from "@/components/bars";
-import PrintButton from "@/components/print-button";
+import DownloadButton from "@/components/download-button";
 
 const S_COLORS = ["", "var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)"];
 
@@ -49,7 +49,34 @@ export default function StrategyPage() {
         <h2>
           ภาพรวมการบรรลุตัวชี้วัดองค์กร
           <small>ตัวชี้วัด {KPIS.length} ตัว · ค่าเป้าหมายปี 2570</small>
-          <PrintButton className="iconbtn" title="รายงานยุทธศาสตร์และตัวชี้วัด" subtitle="ปีงบประมาณ 2570" />
+          <DownloadButton
+            className="iconbtn"
+            title="รายงานยุทธศาสตร์และตัวชี้วัด"
+            subtitle="ปีงบประมาณ 2570"
+            sheets={() => [
+              {
+                name: "ตัวชี้วัดองค์กร",
+                widths: [10, 52, 14, 12, 12, 12, 14, 18],
+                rows: [
+                  ["ตัวชี้วัดที่", "ชื่อตัวชี้วัด", "ยุทธศาสตร์", "เป้าหมาย", "หน่วย", "ผลที่รายงาน", "บรรลุ (%)", "สถานะ"],
+                  ...KPIS.map((k) => {
+                    const actual = kpiActual(results, k.no);
+                    const p = achievement(actual, k.target, k.dir);
+                    return [
+                      k.no,
+                      k.name,
+                      k.s ? "ที่ " + k.s : "",
+                      k.target,
+                      k.unit || "",
+                      actual == null || actual === "" ? "ยังไม่รายงาน" : actual,
+                      p == null ? "" : Math.round(p * 10) / 10,
+                      statusOf(p).label,
+                    ];
+                  }),
+                ],
+              },
+            ]}
+          />
         </h2>
         <div className="tiles">
           <div className="tile">

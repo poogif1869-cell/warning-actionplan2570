@@ -4,3 +4,4 @@ out/
 .vercel
 .env*.local
 *.log
+ui-lab.html

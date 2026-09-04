@@ -5,7 +5,7 @@ import { PLAN_LINKS, groupByField, missingCount } from "@/lib/rollup";
 import { PROJECTS } from "@/lib/plan";
 import { money, fmt, pct } from "@/lib/format";
 import ProjectDrawer from "@/components/project-drawer";
-import PrintButton from "@/components/print-button";
+import DownloadButton from "@/components/download-button";
 
 export default function LinkagePage() {
   const [planKey, setPlanKey] = useState(PLAN_LINKS[0].key);
@@ -57,7 +57,29 @@ export default function LinkagePage() {
         <h2>
           ความเชื่อมโยงแผน
           <small>เลือกแผนที่ต้องการดู แล้วเลือกชั้นภายในแผนนั้น</small>
-          <PrintButton className="iconbtn" title="รายงานความเชื่อมโยงแผน" subtitle={plan.name + " · " + level.label} />
+          <DownloadButton
+            className="iconbtn"
+            title="รายงานความเชื่อมโยงแผน"
+            subtitle={plan.name + " · " + level.label}
+            sheets={() => [
+              {
+                name: "ความเชื่อมโยงแผน",
+                widths: [50, 12, 18, 12, 46],
+                rows: [
+                  [level.label, "จำนวนโครงการ", "งบตามแผน", "รหัส", "โครงการ"],
+                  ...groups.flatMap((g) =>
+                    g.list.map((p, i) => [
+                      i === 0 ? g.name : "",
+                      i === 0 ? g.list.length : "",
+                      i === 0 ? g.budget : "",
+                      p.code,
+                      p.name,
+                    ])
+                  ),
+                ],
+              },
+            ]}
+          />
         </h2>
 
         <div className="small muted" style={{ marginBottom: 7 }}>
