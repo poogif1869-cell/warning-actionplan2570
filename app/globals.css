@@ -1299,10 +1299,17 @@ section.block > h2 > .dlwrap{margin-inline-start:auto}
 
 /* ---------- ตัวเลือกโครงการแบบค้นหาได้ ---------- */
 .pickbox{margin-bottom:16px}
+/* ไม่มี max-height กับ overflow-y แล้ว — ใช้แบ่งหน้าแทน
+   กล่องที่เลื่อนได้ พอเลื่อนจนสุดเบราว์เซอร์จะส่งการเลื่อนต่อให้หน้าเว็บ
+   คนที่กำลังไล่ดูรายชื่อจึงถูกดีดไปท้ายหน้าโดยไม่ได้ตั้งใจ */
 .picklist{
-  max-height:320px; overflow-y:auto; border:1px solid var(--border-soft);
+  border:1px solid var(--border-soft);
   border-radius:12px; background:var(--surface); padding:6px;
   display:flex; flex-direction:column; gap:3px;
+}
+.pickpager{
+  display:flex; align-items:center; justify-content:center; gap:14px;
+  margin-top:12px; flex-wrap:wrap;
 }
 .pickrow{
   display:flex; align-items:flex-start; gap:10px; width:100%; text-align:start;

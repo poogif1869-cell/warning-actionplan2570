@@ -617,41 +617,11 @@ export default function PlanEditPage() {
 
               <OrgPicker value={form.org} onChange={(v) => setForm({ ...form, org: v })} />
 
-              <div className="grid2">
-                <div className="field">
-                  <label htmlFor="pe-strategy">
-                    ยุทธศาสตร์<span className="req"> *</span>
-                  </label>
-                  <select
-                    id="pe-strategy"
-                    value={form.strategy}
-                    onChange={(e) => setForm({ ...form, strategy: e.target.value, tactic: "" })}
-                  >
-                    <option value="">— เลือกยุทธศาสตร์ —</option>
-                    {STRATEGIES.map((s) => (
-                      <option key={s.no} value={s.name}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="field">
-                  <label htmlFor="pe-tactic">กลยุทธ์</label>
-                  <select
-                    id="pe-tactic"
-                    value={form.tactic}
-                    disabled={!strategy}
-                    onChange={(e) => setForm({ ...form, tactic: e.target.value })}
-                  >
-                    <option value="">{strategy ? "— ไม่ระบุ —" : "เลือกยุทธศาสตร์ก่อน"}</option>
-                    {(strategy ? strategy.tactics : []).map((t) => (
-                      <option key={t.no || t.name} value={t.name}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+              {/* ยุทธศาสตร์กับกลยุทธ์ย้ายไปอยู่ในส่วน "การเชื่อมโยงแผน" ด้านล่าง
+                  เพราะสองอย่างนี้คือการเชื่อมโยงกับ **แผนวิสาหกิจ กยท.**
+                  ไม่ใช่คุณสมบัติของตัวโครงการเอง — วางไว้สองที่เมื่อไหร่
+                  ก็จะมีคนกรอกที่หนึ่งแล้วลืมอีกที่เมื่อนั้น */}
+
 
               <div className="grid2">
                 <div className="field">
@@ -710,21 +680,20 @@ export default function PlanEditPage() {
                 projectCode={projectCode}
               />
 
-              <h3 className="steptitle">
-                <span className="stepno">4</span>แผนการดำเนินงาน
-              </h3>
-              {acts.length ? (
-                <div className="banner ok">
-                  โครงการนี้มีกิจกรรม {acts.length} รายการ —{" "}
-                  <b>แผนการดำเนินงานกรอกไว้ที่กิจกรรมแต่ละตัวแล้ว</b>{" "}
-                  ยอดของโครงการม้วนขึ้นมาจากกิจกรรมให้เอง ไม่ต้องกรอกซ้ำที่นี่
-                </div>
-              ) : (
-                <ScheduleFields form={form} setForm={setForm} />
+              {/* มีกิจกรรมแล้วขั้นนี้หายไปเลย ไม่ใช่ขึ้นแถบบอกว่าไม่ต้องกรอก
+                  ขั้นที่โผล่มาแล้วบอกว่า "ไม่ต้องทำ" คือขั้นที่ไม่ควรมีตั้งแต่แรก
+                  เลขขั้นถัดไปจึงต้องขยับตาม ไม่ใช่ข้ามเลข */}
+              {acts.length ? null : (
+                <>
+                  <h3 className="steptitle">
+                    <span className="stepno">4</span>แผนการดำเนินงาน
+                  </h3>
+                  <ScheduleFields form={form} setForm={setForm} />
+                </>
               )}
 
               <h3 className="steptitle">
-                <span className="stepno">5</span>การเชื่อมโยงแผน
+                <span className="stepno">{acts.length ? 4 : 5}</span>การเชื่อมโยงแผน
               </h3>
               <PlanLinkFields form={form} setForm={setForm} />
             </>

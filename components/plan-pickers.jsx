@@ -11,6 +11,7 @@ import { useMemo, useState } from "react";
 import { PROJECTS, MONTHS, MONTHS_SHORT } from "@/lib/plan";
 import { STRATEGIES, ORG_UNITS, PLAN_LINKS, inUnit } from "@/lib/rollup";
 import { money, fmt } from "@/lib/format";
+import { linkOptions, leadNo, underNo } from "@/lib/plan-links";
 
 /* ---------------------------------------------------------------------
    เลือกโครงการ/กิจกรรม — มีช่องค้นหาและตัวกรอง
@@ -28,6 +29,10 @@ export function ItemPicker({ value, onChange, onlyProjects, label, exclude }) {
   const [org, setOrg] = useState("");
   const [showAll, setShowAll] = useState(false);
   const [openUid, setOpenUid] = useState("");
+  /* แบ่งหน้าแทนกล่องเลื่อน — กล่องที่มี overflow-y เมื่อเลื่อนจนสุดแล้ว
+     เบราว์เซอร์จะส่งการเลื่อนต่อไปให้หน้าเว็บ (scroll chaining)
+     คนกำลังไล่ดูรายชื่อจึงถูกดีดออกไปท้ายหน้าโดยไม่ได้ตั้งใจ */
+  const [page, setPage] = useState(0);
 
   /* ---------------------------------------------------------------
      ยังไม่ค้นอะไรเลย = ไม่ต้องเทรายชื่อ 121 โครงการมาให้
@@ -66,7 +71,11 @@ export function ItemPicker({ value, onChange, onlyProjects, label, exclude }) {
     }));
   }, [active, needle, sNo, org, exclude]);
 
-  const shown = list.slice(0, 60);
+  const PER_PAGE = 8;
+  const pages = Math.max(1, Math.ceil(list.length / PER_PAGE));
+  // เปลี่ยนตัวกรองแล้วจำนวนหน้าลด หน้าที่ค้างอยู่อาจเกินไปแล้ว
+  const pageNo = Math.min(page, pages - 1);
+  const shown = list.slice(pageNo * PER_PAGE, pageNo * PER_PAGE + PER_PAGE);
 
   function reset() {
     setQ("");
@@ -74,6 +83,16 @@ export function ItemPicker({ value, onChange, onlyProjects, label, exclude }) {
     setOrg("");
     setShowAll(false);
     setOpenUid("");
+    setPage(0);
+  }
+
+  /* เปลี่ยนคำค้นหรือตัวกรอง ต้องกลับหน้าแรกเสมอ
+     ไม่งั้นค้นใหม่แล้วเจอ "ไม่พบรายการ" ทั้งที่มีผลลัพธ์อยู่หน้าแรก */
+  function refine(fn) {
+    return (v) => {
+      fn(v);
+      setPage(0);
+    };
   }
 
   return (
@@ -86,12 +105,12 @@ export function ItemPicker({ value, onChange, onlyProjects, label, exclude }) {
             type="search"
             placeholder="ชื่อ / รหัส / หน่วยงาน"
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => refine(setQ)(e.target.value)}
           />
         </div>
         <div className="field">
           <label htmlFor="pick-s">ยุทธศาสตร์</label>
-          <select id="pick-s" value={sNo} onChange={(e) => setSNo(e.target.value)}>
+          <select id="pick-s" value={sNo} onChange={(e) => refine(setSNo)(e.target.value)}>
             <option value="">— ไม่กรอง —</option>
             {STRATEGIES.map((s) => (
               <option key={s.no} value={s.no}>
@@ -102,7 +121,7 @@ export function ItemPicker({ value, onChange, onlyProjects, label, exclude }) {
         </div>
         <div className="field">
           <label htmlFor="pick-o">หน่วยงาน</label>
-          <select id="pick-o" value={org} onChange={(e) => setOrg(e.target.value)}>
+          <select id="pick-o" value={org} onChange={(e) => refine(setOrg)(e.target.value)}>
             <option value="">— ไม่กรอง —</option>
             {ORG_UNITS.map((u) => (
               <option key={u.key} value={u.key}>
@@ -117,7 +136,7 @@ export function ItemPicker({ value, onChange, onlyProjects, label, exclude }) {
             <button
               type="button"
               className={showAll ? "btn" : "btn ghost"}
-              onClick={() => setShowAll(!showAll)}
+              onClick={() => refine(setShowAll)(!showAll)}
             >
               {showAll ? "กำลังแสดงทั้งหมด" : "แสดงทั้งหมด"}
             </button>
@@ -139,9 +158,7 @@ export function ItemPicker({ value, onChange, onlyProjects, label, exclude }) {
         <>
           <div className="small muted" style={{ marginBottom: 7 }}>
             พบ {fmt(list.length)} โครงการ
-            {list.length > shown.length
-              ? " · แสดง " + shown.length + " โครงการแรก พิมพ์คำค้นเพิ่มเพื่อให้แคบลง"
-              : ""}
+            {pages > 1 ? " · หน้า " + (pageNo + 1) + " จาก " + pages : ""}
           </div>
 
           <div className="picklist">
@@ -208,6 +225,31 @@ export function ItemPicker({ value, onChange, onlyProjects, label, exclude }) {
               })
             )}
           </div>
+
+          {/* ปุ่มเปลี่ยนหน้า — ไม่ใช้กล่องเลื่อน จะได้ไม่ดีดหน้าเว็บตอนเลื่อนจนสุด */}
+          {pages > 1 ? (
+            <div className="pickpager">
+              <button
+                type="button"
+                className="btn ghost"
+                disabled={pageNo === 0}
+                onClick={() => setPage(pageNo - 1)}
+              >
+                ← ก่อนหน้า
+              </button>
+              <span className="small muted">
+                หน้า {pageNo + 1} / {pages}
+              </span>
+              <button
+                type="button"
+                className="btn ghost"
+                disabled={pageNo >= pages - 1}
+                onClick={() => setPage(pageNo + 1)}
+              >
+                ถัดไป →
+              </button>
+            </div>
+          ) : null}
         </>
       )}
     </div>
@@ -453,103 +495,165 @@ export function ScheduleFields({ form, setForm }) {
 }
 
 /* ---------------------------------------------------------------------
-   การเชื่อมโยงแผน — กรอกครบทั้ง 4 แผน ไม่ใช่เฉพาะแผนระดับชาติ
+   การเชื่อมโยงแผน — เลือกจากรายการจริงของแต่ละแผน ไม่ใช่พิมพ์เอง
 
-   เดิมฟอร์มมีแค่ 7 ช่องที่พิมพ์ชื่อไว้ตายตัวในหน้า ทำให้ตกไปสองช่อง
-   (nIssue, nYGoal) และไม่มีแผนวิสาหกิจ กยท. เลย ทั้งที่หน้าความเชื่อมโยงแผน
-   ให้ดูได้ทั้ง 4 แผน — กรอกไม่ครบ โครงการก็ไปโผล่ในกลุ่ม
-   "ยังไม่ระบุการเชื่อมโยง" ของแผนที่ตกไป
+   ตัวเลือกมาจาก data/ข้อมูลเชื่อมโยงแผน.xlsx (ผ่าน lib/plan-links.js)
+   สำหรับสามแผนแรก ส่วนแผนวิสาหกิจ กยท. อ่านจากไฟล์แผนปฏิบัติการ
+   เพราะยุทธศาสตร์กับกลยุทธ์อยู่ที่นั่นอยู่แล้วและตรงกันทุกตัวอักษร
 
-   ตอนนี้อ่านจาก PLAN_LINKS ตัวเดียวกับที่หน้าความเชื่อมโยงแผนใช้
-   เพิ่มชั้นใหม่ในแผนไหนก็โผล่มาให้กรอกเองโดยไม่ต้องแก้ที่นี่
+   **เป็นดรอปดาวน์ ไม่ใช่ช่องพิมพ์** เพราะการเชื่อมโยงแผนต้องเลือกจาก
+   รายการทางการเท่านั้น พิมพ์เองแล้วต่างกันนิดเดียวก็กลายเป็นคนละกลุ่ม
+   ในหน้าความเชื่อมโยงแผนทันที (จัดกลุ่มด้วยข้อความตรงตัว)
 
-   **แผนวิสาหกิจ กยท. ไม่ให้พิมพ์ซ้ำ** เพราะสามชั้นของมัน (so/strategy/tactic)
-   คือยุทธศาสตร์กับกลยุทธ์ที่เลือกไว้ด้านบนแล้ว ถ้าเปิดให้พิมพ์อีกที่
-   สองที่จะไม่ตรงกันเมื่อไหร่ก็ได้ จึงแสดงเป็นค่าที่อ่านอย่างเดียว
+   ชั้นล่างกรองตามเลขของชั้นบน — เลือกยุทธศาสตร์ชาติที่ 2 แล้วเป้าหมาย
+   เหลือเฉพาะ 2.x ไม่ต้องไล่หาเองในรายการ 35 บรรทัด
    --------------------------------------------------------------------- */
 export function PlanLinkFields({ form, setForm }) {
-  /* ค่าที่เคยมีในแผนแล้ว พร้อมจำนวนโครงการที่ใช้ค่านั้น
-     จำนวนช่วยให้เลือกค่าที่คนอื่นใช้กันอยู่ ไม่ใช่พิมพ์ใหม่ที่ต่างกันนิดเดียว */
-  const options = useMemo(() => {
-    const out = {};
-    PLAN_LINKS.forEach((p) =>
-      p.levels.forEach((l) => {
-        const m = new Map();
-        PROJECTS.forEach((x) => {
-          if (x[l.key]) m.set(x[l.key], (m.get(x[l.key]) || 0) + 1);
-        });
-        out[l.key] = [...m.entries()]
-          .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "th"))
-          .map(([v, n]) => ({ v, n }));
-      })
-    );
-    return out;
-  }, []);
+  /* ยุทธศาสตร์/กลยุทธ์ของ กยท. ย้ายมาอยู่ในส่วนนี้ เพราะมันคือ
+     "การเชื่อมโยงกับแผนวิสาหกิจ กยท." ไม่ใช่ข้อมูลของโครงการเอง
+     กลยุทธ์กรองตามยุทธศาสตร์ที่เลือกอยู่แล้วในโครงสร้าง STRATEGIES */
+  const strategy = STRATEGIES.find((s) => s.name === form.strategy) || null;
+
+  function set(patch) {
+    setForm({ ...form, ...patch });
+  }
+
+  /* ตัวเลือกของแต่ละช่อง พร้อมตัวกรองตามชั้นบน */
+  function optionsFor(key) {
+    if (key === "nGoal" || key === "nIssue") return underNo(linkOptions(key), leadNo(form.nX));
+    if (key === "nYGoal" || key === "nSub") return underNo(linkOptions(key), leadNo(form.nY));
+    if (key === "nSubGoal") return underNo(linkOptions(key), leadNo(form.nSub || form.nY));
+    if (key === "mWay") return underNo(linkOptions(key), leadNo(form.mIssue));
+    return linkOptions(key);
+  }
+
+  /* เลือกชั้นบนใหม่ ต้องล้างชั้นล่างที่ไม่เข้าพวกแล้วทิ้ง
+     ไม่งั้นจะเหลือ "ยุทธศาสตร์ชาติที่ 2" คู่กับ "เป้าหมาย 5.1" ค้างอยู่ */
+  const CLEARS = {
+    nX: ["nGoal", "nIssue"],
+    nY: ["nYGoal", "nSub", "nSubGoal"],
+    nSub: ["nSubGoal"],
+    mIssue: ["mWay"],
+  };
+
+  function pick(key, value) {
+    const patch = { [key]: value };
+    (CLEARS[key] || []).forEach((k) => (patch[k] = ""));
+    set(patch);
+  }
 
   return (
     <div className="linkgrid">
       {PLAN_LINKS.map((plan) => {
-        const readOnly = plan.key === "raot";
+        const isRaot = plan.key === "raot";
         const filled = plan.levels.filter((l) => String(form[l.key] || "").trim()).length;
 
         return (
-          <div className={"linkcard" + (readOnly ? " ro" : "")} key={plan.key}>
+          <div className="linkcard" key={plan.key}>
             <div className="linkhead">
               <b>{plan.name}</b>
-              <span className={"pill " + (filled === plan.levels.length ? "ok" : filled ? "warn" : "none")}>
+              <span
+                className={
+                  "pill " + (filled === plan.levels.length ? "ok" : filled ? "warn" : "none")
+                }
+              >
                 {filled}/{plan.levels.length}
               </span>
             </div>
 
-            {readOnly ? (
-              <div className="small muted" style={{ marginBottom: 8 }}>
-                มาจากยุทธศาสตร์และกลยุทธ์ที่เลือกไว้ด้านบน — แก้ที่นั่นที่เดียว
-              </div>
-            ) : null}
-
-            {plan.levels.map((l) => {
-              const val = form[l.key] || "";
-              const list = options[l.key] || [];
-              return (
-                <div className="field" key={l.key}>
-                  <label htmlFor={"pl-" + l.key}>{l.label}</label>
-                  {readOnly ? (
-                    <div className={"linkro" + (val ? "" : " empty")}>
-                      {val || "— ยังไม่ได้เลือก —"}
-                    </div>
-                  ) : (
-                    <>
-                      <input
-                        id={"pl-" + l.key}
-                        type="text"
-                        list={"pl-list-" + l.key}
-                        placeholder={
-                          list.length
-                            ? "พิมพ์ หรือเลือกจาก " + fmt(list.length) + " ค่าที่มีอยู่"
-                            : "ยังไม่มีค่านี้ในแผน พิมพ์ได้เลย"
-                        }
-                        value={val}
-                        onChange={(e) => setForm({ ...form, [l.key]: e.target.value })}
-                      />
-                      <datalist id={"pl-list-" + l.key}>
-                        {list.map((o) => (
-                          <option key={o.v} value={o.v}>
-                            {o.n} โครงการใช้ค่านี้
-                          </option>
-                        ))}
-                      </datalist>
-                    </>
-                  )}
+            {/* ---------- แผนวิสาหกิจ กยท. ----------
+                so มาจากยุทธศาสตร์ที่เลือก ไม่ให้เลือกแยก เพราะหนึ่งยุทธศาสตร์
+                มี SO เดียวตายตัวอยู่แล้วในไฟล์แผน */}
+            {isRaot ? (
+              <>
+                <div className="field">
+                  <label htmlFor="lk-strategy">
+                    ยุทธศาสตร์<span className="req"> *</span>
+                  </label>
+                  <select
+                    id="lk-strategy"
+                    value={form.strategy || ""}
+                    onChange={(e) =>
+                      set({
+                        strategy: e.target.value,
+                        tactic: "",
+                        so:
+                          (STRATEGIES.find((s) => s.name === e.target.value) || {}).so || "",
+                      })
+                    }
+                  >
+                    <option value="">— เลือกยุทธศาสตร์ —</option>
+                    {STRATEGIES.map((s) => (
+                      <option key={s.no} value={s.name}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              );
-            })}
+
+                <div className="field">
+                  <label htmlFor="lk-tactic">กลยุทธ์</label>
+                  <select
+                    id="lk-tactic"
+                    value={form.tactic || ""}
+                    disabled={!strategy}
+                    onChange={(e) => set({ tactic: e.target.value })}
+                  >
+                    <option value="">
+                      {strategy
+                        ? "— เลือกกลยุทธ์ (" + strategy.tactics.length + " ข้อ) —"
+                        : "เลือกยุทธศาสตร์ก่อน"}
+                    </option>
+                    {(strategy ? strategy.tactics : []).map((t) => (
+                      <option key={t.no || t.name} value={t.name}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="field">
+                  <label>วัตถุประสงค์เชิงยุทธศาสตร์ (SO)</label>
+                  <div className={"linkro" + (form.so ? "" : " empty")}>
+                    {form.so || "— เลือกยุทธศาสตร์แล้วจะขึ้นให้เอง —"}
+                  </div>
+                </div>
+              </>
+            ) : (
+              plan.levels.map((l) => {
+                const list = optionsFor(l.key);
+                const val = form[l.key] || "";
+                /* ค่าที่เคยกรอกไว้แต่ไม่อยู่ในรายการ (ข้อมูลเก่า/ร่างเดิม)
+                   ต้องเติมเป็นตัวเลือกด้วย ไม่งั้นดรอปดาวน์จะเด้งกลับเป็นว่าง
+                   แล้วค่าเดิมหายไปเงียบ ๆ ตอนบันทึก */
+                const extra = val && list.indexOf(val) < 0 ? [val] : [];
+                return (
+                  <div className="field" key={l.key}>
+                    <label htmlFor={"lk-" + l.key}>{l.label}</label>
+                    <select
+                      id={"lk-" + l.key}
+                      value={val}
+                      onChange={(e) => pick(l.key, e.target.value)}
+                    >
+                      <option value="">
+                        {list.length ? "— เลือก (" + fmt(list.length) + " รายการ) —" : "— ไม่ระบุ —"}
+                      </option>
+                      {extra.concat(list).map((v) => (
+                        <option key={v} value={v}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })
+            )}
           </div>
         );
       })}
     </div>
   );
 }
-
 /* ---------------------------------------------------------------------
    กิจกรรมภายใต้โครงการ — กรอกพร้อมกันตอนสร้างโครงการใหม่
 
