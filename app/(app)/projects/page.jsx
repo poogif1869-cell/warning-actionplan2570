@@ -16,6 +16,8 @@ import { buildAlerts, groupByUid, worstSev, rolledReport, SEV_LABEL } from "@/li
 import MonthPicker from "@/components/month-picker";
 import ProjectDrawer from "@/components/project-drawer";
 import DownloadButton from "@/components/download-button";
+import Bars from "@/components/bars";
+import Donut from "@/components/donut";
 import StatusBadge, { ReportBadge } from "@/components/status-badge";
 
 export default function ProjectsPage() {
@@ -84,6 +86,55 @@ export default function ProjectsPage() {
      หาใน rows ไม่ใช่ใน ITEMS ทั้งหมด เพราะถ้าตัวกรองด้านบนถูกเปลี่ยน
      จนโครงการที่เปิดอยู่หลุดออกจากผลการกรอง ตารางควรกลับมาปกติ */
   const focused = openUid ? rows.find((p) => p.uid === openUid) || null : null;
+
+  /* ---------- ข้อมูลกราฟสองอันบนหัวตาราง ----------
+     คิดจาก rows คือรายการที่ผ่านตัวกรองแล้ว ไม่ใช่ทั้งแผน
+     กราฟจึงตอบคำถามของสิ่งที่กำลังดูอยู่จริง ไม่ใช่ภาพรวมที่ไม่เกี่ยวกัน */
+  const statusMix = useMemo(() => {
+    const order = [
+      ["แล้วเสร็จ", "var(--ok)"],
+      ["กำลังดำเนินการ", "var(--s3)"],
+      ["ยังไม่เริ่ม", "var(--none)"],
+      ["ล่าช้า", "var(--bad)"],
+      ["ยกเลิก", "var(--faint)"],
+      ["ยังไม่ระบุสถานะ", "var(--border)"],
+    ];
+    const count = {};
+    rows.forEach((p) => {
+      const s = String(projectTrack(results, p.uid).status || "").trim() || "ยังไม่ระบุสถานะ";
+      count[s] = (count[s] || 0) + 1;
+    });
+    return order
+      .filter(([label]) => count[label])
+      .map(([label, color]) => ({ key: label, label, value: count[label], color }));
+  }, [rows, results]);
+
+  const reportMix = useMemo(() => {
+    let done = 0;
+    let partial = 0;
+    let none = 0;
+    let noPlan = 0;
+    rows.forEach((p) => {
+      const plan = monthsOf(p);
+      const rep = rolledReport(results, p);
+      let planned = 0;
+      let reported = 0;
+      for (let i = 0; i <= asOfMonth; i++) {
+        if (plan[i]) planned++;
+        if (plan[i] && rep.reported[i]) reported++;
+      }
+      if (!planned) noPlan++;
+      else if (reported >= planned) done++;
+      else if (reported > 0) partial++;
+      else none++;
+    });
+    return [
+      { key: "done", label: "รายงานครบทุกเดือนที่มีแผน", value: done, display: fmt(done) + " รายการ", color: "var(--ok)" },
+      { key: "partial", label: "รายงานบางเดือน", value: partial, display: fmt(partial) + " รายการ", color: "var(--warn)" },
+      { key: "none", label: "ถึงกำหนดแล้วยังไม่รายงานเลย", value: none, display: fmt(none) + " รายการ", color: "var(--bad)" },
+      { key: "noplan", label: "ยังไม่ถึงเดือนที่มีแผน", value: noPlan, display: fmt(noPlan) + " รายการ", color: "var(--none)" },
+    ].filter((d) => d.value > 0);
+  }, [rows, results, asOfMonth]);
 
   /* เมื่อเลือกยุทธศาสตร์ ให้แบ่งกลุ่มตามกลยุทธ์ จะได้เห็นชัดว่าโครงการไหนอยู่กลยุทธ์ไหน
      ไม่เลือกยุทธศาสตร์ก็แสดงรวดเดียวเหมือนเดิม เพราะข้ามยุทธศาสตร์แล้วกลุ่มจะเยอะเกินอ่าน */
@@ -203,6 +254,35 @@ export default function ProjectsPage() {
           <Link href="/plan-edit">แก้ไขแผน</Link> ที่เดียว
           เพราะต้องมีมติรองรับและต้องเก็บประวัติทุกครั้ง
         </div>
+
+        {/* ---------- สรุปสถานะของรายการที่กรองอยู่ ----------
+            หน้านี้เดิมมีแต่ตาราง ต้องเลื่อนอ่านทีละแถวถึงจะรู้ว่ามีล่าช้ากี่โครงการ
+            สองกราฟนี้ตอบได้ทันทีก่อนจะเริ่มเลื่อน และเปลี่ยนตามตัวกรองด้วย
+            จึงใช้ตรวจได้ด้วยว่า "หน่วยงานนี้ล่าช้ากี่โครงการ" โดยไม่ต้องนับเอง
+
+            ซ่อนตอนกำลังรายงานผลอยู่ เพราะตอนนั้นเหลือโครงการเดียว
+            กราฟของหนึ่งโครงการไม่ได้บอกอะไร */}
+        {!focused && rows.length ? (
+          <div className="cardgrid" style={{ marginBottom: 16 }}>
+            <div className="card pad">
+              <h3 className="cardtitle">สัดส่วนตามสถานะการดำเนินงาน</h3>
+              <Donut
+                unit="รายการ"
+                format={fmt}
+                centerLabel="รายการที่แสดง"
+                emptyText="ไม่มีรายการ"
+                data={statusMix}
+              />
+            </div>
+            <div className="card pad">
+              <h3 className="cardtitle">ความคืบหน้าการรายงานผล</h3>
+              <Bars data={reportMix} />
+              <div className="small muted" style={{ marginTop: 10 }}>
+                นับจากเดือนที่มีแผนและผ่านมาแล้วเทียบกับเดือนที่รายงานจริง
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         <div className="filters">
           <div className="field">

@@ -5,6 +5,7 @@ import { PLAN_LINKS, groupByField, missingCount } from "@/lib/rollup";
 import { PROJECTS } from "@/lib/plan";
 import { money, fmt, pct } from "@/lib/format";
 import ProjectDrawer from "@/components/project-drawer";
+import Donut from "@/components/donut";
 import DownloadButton from "@/components/download-button";
 
 export default function LinkagePage() {
@@ -214,6 +215,39 @@ export default function LinkagePage() {
           {level.label}
           <small>คลิกจำนวนโครงการเพื่อกางดูรายชื่อ · คลิกชื่อโครงการเพื่อเปิดรายละเอียด</small>
         </h2>
+
+        {/* ---------- โดนัทสัดส่วนงบตามชั้นที่เลือก ----------
+            ตารางข้างล่างมีคอลัมน์ "สัดส่วน" เป็น % อยู่แล้ว แต่ต้องอ่านทีละแถว
+            แล้วเทียบเอาเองว่าอันไหนใหญ่กว่ากันมาก โดนัทตอบได้ในภาพเดียว
+
+            แสดง 8 อันดับแรก ที่เหลือรวมเป็น "อื่น ๆ" — ชั้นอย่างแผนย่อย
+            มี 86 รายการ ถ้าวาดหมดจะเป็นเส้นบาง ๆ 80 เส้นที่อ่านไม่ออก */}
+        {groups.length > 1 ? (
+          <div className="card pad" style={{ marginBottom: 16 }}>
+            <Donut
+              centerLabel={"งบตาม" + level.label}
+              emptyText="ยังไม่มีโครงการที่ระบุการเชื่อมโยงในชั้นนี้"
+              data={(() => {
+                const top = groups.slice(0, 8).map((g) => ({
+                  key: g.value,
+                  label: g.value,
+                  value: g.budget,
+                }));
+                const rest = groups.slice(8).reduce((a, g) => a + g.budget, 0);
+                return rest
+                  ? top.concat([
+                      {
+                        key: "__rest",
+                        label: "อื่น ๆ อีก " + (groups.length - 8) + " รายการ",
+                        value: rest,
+                        color: "var(--none)",
+                      },
+                    ])
+                  : top;
+              })()}
+            />
+          </div>
+        ) : null}
 
         {groups.length === 0 ? (
           <div className="banner">

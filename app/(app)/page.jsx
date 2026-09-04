@@ -9,6 +9,7 @@ import { STRATEGIES, FUND_ROLLUP, PROGRAMS, ORGS } from "@/lib/rollup";
 import { money, mb, fmt, pct } from "@/lib/format";
 import MonthPicker from "@/components/month-picker";
 import Bars from "@/components/bars";
+import Donut from "@/components/donut";
 import ProjectList from "@/components/project-list";
 import DownloadButton from "@/components/download-button";
 
@@ -203,6 +204,50 @@ export default function OverviewPage() {
             ]}
           />
         </h2>
+        {/* ---------- โดนัทสถานะโครงการ ----------
+            ไทล์บอกว่ามีกี่โครงการที่มีปัญหา แต่ไม่ได้บอกว่า "เทียบกับทั้งหมดแล้วเยอะไหม"
+            ซึ่งเป็นคำถามแรกที่ผู้บริหารถามเสมอ โดนัทตอบได้ในภาพเดียว
+            เพราะทั้งสามส่วนรวมกันเป็น 121 โครงการพอดี (เป็นส่วนของทั้งหมดจริง ๆ) */}
+        <div className="cardgrid" style={{ marginBottom: 14 }}>
+          <div className="card pad">
+            <h3 className="cardtitle">สัดส่วนโครงการตามสถานะการแจ้งเตือน</h3>
+            <Donut
+              unit="โครงการ"
+              format={fmt}
+              centerLabel="โครงการทั้งหมด"
+              emptyText="ยังไม่มีข้อมูลโครงการ"
+              data={[
+                { key: "crit", label: "มีวิกฤต", value: stats.critProjects, color: "var(--bad)" },
+                { key: "warn", label: "เฝ้าระวังอย่างเดียว", value: stats.warnOnlyProjects, color: "var(--warn)" },
+                { key: "ok", label: "ไม่พบปัญหา", value: stats.okProjects, color: "var(--ok)" },
+              ]}
+            />
+          </div>
+
+          {/* แหล่งเงินเป็นแท่ง ไม่ใช่โดนัท เพราะที่อยากรู้คือ "ใช้เพดานไปกี่ %"
+              ของแต่ละแหล่ง ซึ่งเทียบกันเองไม่ได้เป็นส่วนของก้อนเดียว */}
+          <div className="card pad">
+            <h3 className="cardtitle">จัดสรรไปแล้วกี่ % ของเพดานแต่ละแหล่งเงิน</h3>
+            <Bars
+              data={FUND_ROLLUP.filter((f) => f.ceiling).map((f) => ({
+                key: f.code,
+                label: f.name,
+                value: (f.used / f.ceiling) * 100,
+                display: pct((f.used / f.ceiling) * 100),
+                color:
+                  f.used > f.ceiling
+                    ? "var(--bad)"
+                    : f.used / f.ceiling > 0.9
+                    ? "var(--warn)"
+                    : "var(--accent)",
+              }))}
+            />
+            <div className="small muted" style={{ marginTop: 10 }}>
+              แดง = จัดสรรเกินเพดาน · เหลือง = เกิน 90% ของเพดาน
+            </div>
+          </div>
+        </div>
+
         <div className="tiles">
           <div className="tile crit">
             <span className="lab">วิกฤต</span>

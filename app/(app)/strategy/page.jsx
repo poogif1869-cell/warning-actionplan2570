@@ -6,6 +6,7 @@ import { STRATEGIES } from "@/lib/rollup";
 import { money, fmt, pct } from "@/lib/format";
 import { useResults, kpiActual } from "@/lib/store";
 import Bars from "@/components/bars";
+import Donut from "@/components/donut";
 import DownloadButton from "@/components/download-button";
 
 const S_COLORS = ["", "var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)"];
@@ -110,6 +111,24 @@ export default function StrategyPage() {
             ]}
           />
         </h2>
+        {/* ตัวชี้วัด 13 ตัวแบ่งได้เป็นสามกองที่รวมกันพอดี 13 จึงเหมาะกับโดนัท
+            ไทล์บอกจำนวน แต่ไม่ได้บอกว่าที่ยังไม่รายงานคิดเป็นสัดส่วนเท่าไหร่
+            ซึ่งเป็นตัวเลขที่ต้องรีบรู้ที่สุดในหน้านี้ */}
+        <div className="card pad" style={{ marginBottom: 14 }}>
+          <h3 className="cardtitle">สัดส่วนตัวชี้วัดองค์กรตามสถานะ</h3>
+          <Donut
+            unit="ตัวชี้วัด"
+            format={fmt}
+            centerLabel="ตัวชี้วัดทั้งหมด"
+            emptyText="ยังไม่มีตัวชี้วัด"
+            data={[
+              { key: "ok", label: "บรรลุเป้าหมาย", value: summary.ok, color: "var(--ok)" },
+              { key: "below", label: "ต่ำกว่าเป้าหมาย", value: summary.below, color: "var(--bad)" },
+              { key: "pending", label: "ยังไม่รายงานผล", value: summary.pending, color: "var(--none)" },
+            ]}
+          />
+        </div>
+
         <div className="tiles">
           <div className="tile">
             <span className="lab">บรรลุเฉลี่ย</span>

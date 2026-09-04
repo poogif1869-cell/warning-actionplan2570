@@ -20,7 +20,12 @@ const R = 68;
 const STROKE = 30;
 const C = 2 * Math.PI * R;
 
-export default function Donut({ data, centerLabel, emptyText }) {
+/* unit / format ใส่เพิ่มทีหลัง เพราะเดิมโดนัทใช้กับยอดเงินอย่างเดียว
+   พอเอาไปนับ "จำนวนโครงการ" หรือ "จำนวนตัวชี้วัด" แล้วขึ้นคำว่าบาทต่อท้าย
+   ค่าเริ่มต้นยังเป็นบาทเหมือนเดิม ที่เรียกอยู่แล้วจึงไม่ต้องแก้ */
+export default function Donut({ data, centerLabel, emptyText, unit, format }) {
+  const fmtv = format || money;
+  const u = unit == null ? "บาท" : unit;
   const list = (data || []).filter((d) => d && (d.value || 0) > 0);
   const total = list.reduce((a, d) => a + d.value, 0);
 
@@ -82,8 +87,8 @@ export default function Donut({ data, centerLabel, emptyText }) {
       <div className="donutlegend">
         <div className="donuttotal">
           <span className="lab">{centerLabel || "ยอดรวม"}</span>
-          <b>{money(total)}</b>
-          <span className="unit">บาท</span>
+          <b>{fmtv(total)}</b>
+          {u ? <span className="unit">{u}</span> : null}
         </div>
         <table>
           <tbody>
@@ -93,7 +98,7 @@ export default function Donut({ data, centerLabel, emptyText }) {
                   <i className="swatch" style={{ background: s.color }} />
                 </td>
                 <td className="small">{s.label}</td>
-                <td className="num small nowrap">{money(s.value)}</td>
+                <td className="num small nowrap">{fmtv(s.value)}</td>
                 <td className="num small muted nowrap">{pct(s.share)}</td>
               </tr>
             ))}
