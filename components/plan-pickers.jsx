@@ -9,7 +9,7 @@
 
 import { useMemo, useState } from "react";
 import { PROJECTS, MONTHS, MONTHS_SHORT } from "@/lib/plan";
-import { STRATEGIES, ORG_UNITS, inUnit } from "@/lib/rollup";
+import { STRATEGIES, ORG_UNITS, PLAN_LINKS, inUnit } from "@/lib/rollup";
 import { money, fmt } from "@/lib/format";
 
 /* ---------------------------------------------------------------------
@@ -447,6 +447,263 @@ export function ScheduleFields({ form, setForm }) {
         <div className="small muted" style={{ marginTop: 4 }}>
           กดชื่อเดือนเพื่อเปิด/ปิดว่าเดือนนั้นมีแผน · เดือนที่ไม่มีแผนจะเป็น “–”
         </div>
+      </div>
+    </>
+  );
+}
+
+/* ---------------------------------------------------------------------
+   การเชื่อมโยงแผน — กรอกครบทั้ง 4 แผน ไม่ใช่เฉพาะแผนระดับชาติ
+
+   เดิมฟอร์มมีแค่ 7 ช่องที่พิมพ์ชื่อไว้ตายตัวในหน้า ทำให้ตกไปสองช่อง
+   (nIssue, nYGoal) และไม่มีแผนวิสาหกิจ กยท. เลย ทั้งที่หน้าความเชื่อมโยงแผน
+   ให้ดูได้ทั้ง 4 แผน — กรอกไม่ครบ โครงการก็ไปโผล่ในกลุ่ม
+   "ยังไม่ระบุการเชื่อมโยง" ของแผนที่ตกไป
+
+   ตอนนี้อ่านจาก PLAN_LINKS ตัวเดียวกับที่หน้าความเชื่อมโยงแผนใช้
+   เพิ่มชั้นใหม่ในแผนไหนก็โผล่มาให้กรอกเองโดยไม่ต้องแก้ที่นี่
+
+   **แผนวิสาหกิจ กยท. ไม่ให้พิมพ์ซ้ำ** เพราะสามชั้นของมัน (so/strategy/tactic)
+   คือยุทธศาสตร์กับกลยุทธ์ที่เลือกไว้ด้านบนแล้ว ถ้าเปิดให้พิมพ์อีกที่
+   สองที่จะไม่ตรงกันเมื่อไหร่ก็ได้ จึงแสดงเป็นค่าที่อ่านอย่างเดียว
+   --------------------------------------------------------------------- */
+export function PlanLinkFields({ form, setForm }) {
+  /* ค่าที่เคยมีในแผนแล้ว พร้อมจำนวนโครงการที่ใช้ค่านั้น
+     จำนวนช่วยให้เลือกค่าที่คนอื่นใช้กันอยู่ ไม่ใช่พิมพ์ใหม่ที่ต่างกันนิดเดียว */
+  const options = useMemo(() => {
+    const out = {};
+    PLAN_LINKS.forEach((p) =>
+      p.levels.forEach((l) => {
+        const m = new Map();
+        PROJECTS.forEach((x) => {
+          if (x[l.key]) m.set(x[l.key], (m.get(x[l.key]) || 0) + 1);
+        });
+        out[l.key] = [...m.entries()]
+          .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "th"))
+          .map(([v, n]) => ({ v, n }));
+      })
+    );
+    return out;
+  }, []);
+
+  return (
+    <div className="linkgrid">
+      {PLAN_LINKS.map((plan) => {
+        const readOnly = plan.key === "raot";
+        const filled = plan.levels.filter((l) => String(form[l.key] || "").trim()).length;
+
+        return (
+          <div className={"linkcard" + (readOnly ? " ro" : "")} key={plan.key}>
+            <div className="linkhead">
+              <b>{plan.name}</b>
+              <span className={"pill " + (filled === plan.levels.length ? "ok" : filled ? "warn" : "none")}>
+                {filled}/{plan.levels.length}
+              </span>
+            </div>
+
+            {readOnly ? (
+              <div className="small muted" style={{ marginBottom: 8 }}>
+                มาจากยุทธศาสตร์และกลยุทธ์ที่เลือกไว้ด้านบน — แก้ที่นั่นที่เดียว
+              </div>
+            ) : null}
+
+            {plan.levels.map((l) => {
+              const val = form[l.key] || "";
+              const list = options[l.key] || [];
+              return (
+                <div className="field" key={l.key}>
+                  <label htmlFor={"pl-" + l.key}>{l.label}</label>
+                  {readOnly ? (
+                    <div className={"linkro" + (val ? "" : " empty")}>
+                      {val || "— ยังไม่ได้เลือก —"}
+                    </div>
+                  ) : (
+                    <>
+                      <input
+                        id={"pl-" + l.key}
+                        type="text"
+                        list={"pl-list-" + l.key}
+                        placeholder={
+                          list.length
+                            ? "พิมพ์ หรือเลือกจาก " + fmt(list.length) + " ค่าที่มีอยู่"
+                            : "ยังไม่มีค่านี้ในแผน พิมพ์ได้เลย"
+                        }
+                        value={val}
+                        onChange={(e) => setForm({ ...form, [l.key]: e.target.value })}
+                      />
+                      <datalist id={"pl-list-" + l.key}>
+                        {list.map((o) => (
+                          <option key={o.v} value={o.v}>
+                            {o.n} โครงการใช้ค่านี้
+                          </option>
+                        ))}
+                      </datalist>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------
+   กิจกรรมภายใต้โครงการ — กรอกพร้อมกันตอนสร้างโครงการใหม่
+
+   ไฟล์แผนต้นฉบับเก็บแผนรายเดือนไว้ที่ระดับกิจกรรมเป็นหลัก (399/553 แถว
+   มีธงเดือน แต่ระดับโครงการมีเองแค่ 12/121) การสร้างโครงการที่มีกิจกรรม
+   แล้วใส่แผนรายเดือนไว้ที่โครงการ จึงผิดโครงสร้างข้อมูลตั้งแต่ต้น
+
+   ดังนั้น **มีกิจกรรมเมื่อไหร่ แผนการดำเนินงานย้ายไปอยู่ที่กิจกรรมทั้งหมด**
+   โครงการไม่มีแผนของตัวเอง เพราะ monthsOf() ม้วนของลูกขึ้นมาให้อยู่แล้ว
+
+   รหัสกิจกรรมเติมให้อัตโนมัติเป็น <รหัสโครงการ> + 01, 02, ... แต่แก้ได้
+   เพราะบางโครงการเลขกิจกรรมไม่ได้เรียงจาก 01 ตามไฟล์เดิม
+   --------------------------------------------------------------------- */
+export const emptyActivity = () => ({
+  code: "",
+  name: "",
+  output: "",
+  budget: "",
+  outputTarget: "",
+  outputUnit: "",
+  months: new Array(12).fill(0),
+  monthTargets: new Array(12).fill(""),
+});
+
+/* ปัญหาของกิจกรรมหนึ่งตัว — คืนข้อความว่าง ๆ ถ้าไม่มีปัญหา */
+export function activityProblem(a, projectCode, all, index) {
+  const c = String(a.code || "").trim();
+  if (!String(a.name || "").trim()) return "ยังไม่ได้ใส่ชื่อกิจกรรม";
+  if (!c) return "ยังไม่ได้ใส่รหัสกิจกรรม";
+  if (!/^\d{8}$/.test(c)) return "รหัสกิจกรรมต้องเป็นตัวเลข 8 หลัก";
+  if (projectCode && c.slice(0, 6) !== projectCode) {
+    return "6 หลักแรกต้องเป็น " + projectCode + " ตามรหัสโครงการ";
+  }
+  if (all.some((o, i) => i !== index && String(o.code || "").trim() === c)) {
+    return "รหัสซ้ำกับกิจกรรมอื่นในโครงการนี้";
+  }
+  if (!String(a.output || "").trim()) return "ยังไม่ได้ใส่ตัวชี้วัดผลผลิต";
+  return scheduleProblem(a);
+}
+
+export function ActivityFields({ acts, setActs, projectCode }) {
+  function update(i, next) {
+    setActs(acts.map((a, j) => (i === j ? next : a)));
+  }
+
+  function add() {
+    const a = emptyActivity();
+    // เดารหัสถัดไปให้ ไม่ต้องนับเองว่าถึงเลขไหนแล้ว
+    if (projectCode && /^\d{6}$/.test(projectCode)) {
+      a.code = projectCode + String(acts.length + 1).padStart(2, "0");
+    }
+    setActs(acts.concat([a]));
+  }
+
+  return (
+    <>
+      <div className="small muted" style={{ marginBottom: 12 }}>
+        โครงการที่มีกิจกรรมย่อย ให้ใส่แผนการดำเนินงานและเป้าหมายรายเดือน
+        <b> ที่กิจกรรมแต่ละตัว</b> ไม่ใช่ที่ตัวโครงการ —
+        ยอดของโครงการม้วนขึ้นมาจากกิจกรรมให้เอง
+        {acts.length ? null : " · ถ้าโครงการนี้ไม่มีกิจกรรมย่อย ข้ามส่วนนี้ไปได้เลย"}
+      </div>
+
+      {acts.map((a, i) => {
+        const err = activityProblem(a, projectCode, acts, i);
+        return (
+          <div className={"actcard" + (err ? "" : " ok")} key={i}>
+            <div className="actcard-head">
+              <b>กิจกรรมที่ {i + 1}</b>
+              {err ? (
+                <span className="pill warn">{err}</span>
+              ) : (
+                <span className="pill ok">กรอกครบแล้ว</span>
+              )}
+              <button
+                type="button"
+                className="linkbtn del"
+                onClick={() => setActs(acts.filter((_, j) => j !== i))}
+              >
+                เอากิจกรรมนี้ออก
+              </button>
+            </div>
+
+            <div className="grid2">
+              <div className="field">
+                <label htmlFor={"ac-code-" + i}>
+                  รหัสกิจกรรม (8 หลัก)<span className="req"> *</span>
+                </label>
+                <input
+                  id={"ac-code-" + i}
+                  type="text"
+                  inputMode="numeric"
+                  value={a.code}
+                  placeholder={(projectCode || "010101") + "01"}
+                  onChange={(e) => update(i, { ...a, code: e.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor={"ac-bud-" + i}>งบประมาณของกิจกรรม (บาท)</label>
+                <input
+                  id={"ac-bud-" + i}
+                  type="text"
+                  inputMode="numeric"
+                  value={a.budget}
+                  onChange={(e) => update(i, { ...a, budget: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="field">
+              <label htmlFor={"ac-name-" + i}>
+                ชื่อกิจกรรม<span className="req"> *</span>
+              </label>
+              <input
+                id={"ac-name-" + i}
+                type="text"
+                value={a.name}
+                onChange={(e) => update(i, { ...a, name: e.target.value })}
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor={"ac-out-" + i}>
+                ตัวชี้วัดผลผลิตของกิจกรรม<span className="req"> *</span>
+              </label>
+              <textarea
+                id={"ac-out-" + i}
+                rows={2}
+                value={a.output}
+                onChange={(e) => update(i, { ...a, output: e.target.value })}
+              />
+            </div>
+
+            <ScheduleFields form={a} setForm={(next) => update(i, next)} />
+          </div>
+        );
+      })}
+
+      <div className="btnrow">
+        <button type="button" className="btn ghost" onClick={add}>
+          + เพิ่มกิจกรรม
+        </button>
+        {acts.length ? (
+          <span className="small muted" style={{ alignSelf: "center" }}>
+            รวม {acts.length} กิจกรรม · งบกิจกรรมรวม{" "}
+            {fmt(
+              acts.reduce(
+                (s, a) => s + (Number(String(a.budget || "0").replace(/,/g, "")) || 0),
+                0
+              )
+            )}{" "}
+            บาท
+          </span>
+        ) : null}
       </div>
     </>
   );

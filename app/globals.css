@@ -1609,3 +1609,42 @@ section.block > h2 > .dlwrap{margin-inline-start:auto}
 @media (max-width:640px){
   .sohead{flex-direction:column; gap:9px}
 }
+
+/* ---------- กิจกรรมที่กรอกพร้อมโครงการ ----------
+   แต่ละกิจกรรมเป็นการ์ดของตัวเอง มีขอบและระยะห่างชัด
+   ไม่งั้นฟอร์มยาว ๆ ที่มีสามสี่กิจกรรมจะกลายเป็นช่องกรอกเรียงกันเป็นพรืด
+   จนไม่รู้ว่าช่องไหนของกิจกรรมไหน */
+.actcard{
+  border:1px solid var(--border); border-inline-start:4px solid var(--warn);
+  border-radius:12px; padding:16px 18px; margin-bottom:14px; background:var(--surface);
+}
+.actcard.ok{border-inline-start-color:var(--ok)}
+.actcard-head{
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  padding-bottom:10px; margin-bottom:12px; border-bottom:1px solid var(--border-soft);
+}
+.actcard-head b{font-size:14px}
+.actcard-head .linkbtn{margin:0; margin-inline-start:auto}
+
+/* ---------- การเชื่อมโยงแผน 4 แผน ----------
+   แยกเป็นการ์ดต่อหนึ่งแผน มีตัวนับว่ากรอกไปกี่ช่องจากกี่ช่อง
+   ของเดิมเป็นช่องเรียงกัน 7 ช่องรวด ไม่รู้ว่าช่องไหนเป็นของแผนไหน */
+.linkgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px}
+.linkcard{
+  border:1px solid var(--border-soft); border-radius:12px;
+  padding:16px 18px; background:var(--surface);
+}
+.linkcard.ro{background:var(--tint)}
+.linkhead{
+  display:flex; align-items:center; gap:10px; justify-content:space-between;
+  padding-bottom:10px; margin-bottom:12px; border-bottom:1px solid var(--border-soft);
+  font-size:13.5px;
+}
+.linkcard .field{margin-bottom:12px}
+.linkcard .field:last-child{margin-bottom:0}
+.linkcard input{max-width:none; width:100%}
+.linkro{
+  border:1px dashed var(--border); border-radius:10px; padding:9px 12px;
+  font-size:13px; color:var(--text); background:var(--surface);
+}
+.linkro.empty{color:var(--faint); font-style:italic}

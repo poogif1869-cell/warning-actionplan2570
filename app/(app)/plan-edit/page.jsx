@@ -38,6 +38,9 @@ import {
   OrgPicker,
   ScheduleFields,
   scheduleProblem,
+  PlanLinkFields,
+  ActivityFields,
+  activityProblem,
 } from "@/components/plan-pickers";
 
 const MODES = [
@@ -98,9 +101,16 @@ const emptyForm = () => ({
   outputUnit: "",
   months: new Array(12).fill(0),
   monthTargets: new Array(12).fill(""),
+  /* กิจกรรมที่จะสร้างพร้อมโครงการ — ว่างไว้ได้ถ้าโครงการไม่มีกิจกรรมย่อย
+     เก็บในฟอร์มเดียวกันเพราะบันทึกไปพร้อมกันในการกดครั้งเดียว */
+  acts: [],
+  /* ช่องการเชื่อมโยงแผนทั้ง 4 แผน — ชื่อคีย์ตรงกับ PLAN_LINKS ใน lib/rollup.js
+     nIssue กับ nYGoal เคยตกไปตอนพิมพ์รายชื่อช่องเอง ตอนนี้อ่านจาก PLAN_LINKS แล้ว */
   nX: "",
   nGoal: "",
+  nIssue: "",
   nY: "",
+  nYGoal: "",
   nSub: "",
   nSubGoal: "",
   mIssue: "",
@@ -211,8 +221,31 @@ export default function PlanEditPage() {
     mode === "delete" ||
     (mode === "edit" && PARTS.some((p) => parts[p.key] && p.needsApproval));
 
+  /* ---------------------------------------------------------------
+     แผนการดำเนินงานอยู่ที่ไหน ขึ้นกับว่าโครงการมีกิจกรรมหรือไม่
+
+     มีกิจกรรม  -> แผนอยู่ที่กิจกรรมแต่ละตัว โครงการไม่ต้องมีแผนของตัวเอง
+     ไม่มีกิจกรรม -> แผนอยู่ที่ตัวโครงการ
+
+     ตรงกับโครงสร้างไฟล์แผนต้นฉบับ ที่เก็บธงเดือนไว้ระดับกิจกรรมเป็นหลัก
+     และ monthsOf() ม้วนของลูกขึ้นมาที่แม่ให้อยู่แล้ว
+     --------------------------------------------------------------- */
+  const acts = form.acts || [];
+  const projectCode = String(form.code || "").trim();
+
+  const actErr = useMemo(() => {
+    if (mode !== "project") return "";
+    for (let i = 0; i < acts.length; i++) {
+      const e = activityProblem(acts[i], projectCode, acts, i);
+      if (e) return "กิจกรรมที่ " + (i + 1) + ": " + e;
+    }
+    return "";
+  }, [mode, acts, projectCode]);
+
   const schedErr =
-    (mode === "project" || mode === "activity" || (mode === "edit" && parts.schedule))
+    mode === "activity" || (mode === "edit" && parts.schedule)
+      ? scheduleProblem(form)
+      : mode === "project" && acts.length === 0
       ? scheduleProblem(form)
       : "";
 
@@ -244,13 +277,14 @@ export default function PlanEditPage() {
       if (delScope === "some" && !delKids.length) out.push("กิจกรรมที่จะลบ");
     }
 
+    if (actErr) out.push(actErr);
     if (schedErr) out.push(schedErr);
     if (needsApproval && !isApprovalComplete(approval)) out.push("มติอนุมัติให้ครบทั้งสี่ช่อง");
     if (!String(note || "").trim()) out.push("เหตุผลที่ปรับแผน");
     return out;
   }, [
     mode, form, codeErr, target, anyPart, delScope, delKids,
-    schedErr, needsApproval, approval, note,
+    actErr, schedErr, needsApproval, approval, note,
   ]);
 
   const ok = missing.length === 0 && canEdit && hasPlanEdits;
@@ -276,7 +310,39 @@ export default function PlanEditPage() {
     if (mode === "project" || mode === "activity") {
       const isAct = mode === "activity";
       const parent = isAct ? target : null;
-      return [
+
+      /* ค่าที่กิจกรรมต้องรับต่อจากโครงการ — ใช้ทั้งกิจกรรมที่สร้างพร้อมโครงการ
+         (โหมด project) และกิจกรรมที่เพิ่มเข้าโครงการเดิม (โหมด activity)
+         ถ้าปล่อยว่างไว้ กิจกรรมจะหลุดยุทธศาสตร์/หน่วยงานของตัวเอง
+         แล้วยอดตามยุทธศาสตร์กับตามหน่วยงานจะขาดหายไปเงียบ ๆ */
+      function inherit(src) {
+        return {
+          org: src.org || "",
+          strategy: src.strategy || "",
+          so: src.so || "",
+          tactic: src.tactic || "",
+          program: src.program || "",
+          ptype: src.ptype || "",
+          fund: src.fund || "",
+          summary: src.summary || "",
+          nX: src.nX || "",
+          nGoal: src.nGoal || "",
+          nIssue: src.nIssue || "",
+          nY: src.nY || "",
+          nYGoal: src.nYGoal || "",
+          nSub: src.nSub || "",
+          nSubGoal: src.nSubGoal || "",
+          mIssue: src.mIssue || "",
+          mWay: src.mWay || "",
+        };
+      }
+
+      /* โครงการที่มีกิจกรรม ไม่ต้องมีแผนรายเดือนของตัวเอง
+         monthsOf() ม้วนของลูกขึ้นมาให้อยู่แล้ว ถ้าใส่ทั้งสองที่จะกลายเป็นสองแหล่ง
+         ที่ขัดกันได้ และไม่มีทางรู้ว่าอันไหนถูก */
+      const own = mode === "project" && (form.acts || []).length;
+
+      const rows = [
         {
           ...meta,
           id: editId || undefined,
@@ -284,32 +350,58 @@ export default function PlanEditPage() {
           uid: (editId && uid) || newUid(String(form.code || "000000").trim()),
           data: {
             ...form,
+            /* ตอนอนุมัติ กิจกรรมกลายเป็นแถวของตัวเองในถัง จึงไม่เก็บซ้ำที่นี่
+               แต่ตอนบันทึกร่าง เก็บไว้ในร่างก่อน ไม่แตกเป็นแถวแยก
+               ไม่งั้นเปิดร่างขึ้นมาแก้ต่อจะเห็นแต่โครงการ กิจกรรมหายไปหมด
+               และกดบันทึกซ้ำจะสร้างแถวกิจกรรมเพิ่มทุกครั้งที่กด */
+            acts: status === "approved" ? undefined : form.acts || [],
             lvl: isAct ? 2 : 1,
             code: String(form.code || "").trim(),
             budget: Number(String(form.budget).replace(/,/g, "")) || 0,
-            /* กิจกรรมรับข้อมูลบริบททั้งหมดจากโครงการแม่ ไม่ให้กรอกซ้ำ
-               ไม่งั้นกิจกรรมจะหลุดยุทธศาสตร์/หน่วยงานของโครงการตัวเอง
-               แล้วยอดตามยุทธศาสตร์กับตามหน่วยงานจะขาดหายไปเงียบ ๆ */
-            org: isAct ? parent.org : form.org,
-            strategy: isAct ? parent.strategy : form.strategy,
-            so: isAct ? parent.so : strategy ? strategy.so || "" : form.so,
-            tactic: isAct ? parent.tactic : form.tactic,
-            program: isAct ? parent.program : form.program,
-            ptype: isAct ? parent.ptype : form.ptype,
-            fund: isAct ? parent.fund : form.fund,
+            months: own ? new Array(12).fill(0) : form.months,
+            monthTargets: own ? new Array(12).fill("") : form.monthTargets,
+            ...inherit(
+              isAct
+                ? parent
+                : { ...form, so: strategy ? strategy.so || "" : form.so }
+            ),
             outcome: isAct ? "" : form.outcome,
-            summary: isAct ? parent.summary : form.summary,
-            nX: isAct ? parent.nX : form.nX,
-            nGoal: isAct ? parent.nGoal : form.nGoal,
-            nY: isAct ? parent.nY : form.nY,
-            nSub: isAct ? parent.nSub : form.nSub,
-            nSubGoal: isAct ? parent.nSubGoal : form.nSubGoal,
-            mIssue: isAct ? parent.mIssue : form.mIssue,
-            mWay: isAct ? parent.mWay : form.mWay,
           },
           prev: {},
         },
       ];
+
+      /* กิจกรรมที่กรอกไว้ในฟอร์มเดียวกัน — หนึ่งกิจกรรมหนึ่งแถวในถัง
+         สถานะเดียวกับโครงการ (อนุมัติพร้อมกัน หรือเป็นร่างพร้อมกัน)
+         ไม่งั้นจะเกิดโครงการที่อนุมัติแล้วแต่กิจกรรมยังเป็นร่าง ซึ่งอ่านไม่ออก */
+      if (mode === "project" && status === "approved") {
+        (form.acts || []).forEach((a) => {
+          const code = String(a.code || "").trim();
+          rows.push({
+            ...meta,
+            kind: "add",
+            uid: newUid(code || "00000000"),
+            data: {
+              lvl: 2,
+              code,
+              name: a.name || "",
+              output: a.output || "",
+              outcome: "", // ผลลัพธ์เป็นตัวชี้วัดของทั้งโครงการ กิจกรรมไม่มี
+              kpi: "",
+              budget: Number(String(a.budget || "0").replace(/,/g, "")) || 0,
+              period: form.period || "",
+              outputTarget: a.outputTarget || "",
+              outputUnit: a.outputUnit || "",
+              months: a.months,
+              monthTargets: a.monthTargets,
+              ...inherit({ ...form, so: strategy ? strategy.so || "" : form.so }),
+            },
+            prev: {},
+          });
+        });
+      }
+
+      return rows;
     }
 
     if (mode === "delete") {
@@ -605,14 +697,36 @@ export default function PlanEditPage() {
               <Indicators form={form} setForm={setForm} requireOutput />
 
               <h3 className="steptitle">
-                <span className="stepno">3</span>แผนการดำเนินงาน
+                <span className="stepno">3</span>กิจกรรมภายใต้โครงการ
+                {acts.length ? (
+                  <span className="pill ok">{acts.length} กิจกรรม</span>
+                ) : (
+                  <span className="pill none">ยังไม่มี</span>
+                )}
               </h3>
-              <ScheduleFields form={form} setForm={setForm} />
+              <ActivityFields
+                acts={acts}
+                setActs={(next) => setForm({ ...form, acts: next })}
+                projectCode={projectCode}
+              />
 
               <h3 className="steptitle">
-                <span className="stepno">4</span>ความเชื่อมโยงแผนระดับชาติ
+                <span className="stepno">4</span>แผนการดำเนินงาน
               </h3>
-              <PlanLinks form={form} setForm={setForm} />
+              {acts.length ? (
+                <div className="banner ok">
+                  โครงการนี้มีกิจกรรม {acts.length} รายการ —{" "}
+                  <b>แผนการดำเนินงานกรอกไว้ที่กิจกรรมแต่ละตัวแล้ว</b>{" "}
+                  ยอดของโครงการม้วนขึ้นมาจากกิจกรรมให้เอง ไม่ต้องกรอกซ้ำที่นี่
+                </div>
+              ) : (
+                <ScheduleFields form={form} setForm={setForm} />
+              )}
+
+              <h3 className="steptitle">
+                <span className="stepno">5</span>การเชื่อมโยงแผน
+              </h3>
+              <PlanLinkFields form={form} setForm={setForm} />
             </>
           ) : null}
 
@@ -1009,57 +1123,6 @@ function Indicators({ form, setForm, requireOutput }) {
           onChange={(e) => setForm({ ...form, kpi: e.target.value })}
         />
       </div>
-    </>
-  );
-}
-
-/* ---------- ความเชื่อมโยงแผนระดับชาติ ----------
-   ช่องพวกนี้คือสิ่งที่หน้า "ความเชื่อมโยงแผน" ใช้จัดกลุ่ม ถ้าไม่กรอก
-   โครงการที่เพิ่มใหม่จะไปโผล่ในกลุ่ม "ยังไม่ระบุการเชื่อมโยง" ทันที */
-function PlanLinks({ form, setForm }) {
-  const rows = [
-    ["nX", "ยุทธศาสตร์ชาติ"],
-    ["nGoal", "เป้าหมายของยุทธศาสตร์ชาติ"],
-    ["nY", "ประเด็นแผนแม่บทภายใต้ยุทธศาสตร์ชาติ"],
-    ["nSub", "แผนย่อยของแผนแม่บทฯ"],
-    ["nSubGoal", "เป้าหมายของแผนย่อย"],
-    ["mIssue", "ประเด็น แผนปฏิบัติราชการ กษ."],
-    ["mWay", "แนวทาง แผนปฏิบัติราชการ กษ."],
-  ];
-
-  /* ตัวเลือกที่มีอยู่แล้วในแผน — ให้เลือกจากของเดิมได้ ไม่ต้องพิมพ์ใหม่
-     ทั้งเร็วกว่าและไม่พิมพ์ต่างกันนิดหน่อยจนกลายเป็นคนละกลุ่ม */
-  function options(key) {
-    const set = new Set();
-    ITEMS.forEach((x) => {
-      if (x.lvl === 1 && x[key]) set.add(x[key]);
-    });
-    return [...set].sort((a, b) => a.localeCompare(b, "th"));
-  }
-
-  return (
-    <>
-      <div className="small muted" style={{ marginBottom: 10 }}>
-        เลือกจากที่มีอยู่ในแผนได้ หรือพิมพ์ใหม่ก็ได้ — ไม่กรอกก็ได้
-        แต่โครงการจะไปอยู่กลุ่ม “ยังไม่ระบุการเชื่อมโยง” ในหน้าความเชื่อมโยงแผน
-      </div>
-      {rows.map(([k, label]) => (
-        <div className="field" key={k}>
-          <label htmlFor={"pl-" + k}>{label}</label>
-          <input
-            id={"pl-" + k}
-            type="text"
-            list={"pl-list-" + k}
-            value={form[k] || ""}
-            onChange={(e) => setForm({ ...form, [k]: e.target.value })}
-          />
-          <datalist id={"pl-list-" + k}>
-            {options(k).map((v) => (
-              <option key={v} value={v} />
-            ))}
-          </datalist>
-        </div>
-      ))}
     </>
   );
 }
