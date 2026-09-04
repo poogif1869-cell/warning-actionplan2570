@@ -131,30 +131,11 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
           {/* ---------------- รายละเอียดตามแผน ---------------- */}
           {tab === "info" ? (
             <>
-              {/* ---------- ปุ่มแก้แผนของรายการนี้ ----------
-                  อยู่ในแท็บรายละเอียดเพราะเป็นการแก้ "สิ่งที่แผนกำหนดไว้"
-                  ไม่ใช่การรายงานผล และโผล่เฉพาะหน้าโครงการ/กิจกรรม
-                  ตามกติกาเดิมว่าข้อมูลหนึ่งชนิดแก้ได้ที่หน้าเดียว
-
-                  งบกับแผนดำเนินงานแก้ได้เลย ส่วนตัวชี้วัดกับการลบต้องมีมติ
-                  ปุ่มจึงแยกสีกัน ไม่ได้เรียงเป็นแถวเดียวกันหมด */}
-              {canClear ? (
-                <div className="btnrow" style={{ marginBottom: 16 }}>
-                  <Link className="btn ghost" href={"/plan-edit?mode=budget&uid=" + encodeURIComponent(uid)}>
-                    แก้ไขงบประมาณ
-                  </Link>
-                  <Link className="btn ghost" href={"/plan-edit?mode=schedule&uid=" + encodeURIComponent(uid)}>
-                    แก้ไขแผนการดำเนินงาน
-                  </Link>
-                  <Link className="btn ghost" href={"/plan-edit?mode=kpi&uid=" + encodeURIComponent(uid)}>
-                    แก้ไขตัวชี้วัด
-                  </Link>
-                  <Link className="btn danger" href={"/plan-edit?mode=delete&uid=" + encodeURIComponent(uid)}>
-                    ลบโครงการ
-                  </Link>
-                </div>
-              ) : null}
-
+              {/* ไม่มีปุ่มแก้แผนที่นี่โดยตั้งใจ — หน้าโครงการ/กิจกรรม
+                  ทำได้อย่างเดียวคือ **รายงานผล** การเปลี่ยนตัวแผน
+                  (เพิ่ม ลบ แก้งบ แก้ตัวชี้วัด แก้แผนดำเนินงาน)
+                  ทำที่หน้า "แก้ไขแผน" ที่เดียว เพราะเป็นคนละงานกัน
+                  และต้องมีมติรองรับ ไม่ใช่งานประจำวันของคนรายงานผล */}
               {!p._added && p.baseBudget != null && p.baseBudget !== p.budget ? (
                 <div className="banner">
                   <b>งบประมาณถูกแก้จากแผนเดิม</b> — แผนเดิม {money(p.baseBudget)} บาท
@@ -231,7 +212,7 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
                     onClick={() => {
                       if (
                         confirm(
-                          "ล้างข้อมูลที่กรอกไว้ของโครงการนี้ทั้งหมด (ผลรายเดือน รายการงบประมาณ และรายงานความเสี่ยง)?\nทุกคนจะเห็นผลทันที"
+                          "ล้างข้อมูลที่กรอกไว้ของโครงการนี้ทั้งหมด?"
                         )
                       ) {
                         clearProject(uid);

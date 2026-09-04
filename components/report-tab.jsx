@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { MONTHS, STATUSES, monthsOf } from "@/lib/plan";
+import { MONTHS, STATUSES, monthsOf, currentFiscalMonth } from "@/lib/plan";
 import { RISK_TYPES, RISK_LEVELS, riskLevelInfo } from "@/lib/rollup";
 import ConfirmDialog from "@/components/confirm-dialog";
+import StatusBadge, { ReportBadge } from "@/components/status-badge";
 import { money, pct } from "@/lib/format";
 import {
   useResults,
@@ -129,6 +130,15 @@ export default function ReportTab({ item }) {
   const roll = budgetRollup(budget, item, null);
   const plan = monthsOf(item);
   const rep = monthlyOf(results, item.uid);
+
+  /* ---------------------------------------------------------------
+     เดือนสุดท้ายที่แสดงในตารางรายงาน
+
+     เลือกเดือนไหนอยู่ ก็แสดงถึงเดือนนั้น — เดือนที่ยังมาไม่ถึงไม่ต้องขึ้น
+     ตอนเลือก "ทั้งปี" ใช้เดือนจริงตามปฏิทิน ไม่ใช่ ก.ย. 70 ทั้งดุ้น
+     ไม่งั้นการเลือกทั้งปีจะกลายเป็นทางลัดให้กรอกล่วงหน้าได้ทั้งปี
+     --------------------------------------------------------------- */
+  const lastMonth = allMonths ? currentFiscalMonth().index : asOfMonth;
 
   const area = {
     width: "100%",
@@ -275,14 +285,8 @@ export default function ReportTab({ item }) {
         >
           <p>
             {allMonths
-              ? "ตอนนี้เลือกช่วงเวลาเป็น “ทั้งปีงบประมาณ” อยู่ การรายงานผลเป็นงานรายเดือน จึงต้องเลือกเดือนที่ต้องการรายงานก่อน"
-              : "โครงการนี้ยังไม่ได้ส่งข้อมูลงบประมาณของ " +
-                asOfLabel +
-                " จึงยังบันทึกรายงานผลของเดือนนี้ไม่ได้"}
-          </p>
-          <p className="small muted">
-            ยอดเบิกจ่ายในรายงานผลคำนวณจากรายการงบประมาณ ถ้ายังแก้งบได้อยู่
-            ตัวเลขที่บันทึกไปแล้วจะเปลี่ยนตามทีหลังโดยไม่มีใครรู้
+              ? "เลือกเดือนที่จะรายงานจากดรอปดาวน์ด้านบนก่อน"
+              : "ต้องส่งข้อมูลงบประมาณของ " + asOfLabel + " ก่อน จึงจะบันทึกได้"}
           </p>
         </ConfirmDialog>
       ) : null}
@@ -314,7 +318,22 @@ export default function ReportTab({ item }) {
       />
 
       {/* ---------- 2. สถานะและความก้าวหน้า ---------- */}
-      <h4>สถานะการดำเนินงาน</h4>
+      <h4>
+        สถานะการดำเนินงาน
+        {/* ป้ายสรุปข้าง ๆ หัวข้อ ให้รู้สถานะปัจจุบันโดยไม่ต้องกวาดตาหาในดรอปดาวน์
+            และเห็นทันทีว่าเดือนที่มีแผนรายงานครบหรือยัง */}
+        <span className="badgerow" style={{ marginInlineStart: 10 }}>
+          <StatusBadge status={tk.status} />
+          <ReportBadge
+            done={(() => {
+              let n = 0;
+              for (let i = 0; i < 12; i++) if (hasReport(rep[i])) n++;
+              return n;
+            })()}
+            planned={plan.filter(Boolean).length}
+          />
+        </span>
+      </h4>
       <div className="trackgrid">
         <div>
           <label className="small muted" htmlFor={"st-" + item.uid}>
@@ -370,8 +389,17 @@ export default function ReportTab({ item }) {
         issueKey="outcomeIssue"
       />
 
-      {/* ---------- 5. ตารางรายเดือน 12 เดือน ที่ระดับโครงการ ---------- */}
-      <h4>รายงานผลการดำเนินงานรายเดือน</h4>
+      {/* ---------- 5. ตารางรายเดือน ที่ระดับโครงการ ----------
+          แสดงเฉพาะเดือนที่ถึงแล้ว เดือนอนาคตไม่ต้องขึ้นมาให้กรอก
+          ตารางที่มีช่องว่างของเดือนที่ยังไม่ถึงอยู่ครึ่งตาราง ทำให้ดูเหมือน
+          งานค้างเต็มไปหมด ทั้งที่ยังไม่ถึงเวลาต้องทำ
+
+          เดือนที่ผ่านไปแล้วยังแก้ได้ ไม่ได้ล็อกเป็นอ่านอย่างเดียว
+          เพราะการแก้ข้อมูลย้อนหลังของเดือนที่กรอกผิดเป็นเรื่องปกติ */}
+      <h4>
+        รายงานผลการดำเนินงานรายเดือน
+        <span className="pill none">ถึง {MONTHS[lastMonth]}</span>
+      </h4>
       <div className="tablewrap">
         <table className="mrep stack">
           <thead>
@@ -385,7 +413,7 @@ export default function ReportTab({ item }) {
             </tr>
           </thead>
           <tbody>
-            {MONTHS.map((label, i) => {
+            {MONTHS.slice(0, lastMonth + 1).map((label, i) => {
               const e = rep[i] || {};
               const reported = hasReport(e);
               const missed = plan[i] && i <= asOfMonth && !reported;
@@ -589,7 +617,8 @@ export default function ReportTab({ item }) {
                 </tr>
               </thead>
               <tbody>
-                {MONTHS.map((label, i) => {
+                {/* เดือนที่ยังมาไม่ถึงไม่ต้องขึ้นมาให้กรอกเช่นกัน */}
+                {MONTHS.slice(0, lastMonth + 1).map((label, i) => {
                   const cur = riskAt(risk, item.uid, i) || {};
                   const info = riskLevelInfo(cur.level === "" ? null : cur.level);
                   return (

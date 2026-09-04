@@ -20,6 +20,7 @@ import { byUid, MONTHS_SHORT } from "@/lib/plan";
 import { money, fmt } from "@/lib/format";
 import { useResults } from "@/lib/store";
 import { approvalText } from "@/components/approval-fields";
+import Bars from "@/components/bars";
 import DownloadButton from "@/components/download-button";
 import ConfirmDialog from "@/components/confirm-dialog";
 
@@ -46,11 +47,17 @@ function when(iso) {
   );
 }
 
-function monthList(arr) {
+/* เดือนที่มีแผนพร้อมเป้าหมาย — เขียนติดกันเป็น "ต.ค. 100" อ่านง่ายกว่า
+   แยกสองบรรทัดแล้วต้องนับตำแหน่งเอาเองว่าเลขไหนของเดือนไหน */
+function monthList(arr, targets) {
   if (!Array.isArray(arr)) return "–";
   const out = [];
-  for (let i = 0; i < 12; i++) if (arr[i]) out.push(MONTHS_SHORT[i]);
-  return out.length ? out.join(" ") : "ไม่มีเดือนที่มีแผน";
+  for (let i = 0; i < 12; i++) {
+    if (!arr[i]) continue;
+    const t = targets && targets[i] != null ? String(targets[i]).trim() : "";
+    out.push(MONTHS_SHORT[i] + (t ? " " + t : ""));
+  }
+  return out.length ? out.join(" · ") : "ไม่มีเดือนที่มีแผน";
 }
 
 /* สรุปว่าแถวนี้เปลี่ยนอะไรจากอะไรเป็นอะไร — คืนเป็นคู่ [ก่อน, หลัง] */
@@ -74,8 +81,8 @@ function change(e) {
     ];
   }
   return [
-    (p.period ? p.period + " · " : "") + monthList(p.months),
-    (d.period ? d.period + " · " : "") + monthList(d.months),
+    (p.period ? p.period + "\n" : "") + monthList(p.months, p.monthTargets),
+    (d.period ? d.period + "\n" : "") + monthList(d.months, d.monthTargets),
   ];
 }
 
@@ -112,9 +119,11 @@ export default function ChangesPage() {
 
   const stat = useMemo(() => {
     const byKind = {};
+    const orgs = new Map();
     let approved = 0;
     let draft = 0;
     let budgetDelta = 0;
+
     planEdits.forEach((e) => {
       byKind[e.kind] = (byKind[e.kind] || 0) + 1;
       if (e.status === "approved") approved++;
@@ -122,8 +131,20 @@ export default function ChangesPage() {
       if (e.status === "approved" && e.kind === "budget") {
         budgetDelta += (Number((e.data || {}).budget) || 0) - (Number((e.prev || {}).budget) || 0);
       }
+
+      /* หน่วยงานของรายการที่ถูกแก้ — รายการที่ถูกลบไปแล้วหาใน byUid ไม่เจอ
+         จึงต้องถอยไปอ่านจาก prev ที่เก็บไว้ตอนลบ */
+      const it = byUid.get(e.uid);
+      const name = (it && it.org) || (e.prev || {}).org || (e.data || {}).org || "";
+      const key = String(name).split("/")[0].trim();
+      if (key) orgs.set(key, (orgs.get(key) || 0) + 1);
     });
-    return { byKind, approved, draft, budgetDelta };
+
+    const byOrg = [...orgs.entries()]
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+
+    return { byKind, approved, draft, budgetDelta, byOrg };
   }, [planEdits]);
 
   function nameOf(e) {
@@ -220,15 +241,48 @@ export default function ChangesPage() {
           </div>
         </div>
 
-        <div className="btnrow" style={{ marginTop: 14 }}>
-          <Link className="btn" href="/plan-edit?mode=add">
-            + เพิ่มโครงการ/กิจกรรม
-          </Link>
-          <Link className="btn ghost" href="/plan-edit?mode=delete">
-            ลบโครงการ/กิจกรรม
-          </Link>
-        </div>
       </section>
+
+      {/* ---------- กราฟสรุป ----------
+          หน้านี้เป็นแดชบอร์ดสำหรับ "อ่าน" ว่าแผนถูกแก้ไปแล้วแค่ไหน
+          ไม่ใช่ที่ลงมือแก้ ปุ่มเพิ่ม/ลบจึงไม่อยู่ที่นี่ — อยู่หน้าแก้ไขแผนอย่างเดียว
+          ไม่งั้นจะมีสองทางเข้าไปทำสิ่งเดียวกัน แล้วคนจะไม่แน่ใจว่าต่างกันไหม */}
+      {planEdits.length ? (
+        <section className="block">
+          <h2>
+            ภาพรวมการแก้ไข
+            <small>แยกตามประเภท และตามหน่วยงานเจ้าของรายการที่ถูกแก้</small>
+          </h2>
+
+          <div className="cardgrid">
+            <div className="card pad">
+              <h3 className="cardtitle">แยกตามประเภทการแก้ไข</h3>
+              <Bars
+                data={KIND_ORDER.filter((k) => stat.byKind[k]).map((k) => ({
+                  label: KIND_LABEL[k],
+                  value: stat.byKind[k],
+                  display: fmt(stat.byKind[k]) + " ครั้ง",
+                }))}
+              />
+            </div>
+
+            <div className="card pad">
+              <h3 className="cardtitle">หน่วยงานที่มีการแก้มากที่สุด</h3>
+              {stat.byOrg.length ? (
+                <Bars
+                  data={stat.byOrg.slice(0, 8).map((o) => ({
+                    label: o.name,
+                    value: o.count,
+                    display: fmt(o.count) + " ครั้ง",
+                  }))}
+                />
+              ) : (
+                <div className="small muted">ยังระบุหน่วยงานของรายการที่แก้ไม่ได้</div>
+              )}
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <section className="block">
         <h2>
@@ -367,13 +421,7 @@ export default function ChangesPage() {
           }}
           onCancel={() => setAskDel(null)}
         >
-          <p>
-            ถ้ารายการนี้อนุมัติแล้ว ผลของมันจะถูกย้อนกลับทันที — โครงการที่เพิ่มไว้จะหายไป
-            โครงการที่ลบไว้จะกลับมา และงบที่แก้ไว้จะกลับเป็นค่าเดิม
-          </p>
-          <p className="small muted">
-            ประวัติแถวนี้จะหายไปด้วย ไม่มีวิธีกู้คืน
-          </p>
+          <p>ผลของการแก้ครั้งนี้จะถูกย้อนกลับ และประวัติหายไปด้วย</p>
         </ConfirmDialog>
       ) : null}
     </>

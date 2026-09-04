@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useResults } from "@/lib/store";
 import { buildAlerts } from "@/lib/alerts";
 import Assistant from "@/components/assistant";
@@ -23,6 +23,7 @@ import ConfirmDialog from "@/components/confirm-dialog";
 const NAV = [
   {
     group: "ดูข้อมูล",
+    icon: "📊",
     items: [
       { href: "/", label: "ภาพรวม" },
       { href: "/alerts", label: "แจ้งเตือน", badge: true },
@@ -31,6 +32,7 @@ const NAV = [
   },
   {
     group: "รายงานผล",
+    icon: "✍️",
     items: [
       { href: "/budget", label: "งบประมาณโครงการ" },
       { href: "/projects", label: "โครงการ/กิจกรรม" },
@@ -43,6 +45,7 @@ const NAV = [
      เกิดไม่บ่อยแต่กระทบทุกตัวเลขในเว็บ จึงไม่ควรปนกับงานประจำวัน */
   {
     group: "จัดการแผน",
+    icon: "🗂️",
     items: [
       { href: "/plan-edit", label: "แก้ไขแผน" },
       { href: "/changes", label: "ถังการแก้ไขข้อมูล" },
@@ -69,6 +72,14 @@ export default function Shell({ children }) {
   } = useResults();
   const [signingOut, setSigningOut] = useState(false);
   const [askSignOut, setAskSignOut] = useState(false);
+  const [navGroup, setNavGroup] = useState(null);
+
+  /* เปลี่ยนหน้าแล้วปิดแผ่นเมนูเอง — ไม่งั้นกดลิงก์แล้วแผ่นค้างทับหน้าใหม่
+     ผูกกับ pathname ไม่ใช่กับ onClick อย่างเดียว เพราะปุ่มย้อนกลับ
+     ของเบราว์เซอร์ก็เปลี่ยนหน้าได้โดยไม่ผ่าน onClick */
+  useEffect(() => {
+    setNavGroup(null);
+  }, [pathname]);
 
   const critCount = useMemo(() => {
     if (!loaded) return 0;
@@ -194,6 +205,61 @@ export default function Shell({ children }) {
         {children}
       </main>
 
+      {/* ---------- แถบเมนูล่างสำหรับมือถือ ----------
+          จอเล็กเลื่อนแถบเมนูบนแนวนอนไม่ไหว — 8 หน้าเรียงกันยาวจนต้องปัดหา
+          และมือถือถือด้วยมือเดียว นิ้วโป้งเอื้อมถึงล่างจอ ไม่ใช่บนจอ
+
+          ปุ่มเป็น "หมวด" ไม่ใช่ "หน้า" เพราะ 8 หน้าใส่ในแถบล่างไม่พอ
+          และหมวดที่จัดไว้แล้วก็ตอบได้อยู่แล้วว่าจะไปทำอะไร
+          กดหมวดแล้วค่อยเลือกหน้าจากแผ่นที่เลื่อนขึ้นมา */}
+      <nav className="mobnav" aria-label="เมนูหลัก">
+        {NAV.map((g) => {
+          const here = g.items.some((n) => n.href === pathname);
+          const groupBadge = g.items.some((n) => n.badge) && critCount > 0;
+          return (
+            <button
+              key={g.group}
+              className={(here ? "on" : "") + (navGroup === g.group ? " open" : "")}
+              aria-expanded={navGroup === g.group}
+              onClick={() => setNavGroup(navGroup === g.group ? null : g.group)}
+            >
+              <span className="mnicon" aria-hidden="true">
+                {g.icon}
+                {groupBadge ? <i className="mndot" /> : null}
+              </span>
+              <span className="mnlab">{g.group}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      {navGroup ? (
+        <>
+          <div className="scrim scrim-top" onClick={() => setNavGroup(null)} />
+          <div className="navsheet" role="dialog" aria-label={navGroup}>
+            <div className="navsheet-head">
+              <b>{navGroup}</b>
+              <button className="iconbtn" onClick={() => setNavGroup(null)}>
+                ปิด
+              </button>
+            </div>
+            {(NAV.find((g) => g.group === navGroup) || { items: [] }).items.map((n) => (
+              <Link
+                key={n.href}
+                href={n.href}
+                className={pathname === n.href ? "on" : ""}
+                onClick={() => setNavGroup(null)}
+              >
+                <span>{n.label}</span>
+                {n.badge && critCount > 0 ? (
+                  <span className="count">{critCount}</span>
+                ) : null}
+              </Link>
+            ))}
+          </div>
+        </>
+      ) : null}
+
       {askSignOut ? (
         <ConfirmDialog
           title="คุณแน่ใจว่าจะออกจากระบบใช่ไหม"
@@ -203,13 +269,7 @@ export default function Shell({ children }) {
           onConfirm={handleSignOut}
           onCancel={() => setAskSignOut(false)}
         >
-          <p>
-            ระบบจะบันทึกสิ่งที่ยังค้างอยู่ขึ้น Supabase ให้ก่อนออก
-            จึงไม่มีข้อมูลที่พิมพ์ไว้หายไป
-          </p>
-          <p className="small muted">
-            เข้าใช้งานอีกครั้งต้องกรอกอีเมลและรหัสผ่านใหม่
-          </p>
+          <p>ข้อมูลที่พิมพ์ค้างไว้จะถูกบันทึกให้ก่อน ไม่หาย</p>
         </ConfirmDialog>
       ) : null}
 

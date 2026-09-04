@@ -16,6 +16,7 @@ import { buildAlerts, groupByUid, worstSev, rolledReport, SEV_LABEL } from "@/li
 import MonthPicker from "@/components/month-picker";
 import ProjectDrawer from "@/components/project-drawer";
 import DownloadButton from "@/components/download-button";
+import StatusBadge, { ReportBadge } from "@/components/status-badge";
 
 export default function ProjectsPage() {
   const { results, budget, risk, asOfMonth, loaded } = useResults();
@@ -78,6 +79,11 @@ export default function ProjectsPage() {
   }
 
   const shownBudget = rows.reduce((a, p) => a + (p.lvl === 1 ? p.budget || 0 : 0), 0);
+
+  /* โครงการที่กำลังเปิดรายงานผลอยู่ — ใช้ซ่อนโครงการอื่นออกจากตาราง
+     หาใน rows ไม่ใช่ใน ITEMS ทั้งหมด เพราะถ้าตัวกรองด้านบนถูกเปลี่ยน
+     จนโครงการที่เปิดอยู่หลุดออกจากผลการกรอง ตารางควรกลับมาปกติ */
+  const focused = openUid ? rows.find((p) => p.uid === openUid) || null : null;
 
   /* เมื่อเลือกยุทธศาสตร์ ให้แบ่งกลุ่มตามกลยุทธ์ จะได้เห็นชัดว่าโครงการไหนอยู่กลยุทธ์ไหน
      ไม่เลือกยุทธศาสตร์ก็แสดงรวดเดียวเหมือนเดิม เพราะข้ามยุทธศาสตร์แล้วกลุ่มจะเยอะเกินอ่าน */
@@ -189,25 +195,13 @@ export default function ProjectsPage() {
           />
         </h2>
 
-        {/* ปุ่มแก้แผนแยกออกจากปุ่มดาวน์โหลดที่หัวข้อ เพราะเป็นคนละน้ำหนักกัน
-            ดาวน์โหลดทำได้ทุกวัน ส่วนเพิ่ม/ลบโครงการต้องมีมติ คกก.กยท. รองรับ */}
-        <div className="btnrow" style={{ marginBottom: 14 }}>
-          <Link className="btn" href="/plan-edit?mode=add">
-            + เพิ่มโครงการ/กิจกรรม
-          </Link>
-          <Link className="btn ghost" href="/plan-edit?mode=delete">
-            ลบโครงการ/กิจกรรม
-          </Link>
-          <Link className="btn ghost" href="/changes">
-            ถังการแก้ไขข้อมูล
-          </Link>
-        </div>
-
         <div className="hint">
-          คอลัมน์ <b>เบิกจ่าย</b> ดึงยอดมาจากหน้า{" "}
-          <Link href="/budget">งบประมาณโครงการ</Link> ซึ่งเป็นที่เดียวที่บันทึกงบได้
-          หน้านี้กับลิ้นชักรายละเอียดแสดงยอดอย่างเดียว ไม่ให้กรอก
-          เพื่อไม่ให้มีสองแหล่งที่กรอกเงินแล้วตัวเลขขัดกัน
+          หน้านี้ทำได้อย่างเดียวคือ <b>รายงานผลการดำเนินงาน</b> —
+          คอลัมน์เบิกจ่ายดึงยอดมาจาก <Link href="/budget">งบประมาณโครงการ</Link>{" "}
+          ซึ่งเป็นที่เดียวที่บันทึกงบได้ ส่วนการเพิ่ม ลบ หรือแก้ตัวแผน
+          (งบที่จัดสรร ตัวชี้วัด แผนการดำเนินงาน) ทำที่{" "}
+          <Link href="/plan-edit">แก้ไขแผน</Link> ที่เดียว
+          เพราะต้องมีมติรองรับและต้องเก็บประวัติทุกครั้ง
         </div>
 
         <div className="filters">
@@ -299,7 +293,12 @@ export default function ProjectsPage() {
               </tr>
             </thead>
             <tbody>
-              {(grouped
+              {(focused
+                ? /* กำลังรายงานผลอยู่ — เหลือเฉพาะโครงการที่เลือก
+                     ตารางยาว ๆ ข้างหลังลิ้นชักทำให้เสียสมาธิ และเลื่อนพลาด
+                     ไปเปิดโครงการอื่นทับของที่กำลังกรอกค้างไว้ได้ง่าย */
+                  [renderRow(focused)]
+                : grouped
                 ? /* แบ่งกลุ่มตามกลยุทธ์ โดยแทรกแถวหัวกลุ่มคั่นก่อนแต่ละชุด */
                   grouped.flatMap((g) => [
                     <tr className="exp-body" key={"grp/" + g.name}>
@@ -322,7 +321,14 @@ export default function ProjectsPage() {
           </table>
         </div>
 
-        {rows.length === 0 ? (
+        {focused ? (
+          <div className="banner ok" style={{ marginTop: 14 }}>
+            <b>กำลังรายงานผล {focused.name}</b> — ซ่อนโครงการอื่นไว้ชั่วคราว
+            กดปิดในลิ้นชักเพื่อกลับไปดูทั้งหมด
+          </div>
+        ) : null}
+
+        {!focused && rows.length === 0 ? (
           <div className="banner" style={{ marginTop: 14 }}>
             ไม่มีรายการที่ตรงกับตัวกรองที่เลือก
           </div>
@@ -367,9 +373,9 @@ export default function ProjectsPage() {
                         <span className={"chip s" + p.sNo}>{p.tNo || p.sNo}</span>
                       ) : null}{" "}
                       <span className={p.lvl >= 2 ? "small muted" : ""}>{p.name}</span>
-                      <div className="small muted">
-                        {p.code}
-                        {tk.status ? " · " + tk.status : ""}
+                      <div className="small muted">{p.code}</div>
+                      <div className="badgerow">
+                        <StatusBadge status={tk.status} />
                       </div>
                     </td>
                     <td className="small" data-label="หน่วยงาน">{p.org}</td>
@@ -420,7 +426,7 @@ export default function ProjectsPage() {
                       </table>
                     </td>
                     <td className="num small" data-label="รายงานแล้ว">
-                      {nPlanned ? nRep + " / " + nPlanned : nRep ? nRep : "–"}
+                      <ReportBadge done={nRep} planned={nPlanned} />
                     </td>
                     <td className="num small" data-label="เบิกจ่าย">
                       {spent ? money(spent) : "–"}
@@ -430,11 +436,11 @@ export default function ProjectsPage() {
                     </td>
                     <td data-label="แจ้งเตือน">
                       {sev ? (
-                        <span className={"chip"} style={{ color: sev === "crit" ? "var(--bad)" : "var(--warn)" }}>
+                        <span className={"pill " + (sev === "crit" ? "bad" : "warn")}>
                           {SEV_LABEL[sev]} {list.length}
                         </span>
                       ) : (
-                        <span className="small muted">–</span>
+                        <span className="pill ok">ไม่พบปัญหา</span>
                       )}
                     </td>
                   </tr>

@@ -22,9 +22,11 @@ const S_COLORS = ["", "var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)"];
 
 /* สองหน้าต่างของหน้างบประมาณ — แยกกันเพราะคนละงาน
    แดชบอร์ด = ดูภาพรวม  ·  รายงาน = กรอกและพิมพ์รายโครงการ */
+/* เรียงตามลำดับงานจริง: มาหน้านี้เพื่อ "กรอกงบ" ก่อน แล้วค่อยดูสรุป
+   หน้าต่างแรกจึงเป็นที่บันทึกงบ ไม่ใช่แดชบอร์ด และเป็นค่าตั้งต้นด้วย */
 const PANES = [
-  ["dash", "แดชบอร์ดสรุปงบประมาณ"],
   ["report", "รายงานงบประมาณโครงการ"],
+  ["dash", "แดชบอร์ดสรุปงบประมาณ"],
 ];
 
 const DONUT_VIEWS = [
@@ -46,7 +48,7 @@ const PDF_SCOPES = [
 
 export default function BudgetPage() {
   const { budget, asOfMonth, asOfLabel, allMonths, loaded, budgetSubmitted } = useResults();
-  const [pane, setPane] = useState("dash");
+  const [pane, setPane] = useState("report");
   const [q, setQ] = useState("");
   const [org, setOrg] = useState("");
   const [fund, setFund] = useState("");

@@ -300,6 +300,35 @@ export default function AlertsPage() {
           </small>
         </h2>
 
+        {/* ---------- เลือกเรื่องที่จะดู ----------
+            ดรอปดาวน์ "ประเภท" ยังอยู่ด้านล่างสำหรับคนที่ใช้ร่วมกับตัวกรองอื่น
+            แต่ปุ่มชุดนี้ตอบคำถามที่คนถามบ่อยที่สุดโดยไม่ต้องเปิดดรอปดาวน์:
+            "ตอนนี้มีเรื่องอะไรบ้าง และเรื่องละกี่รายการ"
+
+            เรียงตามจำนวนจากมากไปน้อย เรื่องที่ไม่มีรายการเลยไม่ต้องขึ้นปุ่ม
+            จะได้ไม่ต้องกดปุ่มที่รู้อยู่แล้วว่ากดไปก็ว่าง */}
+        <div className="kindpick">
+          <button
+            type="button"
+            aria-pressed={kind === ""}
+            onClick={() => setKind("")}
+          >
+            ทั้งหมด
+            <span className="n">{fmt(alerts.length)}</span>
+          </button>
+          {KINDS.filter((k) => stats.byKind[k]).map((k) => (
+            <button
+              type="button"
+              key={k}
+              aria-pressed={kind === k}
+              onClick={() => setKind(kind === k ? "" : k)}
+            >
+              {KIND_LABEL[k]}
+              <span className="n">{fmt(stats.byKind[k])}</span>
+            </button>
+          ))}
+        </div>
+
         <div className="filters">
           <div className="field">
             <label htmlFor="f-q">ค้นหา</label>
