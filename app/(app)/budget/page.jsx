@@ -608,7 +608,8 @@ export default function BudgetPage() {
                     <tr key={p.uid} id={"bud-" + p.uid}>
                       <td className="lead">
                         {p.sNo ? <span className={"chip s" + p.sNo}>{p.tNo || p.sNo}</span> : null}{" "}
-                        {p.name}
+                        {/* ชื่อโครงการหนาตามกติกาเดียวกันทุกหน้า */}
+                        <span className="projname">{p.name}</span>
                         <div className="small muted">
                           {p.code} · {p.org}
                           {leadUnit(p) ? " · เจ้าของ " + leadUnit(p) : ""}

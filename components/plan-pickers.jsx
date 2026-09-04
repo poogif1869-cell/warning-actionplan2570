@@ -7,7 +7,7 @@
    และสามชิ้นนี้เป็นเรื่องของ "วิธีเลือก/กรอก" ล้วน ๆ ไม่ผูกกับโหมดไหน
    ===================================================================== */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PROJECTS, MONTHS, MONTHS_SHORT } from "@/lib/plan";
 import { STRATEGIES, ORG_UNITS, PLAN_LINKS, inUnit } from "@/lib/rollup";
 import { money, fmt } from "@/lib/format";
@@ -33,6 +33,29 @@ export function ItemPicker({ value, onChange, onlyProjects, label, exclude }) {
      เบราว์เซอร์จะส่งการเลื่อนต่อไปให้หน้าเว็บ (scroll chaining)
      คนกำลังไล่ดูรายชื่อจึงถูกดีดออกไปท้ายหน้าโดยไม่ได้ตั้งใจ */
   const [page, setPage] = useState(0);
+
+  /* ---------------------------------------------------------------
+     จำนวนรายการต่อหน้าคิดจากความสูงจอจริง ไม่ใช่เลขตายตัว
+
+     ตั้งไว้ 8 ตายตัวแล้วบนมือถือรายการล้นจอ ต้องเลื่อนลงไปดูว่ามีกี่ชื่อ
+     แล้วเลื่อนต่ออีกเพื่อกดหน้าถัดไป — ซึ่งเป็นสิ่งที่การแบ่งหน้า
+     ควรกำจัดออกไปตั้งแต่แรก
+
+     260px คือที่ที่แถบตัวกรอง ปุ่มเปลี่ยนหน้า และหัวข้อกินไปโดยประมาณ
+     44px คือความสูงของหนึ่งแถวหลังทำให้กระชับขึ้น
+     คุมไว้ที่ 3-12 แถว จอเตี้ยมากก็ยังเห็นอย่างน้อยสามชื่อ
+     --------------------------------------------------------------- */
+  const [perPage, setPerPage] = useState(6);
+
+  useEffect(() => {
+    function calc() {
+      const n = Math.floor((window.innerHeight - 260) / 44);
+      setPerPage(Math.max(3, Math.min(12, n)));
+    }
+    calc();
+    window.addEventListener("resize", calc);
+    return () => window.removeEventListener("resize", calc);
+  }, []);
 
   /* ---------------------------------------------------------------
      ยังไม่ค้นอะไรเลย = ไม่ต้องเทรายชื่อ 121 โครงการมาให้
@@ -71,11 +94,10 @@ export function ItemPicker({ value, onChange, onlyProjects, label, exclude }) {
     }));
   }, [active, needle, sNo, org, exclude]);
 
-  const PER_PAGE = 8;
-  const pages = Math.max(1, Math.ceil(list.length / PER_PAGE));
+  const pages = Math.max(1, Math.ceil(list.length / perPage));
   // เปลี่ยนตัวกรองแล้วจำนวนหน้าลด หน้าที่ค้างอยู่อาจเกินไปแล้ว
   const pageNo = Math.min(page, pages - 1);
-  const shown = list.slice(pageNo * PER_PAGE, pageNo * PER_PAGE + PER_PAGE);
+  const shown = list.slice(pageNo * perPage, pageNo * perPage + perPage);
 
   function reset() {
     setQ("");
@@ -156,9 +178,35 @@ export function ItemPicker({ value, onChange, onlyProjects, label, exclude }) {
         </div>
       ) : (
         <>
-          <div className="small muted" style={{ marginBottom: 7 }}>
-            พบ {fmt(list.length)} โครงการ
-            {pages > 1 ? " · หน้า " + (pageNo + 1) + " จาก " + pages : ""}
+          {/* ---------- แถบเปลี่ยนหน้า อยู่ "เหนือ" รายการ ----------
+              ถ้าอยู่ใต้รายการ ต้องเลื่อนผ่านทั้งหน้าไปกดทุกครั้ง
+              ซึ่งทำให้การแบ่งหน้าไม่ได้ช่วยอะไรเลย
+              รวมจำนวนที่พบไว้ในแถบเดียวกัน จะได้ไม่กินความสูงสองบรรทัด */}
+          <div className="pickpager">
+            <span className="small muted">
+              พบ {fmt(list.length)} โครงการ
+              {pages > 1 ? " · หน้า " + (pageNo + 1) + "/" + pages : ""}
+            </span>
+            {pages > 1 ? (
+              <span className="pickpager-btns">
+                <button
+                  type="button"
+                  className="btn ghost"
+                  disabled={pageNo === 0}
+                  onClick={() => setPage(pageNo - 1)}
+                >
+                  ← ก่อนหน้า
+                </button>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  disabled={pageNo >= pages - 1}
+                  onClick={() => setPage(pageNo + 1)}
+                >
+                  ถัดไป →
+                </button>
+              </span>
+            ) : null}
           </div>
 
           <div className="picklist">
@@ -225,31 +273,6 @@ export function ItemPicker({ value, onChange, onlyProjects, label, exclude }) {
               })
             )}
           </div>
-
-          {/* ปุ่มเปลี่ยนหน้า — ไม่ใช้กล่องเลื่อน จะได้ไม่ดีดหน้าเว็บตอนเลื่อนจนสุด */}
-          {pages > 1 ? (
-            <div className="pickpager">
-              <button
-                type="button"
-                className="btn ghost"
-                disabled={pageNo === 0}
-                onClick={() => setPage(pageNo - 1)}
-              >
-                ← ก่อนหน้า
-              </button>
-              <span className="small muted">
-                หน้า {pageNo + 1} / {pages}
-              </span>
-              <button
-                type="button"
-                className="btn ghost"
-                disabled={pageNo >= pages - 1}
-                onClick={() => setPage(pageNo + 1)}
-              >
-                ถัดไป →
-              </button>
-            </div>
-          ) : null}
         </>
       )}
     </div>

@@ -74,7 +74,8 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
       <aside className="drawer" role="dialog" aria-modal="true" aria-label={p.name}>
         <header>
           <h3>
-            {p.name}
+            {/* หัวลิ้นชักก็ตามกติกาเดียวกัน โครงการหนา กิจกรรมบาง */}
+            <span className={p.lvl === 1 ? "projname" : "actname-sm"}>{p.name}</span>
             <div className="small muted" style={{ fontWeight: 400 }}>
               {p.code}
               {p.org ? " · " + p.org : ""}

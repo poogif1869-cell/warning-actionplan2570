@@ -372,7 +372,11 @@ export default function ProjectsPage() {
                       {p.sNo ? (
                         <span className={"chip s" + p.sNo}>{p.tNo || p.sNo}</span>
                       ) : null}{" "}
-                      <span className={p.lvl >= 2 ? "small muted" : ""}>{p.name}</span>
+                      {/* ชื่อโครงการหนากว่าชื่อกิจกรรมเสมอ กวาดตาแล้วแยกชั้นได้ทันที
+                          โดยไม่ต้องอ่านรหัสว่ากี่หลัก (กติกาเดียวกันทุกหน้า) */}
+                      <span className={p.lvl >= 2 ? "actname-sm" : "projname"}>
+                        {p.name}
+                      </span>
                       <div className="small muted">{p.code}</div>
                       <div className="badgerow">
                         <StatusBadge status={tk.status} />

@@ -598,7 +598,7 @@ export default function PlanEditPage() {
               {target ? (
                 <div className="card pad picked">
                   <div className="small muted">รายการที่เลือก</div>
-                  <div className="pickedname">
+                  <div className={"pickedname " + (target.lvl === 1 ? "projname" : "actname-sm")}>
                     {target.code} {target.name}
                   </div>
                   <div className="small muted">
@@ -923,10 +923,12 @@ export default function PlanEditPage() {
                             }
                           />
                           <span>
-                            <b>
+                            <b className={"lvltag" + (t.lvl === 1 ? "" : " act")}>
                               {t.lvl === 1 ? "โครงการ" : "กิจกรรม"} {t.code}
                             </b>{" "}
-                            {t.name}
+                            <span className={t.lvl === 1 ? "projname" : "actname-sm"}>
+                              {t.name}
+                            </span>
                             <span className="small muted">
                               {" "}
                               · งบตามแผน {money(t.budget)} บาท
@@ -952,9 +954,12 @@ export default function PlanEditPage() {
                       return (
                         <div className="actcard ok" key={t.uid}>
                           <div className="actcard-head">
-                            <b>
-                              {t.lvl === 1 ? "โครงการ" : "กิจกรรม"} {t.code} {t.name}
-                            </b>
+                            <b className={"lvltag" + (t.lvl === 1 ? "" : " act")}>
+                              {t.lvl === 1 ? "โครงการ" : "กิจกรรม"} {t.code}
+                            </b>{" "}
+                            <span className={t.lvl === 1 ? "projname" : "actname-sm"}>
+                              {t.name}
+                            </span>
                           </div>
 
                           {parts.kpi ? (

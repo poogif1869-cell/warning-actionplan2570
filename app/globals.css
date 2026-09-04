@@ -1308,9 +1308,11 @@ section.block > h2 > .dlwrap{margin-inline-start:auto}
   display:flex; flex-direction:column; gap:3px;
 }
 .pickpager{
-  display:flex; align-items:center; justify-content:center; gap:14px;
-  margin-top:12px; flex-wrap:wrap;
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  margin-bottom:8px; flex-wrap:wrap;
 }
+.pickpager-btns{display:flex; gap:8px}
+.pickpager .btn{padding:6px 12px; font-size:12.5px}
 .pickrow{
   display:flex; align-items:flex-start; gap:10px; width:100%; text-align:start;
   padding:9px 11px; border-radius:9px; cursor:pointer; font:inherit; font-size:13px;
@@ -1326,7 +1328,7 @@ section.block > h2 > .dlwrap{margin-inline-start:auto}
 .pickrow.on .pickmark{background:var(--accent); border-color:var(--accent)}
 .pickname{flex:1 1 auto; min-width:0}
 .picked{margin:12px 0 4px; border-inline-start:3px solid var(--gold)}
-.pickedname{font-weight:600; margin:3px 0}
+.pickedname{margin:3px 0}
 
 /* ---------- เลือกว่าจะแก้อะไรบ้าง ---------- */
 .partpick{display:flex; flex-direction:column; gap:8px; margin-bottom:18px}
@@ -1487,18 +1489,31 @@ section.block > h2 > .dlwrap{margin-inline-start:auto}
 
    โครงการ  ตัวหนา มีเส้นคั่นด้านบน มีระยะห่างชัด
    กิจกรรม  เยื้องเข้ามา ตัวเล็กลง มีเส้นตั้งด้านซ้ายลากต่อจากโครงการแม่ */
-.pickgroup{border-top:1px solid var(--border-soft); padding:4px 0}
+.pickgroup{border-top:1px solid var(--border-soft); padding:2px 0}
 .pickgroup:first-child{border-top:none}
 
-.pickrow.proj{font-size:13.5px; padding:12px 11px}
-.pickrow.proj b{font-weight:700}
-.pickmeta{display:block; font-size:11.5px; color:var(--faint); margin-top:3px}
+/* แถวโครงการทำให้เตี้ยลง เพื่อให้หนึ่งหน้าแสดงได้พอดีจอโดยไม่ต้องเลื่อน
+   ชื่อยาวตัดด้วย ellipsis บรรทัดเดียว รายละเอียดย่ออยู่บรรทัดที่สอง */
+.pickrow.proj{font-size:13.5px; padding:7px 11px}
+.pickrow.proj .pickname{font-weight:700}
+.pickrow.proj .pickname > b{font-weight:700; margin-inline-end:4px}
+.pickname{
+  display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.pickmeta{
+  display:block; font-size:11px; color:var(--faint); font-weight:400;
+  margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
 .pickrow.proj.on{background:var(--accent-soft); border-color:var(--accent)}
 
+/* กิจกรรมตัวบางกว่าโครงการชัดเจน — อ่านผ่าน ๆ ต้องแยกออกทันที
+   ว่าบรรทัดไหนเป็นโครงการ บรรทัดไหนเป็นกิจกรรมใต้โครงการนั้น */
 .pickrow.act{
-  margin-inline-start:30px; font-size:12.5px; padding:8px 11px;
+  margin-inline-start:30px; font-size:12.5px; padding:6px 11px;
   border-inline-start:2px solid var(--border); border-radius:0 9px 9px 0;
 }
+.pickrow.act .pickname{font-weight:400}
+.pickrow.act .pickname > b{font-weight:600}
 .pickrow.act:hover{border-inline-start-color:var(--accent)}
 .pickrow.act.on{border-inline-start-color:var(--accent)}
 .pickrow.act .pickmark{width:16px; height:16px; font-size:10px}
@@ -1665,3 +1680,15 @@ section.block > h2 > .dlwrap{margin-inline-start:auto}
   font-size:13px; color:var(--text); background:var(--surface);
 }
 .linkro.empty{color:var(--faint); font-style:italic}
+
+/* ---------- ระดับของรายการอ่านจากน้ำหนักตัวอักษรได้ทันที ----------
+   กติกาเดียวกันทุกหน้า: โครงการหนา กิจกรรมบาง
+
+   เดิมใช้แค่ "small muted" กับกิจกรรม ซึ่งบอกว่ามันรอง แต่ไม่ได้ทำให้
+   โครงการเด่นขึ้น ทั้งสองระดับจึงดูใกล้กันเกินไปเวลากวาดตาหา */
+.projname{font-weight:700}
+.actname-sm{font-size:12.5px; font-weight:400; color:var(--muted)}
+
+/* ป้ายชั้นในรายการที่ปนกันสองระดับ (หน้าแก้ไขแผน) */
+.lvltag{font-weight:700}
+.lvltag.act{font-weight:500; color:var(--muted)}
