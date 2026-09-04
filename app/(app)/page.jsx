@@ -42,6 +42,17 @@ export default function OverviewPage() {
     check.projects === EXPECTED.projects &&
     check.projectBudget === EXPECTED.projectBudget;
 
+  /* งบเดิมเทียบงบปัจจุบัน — deps ว่างได้เพราะทั้งหน้า remount
+     เมื่อ planVersion เปลี่ยน (ดู key={planVersion} ใน shell.jsx) */
+  const planDiff = useMemo(() => {
+    const base = check.projectBudget;
+    const now = PROJECTS.reduce((a, p) => a + (p.budget || 0), 0);
+    const changed = PROJECTS.filter(
+      (p) => p.baseBudget != null && p.baseBudget !== (p.budget || 0)
+    ).sort((a, b) => Math.abs(b.budget - b.baseBudget) - Math.abs(a.budget - a.baseBudget));
+    return { base, now, diff: now - base, changed };
+  }, [check]);
+
   const totals = META.totals;
   const ceilingTotal = FUND_ROLLUP.reduce((a, f) => a + (f.ceiling || 0), 0);
   const usedTotal = FUND_ROLLUP.reduce((a, f) => a + f.used, 0);
@@ -296,6 +307,100 @@ export default function OverviewPage() {
           </div>
         </div>
       </section>
+
+      {/* ---------- งบเดิม vs งบปัจจุบัน ----------
+          โผล่เฉพาะเมื่อมีการแก้แผนจริงเท่านั้น ถ้ายังไม่มีใครแก้อะไร
+          สองตัวเลขนี้เท่ากันเป๊ะ การแสดงไว้ตลอดจึงเป็นแค่ที่ว่างเปล่า
+
+          "งบตามแผนเดิม" นับจากไฟล์แผนต้นฉบับเสมอ (reconcile) ไม่ใช่ผลรวม
+          ของ baseBudget ในรายการปัจจุบัน เพราะโครงการที่ถูกลบไปแล้ว
+          จะหายจากรายการปัจจุบัน แล้วยอดเดิมจะลดตามไปด้วยอย่างเงียบ ๆ */}
+      {planDiff.changed.length || planDiff.diff !== 0 ? (
+        <section className="block">
+          <h2>
+            งบประมาณ: แผนเดิม เทียบกับ ปัจจุบัน
+            <small>
+              มีการแก้ไขแผน {fmt(planDiff.changed.length)} รายการ ·
+              ดูที่มาได้ที่ <Link href="/changes">ถังการแก้ไขข้อมูล</Link>
+            </small>
+          </h2>
+          <div className="tiles">
+            <div className="tile">
+              <span className="lab">งบตามแผนเดิม</span>
+              <div className="val">
+                {mb(planDiff.base)}
+                <span className="unit">ล้านบาท</span>
+              </div>
+              <div className="note">ตามไฟล์แผนปฏิบัติการต้นฉบับ</div>
+            </div>
+            <div className="tile ok">
+              <span className="lab">งบปัจจุบัน</span>
+              <div className="val">
+                {mb(planDiff.now)}
+                <span className="unit">ล้านบาท</span>
+              </div>
+              <div className="note">หลังการแก้ไขที่อนุมัติแล้วทั้งหมด</div>
+            </div>
+            <div className={"tile " + (planDiff.diff < 0 ? "crit" : "warn")}>
+              <span className="lab">ผลต่าง</span>
+              <div className={"val " + (planDiff.diff < 0 ? "st-bad" : "st-ok")}>
+                {planDiff.diff > 0 ? "+" : ""}
+                {mb(planDiff.diff)}
+                <span className="unit">ล้านบาท</span>
+              </div>
+              <div className="note">{money(planDiff.diff)} บาท</div>
+            </div>
+            <div className="tile">
+              <span className="lab">จำนวนโครงการ</span>
+              <div className="val">
+                {fmt(PROJECTS.length)}
+                <span className="unit">/ {fmt(EXPECTED.projects)} เดิม</span>
+              </div>
+              <div className="note">
+                {PROJECTS.length === EXPECTED.projects
+                  ? "เท่าเดิม"
+                  : PROJECTS.length > EXPECTED.projects
+                  ? "เพิ่มขึ้น " + fmt(PROJECTS.length - EXPECTED.projects) + " โครงการ"
+                  : "ลดลง " + fmt(EXPECTED.projects - PROJECTS.length) + " โครงการ"}
+              </div>
+            </div>
+          </div>
+
+          {planDiff.changed.length ? (
+            <div className="tablewrap" style={{ marginTop: 14 }}>
+              <table className="stack">
+                <thead>
+                  <tr>
+                    <th>โครงการที่งบเปลี่ยน</th>
+                    <th className="num">งบเดิม</th>
+                    <th className="num">งบปัจจุบัน</th>
+                    <th className="num">ผลต่าง</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {planDiff.changed.map((p) => (
+                    <tr key={p.uid}>
+                      <td className="lead small">
+                        {p.code} {p.name}
+                        {p._added ? <span className="pill ok"> เพิ่มใหม่</span> : null}
+                      </td>
+                      <td className="num" data-label="งบเดิม">{money(p.baseBudget)}</td>
+                      <td className="num" data-label="งบปัจจุบัน">{money(p.budget)}</td>
+                      <td
+                        className={"num " + (p.budget < p.baseBudget ? "st-bad" : "st-ok")}
+                        data-label="ผลต่าง"
+                      >
+                        {p.budget > p.baseBudget ? "+" : ""}
+                        {money(p.budget - p.baseBudget)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="block">
         <h2>

@@ -618,3 +618,98 @@ create policy budget_submissions_delete on public.budget_submissions
 grant select, insert, update, delete on public.budget_submissions to authenticated;
 
 notify pgrst, 'reload schema';
+
+
+-- =====================================================================
+-- เพิ่มเมื่อ 4 ก.ย. — ถังการแก้ไขข้อมูล (plan_edits)
+--
+-- แผนปฏิบัติการทั้งฉบับฝังมากับโค้ดเป็นไฟล์ data/plan-data.json
+-- ตารางนี้จึงไม่ได้เก็บ "แผน" แต่เก็บ **สิ่งที่เปลี่ยนไปจากแผนฉบับนั้น**
+-- แล้วเว็บเอามาทับตอนโหลด (ดู applyPlanEdits ใน lib/plan.js)
+--
+-- ข้อดีของการเก็บเป็นรายการเปลี่ยนแปลง ไม่ใช่เก็บแผนทั้งก้อน:
+--   1. ไฟล์แผนต้นฉบับยังเทียบยอดได้อยู่เสมอ (reconcile ใช้ของเดิม)
+--   2. ได้ประวัติว่าใครแก้อะไรเมื่อไหร่ฟรี ๆ เพราะทุกแถวคือการแก้หนึ่งครั้ง
+--   3. งบเดิมกับงบใหม่อยู่ในแถวเดียวกัน (prev / data) เอาไปเทียบได้ทันที
+--
+-- kind:
+--   add       เพิ่มโครงการ/กิจกรรมใหม่   data = ทั้งรายการ
+--   delete    ลบโครงการ/กิจกรรม          prev = รายการที่ถูกลบ
+--   budget    แก้งบที่ได้รับจัดสรร        prev.budget / data.budget
+--   kpi       แก้ตัวชี้วัด                prev/data = output outcome kpi
+--   schedule  แก้แผน/ระยะเวลาดำเนินงาน    prev/data = months period
+--
+-- status:
+--   draft     บันทึกไว้เฉย ๆ **ไม่ถูกนำไปคิดในแดชบอร์ด**
+--   approved  อนุมัติแล้ว มีผลกับทุกหน้าจริง
+--
+-- res_no / res_date  = มติ คกก.กยท. ครั้งที่ / เมื่อวันที่
+-- doc_no / doc_date  = เลขหนังสือที่แจ้ง ฝยศ. / ลงวันที่
+-- สี่ช่องนี้บังคับกรอกให้ครบตอนอนุมัติ ตรวจซ้ำที่ฐานข้อมูลด้วย (constraint
+-- ด้านล่าง) ไม่ใช่ตรวจแค่ในหน้าเว็บ เพราะการซ่อนปุ่มไม่ใช่การป้องกัน
+-- =====================================================================
+
+create table if not exists public.plan_edits (
+  id          uuid primary key default gen_random_uuid(),
+  kind        text not null check (kind in ('add','delete','budget','kpi','schedule')),
+  uid         text not null,
+  status      text not null default 'draft' check (status in ('draft','approved')),
+  data        jsonb not null default '{}'::jsonb,
+  prev        jsonb not null default '{}'::jsonb,
+  res_no      text,
+  res_date    text,
+  doc_no      text,
+  doc_date    text,
+  note        text,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  updated_by  uuid references auth.users (id) on delete set null
+);
+
+create index if not exists plan_edits_uid_idx    on public.plan_edits (uid);
+create index if not exists plan_edits_status_idx on public.plan_edits (status);
+create index if not exists plan_edits_kind_idx   on public.plan_edits (kind);
+
+-- เพิ่ม/ลบ ที่อนุมัติแล้ว ต้องมีมติและหนังสือแจ้งครบทั้งสี่ช่อง
+-- ส่วน budget/kpi/schedule แก้ได้เลยตามที่ตกลงไว้ แต่ยังถูกบันทึกลงถังทุกครั้ง
+alter table public.plan_edits
+  drop constraint if exists plan_edits_approval_required;
+alter table public.plan_edits
+  add constraint plan_edits_approval_required check (
+    status <> 'approved'
+    or kind not in ('add','delete','kpi')
+    or (
+      coalesce(btrim(res_no),   '') <> ''
+      and coalesce(btrim(res_date), '') <> ''
+      and coalesce(btrim(doc_no),   '') <> ''
+      and coalesce(btrim(doc_date), '') <> ''
+    )
+  );
+
+drop trigger if exists stamp_plan_edits on public.plan_edits;
+create trigger stamp_plan_edits
+  before insert or update on public.plan_edits
+  for each row execute function public.stamp_row();
+
+alter table public.plan_edits enable row level security;
+
+drop policy if exists plan_edits_read   on public.plan_edits;
+drop policy if exists plan_edits_write  on public.plan_edits;
+drop policy if exists plan_edits_update on public.plan_edits;
+drop policy if exists plan_edits_delete on public.plan_edits;
+
+-- อ่านได้ทุกคน — ถังการแก้ไขคือประวัติที่ทุกคนควรตรวจสอบได้
+create policy plan_edits_read on public.plan_edits
+  for select to authenticated using (true);
+create policy plan_edits_write on public.plan_edits
+  for insert to authenticated with check (public.can_edit());
+create policy plan_edits_update on public.plan_edits
+  for update to authenticated using (public.can_edit()) with check (public.can_edit());
+-- ลบแถวในถังได้เฉพาะผู้ดูแล เพราะถังนี้คือหลักฐานว่าใครแก้อะไร
+-- ถ้าคนกรอกลบประวัติตัวเองได้ ถังก็ไม่มีประโยชน์
+create policy plan_edits_delete on public.plan_edits
+  for delete to authenticated using (public.is_admin());
+
+grant select, insert, update, delete on public.plan_edits to authenticated;
+
+notify pgrst, 'reload schema';

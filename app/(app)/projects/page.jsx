@@ -189,6 +189,20 @@ export default function ProjectsPage() {
           />
         </h2>
 
+        {/* ปุ่มแก้แผนแยกออกจากปุ่มดาวน์โหลดที่หัวข้อ เพราะเป็นคนละน้ำหนักกัน
+            ดาวน์โหลดทำได้ทุกวัน ส่วนเพิ่ม/ลบโครงการต้องมีมติ คกก.กยท. รองรับ */}
+        <div className="btnrow" style={{ marginBottom: 14 }}>
+          <Link className="btn" href="/plan-edit?mode=add">
+            + เพิ่มโครงการ/กิจกรรม
+          </Link>
+          <Link className="btn ghost" href="/plan-edit?mode=delete">
+            ลบโครงการ/กิจกรรม
+          </Link>
+          <Link className="btn ghost" href="/changes">
+            ถังการแก้ไขข้อมูล
+          </Link>
+        </div>
+
         <div className="hint">
           คอลัมน์ <b>เบิกจ่าย</b> ดึงยอดมาจากหน้า{" "}
           <Link href="/budget">งบประมาณโครงการ</Link> ซึ่งเป็นที่เดียวที่บันทึกงบได้

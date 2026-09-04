@@ -1172,3 +1172,27 @@ section.block > h2 > .dlwrap{margin-inline-start:auto}
   .actrow{flex-wrap:wrap}
   .actname{flex-basis:100%; order:2}
 }
+
+/* ---------- ฟอร์มแก้ไขแผน ---------- */
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+@media (max-width:640px){ .grid2{grid-template-columns:1fr} }
+
+/* ดาวแดงหลังป้ายช่องที่ยังไม่ได้กรอก — หายไปเองเมื่อกรอกแล้ว
+   จะได้เห็นว่าเหลืออะไรโดยไม่ต้องไล่อ่านทีละช่อง */
+.req{color:var(--bad); font-weight:700}
+
+.approvalbox{
+  border:1px solid var(--gold); background:var(--gold-soft);
+  border-radius:10px; padding:14px 16px; margin:6px 0 16px;
+}
+
+/* ---------- ถังการแก้ไขข้อมูล ---------- */
+.was{color:var(--muted); text-decoration:line-through; white-space:pre-line}
+.now{color:var(--text); font-weight:600; white-space:pre-line}
+
+.linkbtn{
+  display:block; margin-top:4px; padding:0; border:0; background:none;
+  font:inherit; font-size:12px; color:var(--accent); cursor:pointer;
+  text-decoration:underline; text-underline-offset:2px;
+}
+.linkbtn.del{color:var(--bad)}

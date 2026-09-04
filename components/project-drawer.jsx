@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { MONTHS, byUid } from "@/lib/plan";
@@ -130,6 +131,46 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
           {/* ---------------- รายละเอียดตามแผน ---------------- */}
           {tab === "info" ? (
             <>
+              {/* ---------- ปุ่มแก้แผนของรายการนี้ ----------
+                  อยู่ในแท็บรายละเอียดเพราะเป็นการแก้ "สิ่งที่แผนกำหนดไว้"
+                  ไม่ใช่การรายงานผล และโผล่เฉพาะหน้าโครงการ/กิจกรรม
+                  ตามกติกาเดิมว่าข้อมูลหนึ่งชนิดแก้ได้ที่หน้าเดียว
+
+                  งบกับแผนดำเนินงานแก้ได้เลย ส่วนตัวชี้วัดกับการลบต้องมีมติ
+                  ปุ่มจึงแยกสีกัน ไม่ได้เรียงเป็นแถวเดียวกันหมด */}
+              {canClear ? (
+                <div className="btnrow" style={{ marginBottom: 16 }}>
+                  <Link className="btn ghost" href={"/plan-edit?mode=budget&uid=" + encodeURIComponent(uid)}>
+                    แก้ไขงบประมาณ
+                  </Link>
+                  <Link className="btn ghost" href={"/plan-edit?mode=schedule&uid=" + encodeURIComponent(uid)}>
+                    แก้ไขแผนการดำเนินงาน
+                  </Link>
+                  <Link className="btn ghost" href={"/plan-edit?mode=kpi&uid=" + encodeURIComponent(uid)}>
+                    แก้ไขตัวชี้วัด
+                  </Link>
+                  <Link className="btn danger" href={"/plan-edit?mode=delete&uid=" + encodeURIComponent(uid)}>
+                    ลบโครงการ
+                  </Link>
+                </div>
+              ) : null}
+
+              {!p._added && p.baseBudget != null && p.baseBudget !== p.budget ? (
+                <div className="banner">
+                  <b>งบประมาณถูกแก้จากแผนเดิม</b> — แผนเดิม {money(p.baseBudget)} บาท
+                  ปัจจุบัน {money(p.budget)} บาท ({p.budget > p.baseBudget ? "+" : ""}
+                  {money(p.budget - p.baseBudget)}) · ดูที่มาได้ที่{" "}
+                  <Link href="/changes">ถังการแก้ไขข้อมูล</Link>
+                </div>
+              ) : null}
+
+              {p._added ? (
+                <div className="banner ok">
+                  รายการนี้ <b>เพิ่มเข้ามาภายหลัง</b> ไม่ได้อยู่ในไฟล์แผนต้นฉบับ —
+                  ดูมติที่อ้างถึงได้ที่ <Link href="/changes">ถังการแก้ไขข้อมูล</Link>
+                </div>
+              ) : null}
+
               <h4>รายละเอียดโครงการ</h4>
               <dl className="dl">
                 {rows.map(([k, v]) => (

@@ -26,7 +26,10 @@
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { getSupabase } from "@/lib/supabase/client";
-import { currentFiscalMonth, MONTHS as MONTH_NAMES } from "@/lib/plan";
+import { currentFiscalMonth, MONTHS as MONTH_NAMES, applyPlanEdits } from "@/lib/plan";
+/* rebuildRollups ต้องเรียกคู่กับ applyPlanEdits เสมอ — แยกกันเพราะ
+   lib/plan.js import lib/rollup.js กลับไม่ได้ (จะเป็น import วงกลม) */
+import { rebuildRollups } from "@/lib/rollup";
 import { toNum } from "@/lib/format";
 
 const ASOF_KEY = "raot-plan-2570/asof";
@@ -280,6 +283,18 @@ export function ResultsProvider({ children }) {
      ปิดการเพิ่ม/แก้รายการของเดือนนั้น และเป็นเงื่อนไขให้รายงานผลโครงการได้ */
   const [submit, setSubmitState] = useState({});
   const [hasSubmitTable, setHasSubmitTable] = useState(true);
+
+  /* ---------- ถังการแก้ไขข้อมูล ----------
+     planEdits   ทุกแถวในถัง ทั้งร่างและที่อนุมัติแล้ว (ใช้แสดงประวัติ)
+     planVersion นับขึ้นทีละหนึ่งทุกครั้งที่แผนถูกทับใหม่
+
+     ต้องมี planVersion เพราะ ITEMS/PROJECTS เป็นตัวแปรระดับโมดูล
+     ไม่ใช่ state ของ React — React จึงไม่รู้เองว่าต้องวาดใหม่
+     ตัวเลขนี้ถูกใช้เป็น key ของ <main> ให้ทั้งหน้า remount
+     ซึ่งล้าง useMemo(..., []) ที่จับค่าเก่าไว้ไปด้วยในตัว */
+  const [planEdits, setPlanEdits] = useState([]);
+  const [hasPlanEdits, setHasPlanEdits] = useState(true);
+  const [planVersion, setPlanVersion] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [saveError, setSaveError] = useState("");
@@ -541,6 +556,19 @@ export function ResultsProvider({ children }) {
       }
     }
 
+    /* ถังการแก้ไขข้อมูล — ตารางเพิ่มทีหลังเช่นกัน อ่านไม่ได้ = ยังไม่มีใครแก้แผน
+       ต้องไม่ล้มทั้งหน้า ฐานข้อมูลที่ยังไม่ได้รัน schema.sql ต้องใช้เว็บได้ตามปกติ */
+    let nextEdits = [];
+    let hasEdits = true;
+    {
+      const res = await supabase
+        .from("plan_edits")
+        .select("id,kind,uid,status,data,prev,res_no,res_date,doc_no,doc_date,note,updated_at,updated_by")
+        .order("updated_at", { ascending: true });
+      if (res.error) hasEdits = false;
+      else nextEdits = res.data || [];
+    }
+
     const nextRisk = {};
     (riskRes.data || []).forEach((row) => {
       if (!nextRisk[row.uid]) nextRisk[row.uid] = {};
@@ -556,6 +584,8 @@ export function ResultsProvider({ children }) {
       budget: nextBudget,
       risk: nextRisk,
       submit: nextSubmit,
+      edits: nextEdits,
+      hasEdits,
       hasSaved,
       hasOther,
       hasOrg,
@@ -607,6 +637,11 @@ export function ResultsProvider({ children }) {
           setRiskState(next.risk);
           setSubmitState(next.submit || {});
           setHasSubmitTable(next.hasSubmit !== false);
+          setPlanEdits(next.edits || []);
+          setHasPlanEdits(next.hasEdits !== false);
+          // ทับแผนก่อน setLoaded เสมอ ไม่งั้นหน้าแรกจะวาดด้วยแผนเดิมแวบหนึ่ง
+          // แล้วตัวเลขกระโดดต่อหน้าผู้ใช้ทั้งที่ไม่มีใครกดอะไร
+          if ((next.edits || []).length) refreshPlan(next.edits);
         }
       } catch (err) {
         if (alive) setLoadError("โหลดข้อมูลจาก Supabase ไม่สำเร็จ — " + explainError(err));
@@ -783,6 +818,19 @@ export function ResultsProvider({ children }) {
   useEffect(() => {
     return () => clearTimeout(flushTimer.current);
   }, []);
+
+  /* ---------------------------------------------------------------
+     ทับแผนใหม่ทั้งก้อนจากรายการในถัง แล้วบอก React ให้วาดใหม่
+
+     applyPlanEdits กับ rebuildRollups ต้องเรียกคู่กันเสมอ ห้ามเรียกแยก
+     ไม่งั้น PROJECTS เปลี่ยนแล้วแต่ STRATEGIES/ORGS ยังเป็นยอดเก่า
+     ตัวเลขบนหน้าจอจะขัดกันเองโดยไม่มีอะไรฟ้อง
+     --------------------------------------------------------------- */
+  function refreshPlan(list) {
+    applyPlanEdits(list);
+    rebuildRollups();
+    setPlanVersion((v) => v + 1);
+  }
 
   const api = useMemo(() => {
     return {
@@ -1049,6 +1097,86 @@ export function ResultsProvider({ children }) {
         return true;
       },
 
+      /* =========================================================
+         ถังการแก้ไขข้อมูล — เพิ่ม/ลบโครงการ แก้งบ แก้ตัวชี้วัด แก้แผน
+
+         ทุกการเปลี่ยนแปลงแผนต้องผ่านที่นี่ที่เดียว ไม่มีทางลัด
+         เพราะต้องเหลือหลักฐานว่าใครแก้อะไรเมื่อไหร่ (updated_by/updated_at
+         ใส่ให้เองโดย trigger stamp_row ในฐานข้อมูล ไม่ได้ส่งมาจากเบราว์เซอร์
+         จะได้ปลอมไม่ได้)
+         ========================================================= */
+      planEdits,
+      hasPlanEdits,
+      planVersion,
+
+      /* รายการแก้ไขที่อนุมัติแล้วของรายการหนึ่ง เรียงใหม่สุดขึ้นก่อน
+         ใช้แสดง "งบเดิม -> งบใหม่" ในลิ้นชักรายละเอียด */
+      editsOf(uid, kind) {
+        return planEdits
+          .filter((e) => e.uid === uid && (!kind || e.kind === kind))
+          .slice()
+          .sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
+      },
+
+      async savePlanEdit(edit) {
+        if (denyReadOnly()) return null;
+        if (!hasPlanEdits) {
+          setSaveError(
+            "ยังใช้ถังการแก้ไขข้อมูลไม่ได้ เพราะฐานข้อมูลไม่มีตาราง plan_edits — " +
+              "ให้ผู้ดูแลรัน supabase/schema.sql ใน SQL Editor"
+          );
+          return null;
+        }
+
+        const row = {
+          kind: edit.kind,
+          uid: edit.uid,
+          status: edit.status === "approved" ? "approved" : "draft",
+          data: edit.data || {},
+          prev: edit.prev || {},
+          res_no: edit.res_no || null,
+          res_date: edit.res_date || null,
+          doc_no: edit.doc_no || null,
+          doc_date: edit.doc_date || null,
+          note: edit.note || null,
+        };
+
+        const supabase = getSupabase();
+        const res = edit.id
+          ? await supabase.from("plan_edits").update(row).eq("id", edit.id).select().single()
+          : await supabase.from("plan_edits").insert(row).select().single();
+
+        if (res.error) {
+          setSaveError("บันทึกลงถังการแก้ไขไม่สำเร็จ — " + explainError(res.error));
+          return null;
+        }
+
+        const saved = res.data;
+        const nextList = edit.id
+          ? planEdits.map((e) => (e.id === saved.id ? saved : e))
+          : planEdits.concat([saved]);
+        setPlanEdits(nextList);
+        refreshPlan(nextList);
+        setSaveError("");
+        setSavedHint(row.status === "approved" ? "อนุมัติและบันทึกแล้ว" : "บันทึกร่างแล้ว");
+        return saved;
+      },
+
+      /* ลบแถวในถังได้เฉพาะผู้ดูแล (RLS บังคับซ้ำอีกชั้นในฐานข้อมูล)
+         ใช้ตอนบันทึกร่างผิด ไม่ใช่ตอนอยากยกเลิกโครงการที่อนุมัติไปแล้ว */
+      async deletePlanEdit(id) {
+        if (denyReadOnly()) return false;
+        const { error } = await getSupabase().from("plan_edits").delete().eq("id", id);
+        if (error) {
+          setSaveError("ลบรายการในถังไม่สำเร็จ — " + explainError(error));
+          return false;
+        }
+        const nextList = planEdits.filter((e) => e.id !== id);
+        setPlanEdits(nextList);
+        refreshPlan(nextList);
+        return true;
+      },
+
       /* ล้างข้อมูลของโครงการเดียว — ลบออกจากฐานข้อมูลจริง ทุกคนจะเห็นผล */
       async clearProject(uid) {
         if (denyReadOnly()) return;
@@ -1233,7 +1361,7 @@ export function ResultsProvider({ children }) {
         window.location.href = "/login";
       },
     };
-  }, [results, raw, budget, risk, submit, hasSubmitTable, loaded, loadError, saveError, savedHint, userEmail, userName, budgetHasSaved, monthlyHasIssue, hasIndicatorCols, asOf, fyStarted, role, hasRoles, people]);
+  }, [results, raw, budget, risk, submit, hasSubmitTable, loaded, loadError, saveError, savedHint, userEmail, userName, budgetHasSaved, monthlyHasIssue, hasIndicatorCols, asOf, fyStarted, role, hasRoles, people, planEdits, hasPlanEdits, planVersion]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

@@ -37,6 +37,17 @@ const NAV = [
       { href: "/strategy", label: "ยุทธศาสตร์ & ตัวชี้วัด" },
     ],
   },
+  /* แยกเป็นหมวดที่สามเพราะเป็นคนละเรื่องกับสองหมวดแรก
+     สองหมวดบนทำงานกับ "ผลการดำเนินงาน" ตามแผนที่มีอยู่
+     หมวดนี้แก้ตัวแผนเอง — เพิ่ม ลบ เปลี่ยนงบ เปลี่ยนตัวชี้วัด
+     เกิดไม่บ่อยแต่กระทบทุกตัวเลขในเว็บ จึงไม่ควรปนกับงานประจำวัน */
+  {
+    group: "จัดการแผน",
+    items: [
+      { href: "/plan-edit", label: "แก้ไขแผน" },
+      { href: "/changes", label: "ถังการแก้ไขข้อมูล" },
+    ],
+  },
 ];
 
 export default function Shell({ children }) {
@@ -52,6 +63,7 @@ export default function Shell({ children }) {
     userEmail,
     canEdit,
     hasRoles,
+    planVersion,
     signOut,
     saveNow,
   } = useResults();
@@ -142,7 +154,14 @@ export default function Shell({ children }) {
       </nav>
       </div>
 
-      <main>
+      {/* key={planVersion} บังคับให้ทั้งหน้าสร้างใหม่เมื่อแผนถูกแก้จากถังข้อมูล
+
+          จำเป็นเพราะ ITEMS/PROJECTS/STRATEGIES เป็นตัวแปรระดับโมดูล ไม่ใช่ state
+          React จึงไม่รู้ว่าต้องวาดใหม่ และ useMemo(..., []) ในหลายหน้า
+          ก็จับค่าเก่าค้างไว้อยู่แล้ว การ remount ล้างให้ทั้งหมดในทีเดียว
+
+          แพงก็จริง แต่การแก้แผนเกิดไม่กี่ครั้งต่อเดือน ไม่ใช่ทุกการพิมพ์ */}
+      <main key={planVersion}>
         {loadError ? (
           <div className="banner bad">
             {loadError}
