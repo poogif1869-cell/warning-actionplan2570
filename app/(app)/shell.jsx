@@ -150,7 +150,7 @@ export default function Shell({ children }) {
 
       {askSignOut ? (
         <ConfirmDialog
-          title="ออกจากระบบ?"
+          title="คุณแน่ใจว่าจะออกจากระบบใช่ไหม"
           confirmLabel="ออกจากระบบ"
           danger
           busy={signingOut}
