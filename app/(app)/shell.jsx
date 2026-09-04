@@ -11,14 +11,32 @@ import ThemeToggle from "@/components/theme-toggle";
 import UserChip from "@/components/user-chip";
 import ConfirmDialog from "@/components/confirm-dialog";
 
+/* ---------------------------------------------------------------------
+   เมนูแบ่งตาม **สิ่งที่ผู้ใช้มาทำ** ไม่ใช่ตามชนิดข้อมูล
+
+   หมวด "รายงานผล" เรียงตามลำดับงานจริง: ส่งงบก่อน -> รายงานผลโครงการ
+   -> ตัวชี้วัดองค์กร เมนูจึงสอนขั้นตอนไปในตัว ไม่ต้องมาจำว่าต้องทำอะไรก่อน
+
+   หน้าความเสี่ยงถูกยุบไปแล้ว — แดชบอร์ดไปรวมกับแจ้งเตือน
+   ส่วนการรายงานเป็นขั้นตอนสุดท้ายของการรายงานผลที่หน้าโครงการ/กิจกรรม
+   --------------------------------------------------------------------- */
 const NAV = [
-  { href: "/", label: "ภาพรวม" },
-  { href: "/alerts", label: "แจ้งเตือน", badge: true },
-  { href: "/strategy", label: "ยุทธศาสตร์ & ตัวชี้วัด" },
-  { href: "/projects", label: "โครงการ/กิจกรรม" },
-  { href: "/budget", label: "งบประมาณโครงการ" },
-  { href: "/linkage", label: "ความเชื่อมโยงแผน" },
-  { href: "/risk", label: "ความเสี่ยง" },
+  {
+    group: "ดูข้อมูล",
+    items: [
+      { href: "/", label: "ภาพรวม" },
+      { href: "/alerts", label: "แจ้งเตือน", badge: true },
+      { href: "/linkage", label: "ความเชื่อมโยงแผน" },
+    ],
+  },
+  {
+    group: "รายงานผล",
+    items: [
+      { href: "/budget", label: "งบประมาณโครงการ" },
+      { href: "/projects", label: "โครงการ/กิจกรรม" },
+      { href: "/strategy", label: "ยุทธศาสตร์ & ตัวชี้วัด" },
+    ],
+  },
 ];
 
 export default function Shell({ children }) {
@@ -102,15 +120,24 @@ export default function Shell({ children }) {
       </header>
 
       <nav className="tabs">
-        {NAV.map((n) => (
-          <Link
-            key={n.href}
-            href={n.href}
-            aria-current={pathname === n.href ? "page" : undefined}
-          >
-            {n.label}
-            {n.badge && critCount > 0 ? <span className="count">{critCount}</span> : null}
-          </Link>
+        {NAV.map((g) => (
+          <div className="tabgroup" key={g.group}>
+            <span className="tabgroup-lab">{g.group}</span>
+            <div className="tabgroup-items">
+              {g.items.map((n) => (
+                <Link
+                  key={n.href}
+                  href={n.href}
+                  aria-current={pathname === n.href ? "page" : undefined}
+                >
+                  {n.label}
+                  {n.badge && critCount > 0 ? (
+                    <span className="count">{critCount}</span>
+                  ) : null}
+                </Link>
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
       </div>

@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { MONTHS, STATUSES, monthsOf } from "@/lib/plan";
+import { RISK_TYPES, RISK_LEVELS, riskLevelInfo } from "@/lib/rollup";
 import ConfirmDialog from "@/components/confirm-dialog";
 import { money, pct } from "@/lib/format";
 import {
   useResults,
   hasReport,
+  riskAt,
   monthlyOf,
   projectTrack,
   budgetRollup,
@@ -49,6 +51,8 @@ export default function ReportTab({ item }) {
     asOfLabel,
     allMonths,
     budgetSubmitted,
+    risk,
+    setRisk,
     monthlyHasIssue,
     hasIndicatorCols,
     setProject,
@@ -73,6 +77,33 @@ export default function ReportTab({ item }) {
      --------------------------------------------------------------- */
   const budgetReady = !allMonths && budgetSubmitted(item.uid, asOfMonth);
   const [ackWarn, setAckWarn] = useState(false);
+
+  /* ---------------------------------------------------------------
+     รายงานเป็นขั้นตอน ไม่ใช่หน้ายาวหน้าเดียว
+
+       ผลโครงการ -> ผลกิจกรรม -> ความเสี่ยง -> บันทึก
+
+     **โครงการที่ไม่มีกิจกรรมย่อยข้ามขั้นที่สองไปเลย** ไม่ใช่โชว์ขั้นว่าง ๆ
+     ให้กดผ่าน — คนกรอกจะได้ไม่สงสัยว่าลืมทำอะไรไปหรือเปล่า
+
+     เก็บลำดับขั้นไว้เป็นอาร์เรย์แทนการนับเลขตรง ๆ เพราะจำนวนขั้นไม่คงที่
+     ถ้าใช้เลขจะต้องเขียน if กระจายทุกที่ที่ต้องรู้ว่าขั้นถัดไปคืออะไร
+     --------------------------------------------------------------- */
+  const STEPS = kids.length
+    ? [
+        ["project", "ผลโครงการ"],
+        ["activity", "ผลกิจกรรม"],
+        ["risk", "ความเสี่ยง"],
+      ]
+    : [
+        ["project", "ผลโครงการ"],
+        ["risk", "ความเสี่ยง"],
+      ];
+
+  const [stepIdx, setStepIdx] = useState(0);
+  const idx = Math.min(stepIdx, STEPS.length - 1);
+  const step = STEPS[idx][0];
+  const isLast = idx === STEPS.length - 1;
 
   const tk = projectTrack(results, item.uid);
   const roll = budgetRollup(budget, item, null);
@@ -212,7 +243,23 @@ export default function ReportTab({ item }) {
         </ConfirmDialog>
       ) : null}
 
+      {/* ---------- แถบบอกขั้นตอน ----------
+          กดย้อนกลับไปขั้นก่อนหน้าได้ แต่กดข้ามไปข้างหน้าไม่ได้
+          บังคับให้ผ่านทุกขั้นอย่างน้อยหนึ่งครั้ง จะได้ไม่ลืมรายงานความเสี่ยง */}
+      <ol className="steps">
+        {STEPS.map(([k, lab], i) => (
+          <li key={k} className={i === idx ? "on" : i < idx ? "done" : ""}>
+            <button type="button" onClick={() => i <= idx && setStepIdx(i)} disabled={i > idx}>
+              <span className="stepno">{i + 1}</span>
+              {lab}
+            </button>
+          </li>
+        ))}
+      </ol>
+
       {/* ---------- 1. งบประมาณของโครงการ ---------- */}
+      {step === "project" ? (
+        <>
       <h4>งบประมาณโครงการ</h4>
       <BudgetTiles
         target={item}
@@ -356,8 +403,11 @@ export default function ReportTab({ item }) {
         </div>
       ) : null}
 
+        </>
+      ) : null}
+
       {/* ---------- 6. กิจกรรมย่อย (ถ้ามี) ---------- */}
-      {kids.length ? (
+      {step === "activity" && kids.length ? (
         <>
           <h4>รายงานผลรายกิจกรรม ({kids.length} กิจกรรม)</h4>
           <div className="field" style={{ marginBottom: 14 }}>
@@ -413,6 +463,106 @@ export default function ReportTab({ item }) {
         </>
       ) : null}
 
+
+      {/* ---------- 7. ความเสี่ยง ----------
+          ย้ายมาจากหน้า /risk ที่ยุบทิ้ง เพราะเป็นส่วนหนึ่งของการรายงานผล
+          ไม่ใช่เรื่องแยกที่ต้องมีหน้าของตัวเอง */}
+      {step === "risk" ? (
+        <>
+          {item.rScen || item.rFactor ? (
+            <>
+              <h4>ทะเบียนความเสี่ยงตามแผน</h4>
+              <dl className="dl">
+                {item.rFactor ? (
+                  <>
+                    <dt>ปัจจัยเสี่ยง</dt>
+                    <dd>{item.rFactor}</dd>
+                  </>
+                ) : null}
+                {item.rScen ? (
+                  <>
+                    <dt>สถานการณ์ความเสี่ยง</dt>
+                    <dd>{item.rScen}</dd>
+                  </>
+                ) : null}
+                <dt>ประเภทความเสี่ยง</dt>
+                <dd>{RISK_TYPES[item.rType] || item.rType || "ไม่ระบุ"}</dd>
+                <dt>สรุปคะแนนควบคุมภายใน</dt>
+                <dd>{item.rSum ? item.rSum + " / 9" : "–"}</dd>
+              </dl>
+            </>
+          ) : (
+            <div className="banner">
+              โครงการนี้ไม่ได้อยู่ในทะเบียนความเสี่ยงตามไฟล์แผน — รายงานได้ตามปกติ
+              ถ้าเดือนไหนพบความเสี่ยงจริง
+            </div>
+          )}
+
+          <h4>รายงานความเสี่ยงรายเดือน</h4>
+          <div className="tablewrap">
+            <table className="mrep stack">
+              <thead>
+                <tr>
+                  <th>เดือน</th>
+                  <th style={{ width: 130 }}>ระดับ</th>
+                  <th>สถานการณ์ที่พบ</th>
+                  <th>มาตรการจัดการ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {MONTHS.map((label, i) => {
+                  const cur = riskAt(risk, item.uid, i) || {};
+                  const info = riskLevelInfo(cur.level === "" ? null : cur.level);
+                  return (
+                    <tr key={i}>
+                      <td className="lead nowrap">
+                        {label}
+                        {i === asOfMonth ? (
+                          <span className="chip" style={{ marginInlineStart: 6 }}>
+                            ณ เดือนนี้
+                          </span>
+                        ) : null}
+                        <div className={"small st-" + info.cls}>
+                          <span className={"dot bg-" + info.cls} />
+                          {info.label}
+                        </div>
+                      </td>
+                      <td className="wide" data-label="ระดับความเสี่ยง">
+                        <select
+                          value={cur.level == null ? "" : cur.level}
+                          onChange={(ev) => setRisk(item.uid, i, { level: ev.target.value })}
+                          style={{ ...cell, textAlign: "start" }}
+                        >
+                          <option value="">— ยังไม่รายงาน —</option>
+                          {RISK_LEVELS.map((lv) => (
+                            <option key={lv.value} value={lv.value}>
+                              {lv.label}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="wide" data-label="สถานการณ์ที่พบ">
+                        <input
+                          value={cur.situation || ""}
+                          onChange={(ev) => setRisk(item.uid, i, { situation: ev.target.value })}
+                          style={{ ...cell, textAlign: "start" }}
+                        />
+                      </td>
+                      <td className="wide" data-label="มาตรการจัดการ">
+                        <input
+                          value={cur.action || ""}
+                          onChange={(ev) => setRisk(item.uid, i, { action: ev.target.value })}
+                          style={{ ...cell, textAlign: "start" }}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : null}
       {editable ? (
         <>
           {!budgetReady ? (
@@ -431,13 +581,30 @@ export default function ReportTab({ item }) {
             </div>
           ) : null}
 
+          {/* ปุ่มบันทึกโผล่เฉพาะขั้นสุดท้าย บังคับให้ผ่านทุกขั้นก่อน
+              ไม่งั้นคนจะกรอกแต่ผลโครงการแล้วกดบันทึก โดยไม่ได้แตะความเสี่ยงเลย */}
           <div className="btnrow">
-            <button className="btn" onClick={save} disabled={saving || !budgetReady}>
-              {saving ? "กำลังบันทึก…" : saved ? "บันทึกแล้ว ✓" : "บันทึกรายงาน"}
-            </button>
+            {idx > 0 ? (
+              <button className="btn ghost" onClick={() => setStepIdx(idx - 1)}>
+                ← ย้อนกลับ
+              </button>
+            ) : null}
+
+            {!isLast ? (
+              <button className="btn" onClick={() => setStepIdx(idx + 1)}>
+                ถัดไป: {STEPS[idx + 1][1]} →
+              </button>
+            ) : (
+              <button className="btn" onClick={save} disabled={saving || !budgetReady}>
+                {saving ? "กำลังบันทึก…" : saved ? "บันทึกแล้ว ✓" : "บันทึกโครงการ"}
+              </button>
+            )}
           </div>
+
           <div className="small muted" style={{ marginTop: 6 }}>
-            ระบบบันทึกอัตโนมัติหลังหยุดพิมพ์อยู่แล้ว ปุ่มนี้ไว้กดยืนยันให้แน่ใจว่าขึ้นครบ
+            {isLast
+              ? "ระบบบันทึกอัตโนมัติหลังหยุดพิมพ์อยู่แล้ว ปุ่มนี้ไว้กดยืนยันให้แน่ใจว่าขึ้นครบทุกขั้น"
+              : "กรอกขั้นนี้เสร็จแล้วกด “ถัดไป” — สิ่งที่พิมพ์ไว้ถูกบันทึกอัตโนมัติ ไม่หายระหว่างเปลี่ยนขั้น"}
           </div>
         </>
       ) : null}

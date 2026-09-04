@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useResults } from "@/lib/store";
+import { useResults, riskOf } from "@/lib/store";
 import { buildAlerts, summarize, SEV_LABEL, KIND_LABEL, RULES } from "@/lib/alerts";
 import { PROJECTS, MONTHS, EXPECTED, reconcile } from "@/lib/plan";
-import { ORG_UNITS, inUnit } from "@/lib/rollup";
+import { ORG_UNITS, inUnit, RISK_LEVELS } from "@/lib/rollup";
 import { money, mb, fmt, pct } from "@/lib/format";
 import MonthPicker from "@/components/month-picker";
 import ProjectDrawer from "@/components/project-drawer";
+import Bars from "@/components/bars";
 import DownloadButton from "@/components/download-button";
 
 const KINDS = Object.keys(KIND_LABEL);
@@ -23,6 +24,40 @@ export default function AlertsPage() {
 
   const alerts = useMemo(() => buildAlerts(results, asOfMonth, risk), [results, asOfMonth, risk]);
   const stats = useMemo(() => summarize(alerts), [alerts]);
+
+  /* ---------- สรุปความเสี่ยงสำหรับแดชบอร์ดที่ย้ายมาจากหน้า /risk ----------
+     ดูระดับที่รายงาน "ล่าสุดแต่ไม่เกินเดือนที่เลือก" ของแต่ละโครงการ
+     ไม่ใช่ค่าของเดือนที่เลือกตรง ๆ เพราะหลายโครงการไม่ได้รายงานทุกเดือน
+     ถ้าดูเฉพาะเดือนที่เลือกจะกลายเป็น "ไม่มีความเสี่ยง" ทั้งที่เดือนก่อนรายงานว่าสูง */
+  const riskStat = useMemo(() => {
+    const byLevel = [0, 0, 0, 0, 0];
+    let reported = 0;
+    let budgetAtRisk = 0;
+    let crit = 0;
+    let warn = 0;
+
+    PROJECTS.forEach((p) => {
+      const mine = riskOf(risk, p.uid);
+      let last = -1;
+      for (let i = 0; i <= asOfMonth; i++) {
+        const e = mine[i];
+        if (e && e.level !== "" && e.level != null) last = i;
+      }
+      if (last < 0) {
+        // อยู่ในทะเบียนความเสี่ยงแต่ยังไม่เคยรายงาน = เฝ้าระวัง
+        if (p.rScen || p.rFactor) warn++;
+        return;
+      }
+      const lv = Number(mine[last].level);
+      byLevel[lv] = (byLevel[lv] || 0) + 1;
+      reported++;
+      if (lv >= 3) budgetAtRisk += p.budget || 0;
+      if (lv === 4) crit++;
+      else if (lv === 3) warn++;
+    });
+
+    return { byLevel, reported, budgetAtRisk, crit, warn };
+  }, [risk, asOfMonth]);
 
   const shown = useMemo(() => {
     const needle = q.toLowerCase().trim();
@@ -142,6 +177,70 @@ export default function AlertsPage() {
           </div>
         </section>
       ) : null}
+
+      {/* ---------- แดชบอร์ดความเสี่ยง ----------
+          ย้ายมาจากหน้า /risk ที่ยุบทิ้ง ความเสี่ยงเป็นเรื่องของ "การเตือน"
+          จึงอยู่หน้าเดียวกับการแจ้งเตือนอื่น ส่วนการรายงานความเสี่ยง
+          ย้ายไปเป็นขั้นตอนหนึ่งของการรายงานผลโครงการที่หน้าโครงการ/กิจกรรม */}
+      <section className="block">
+        <h2>
+          แดชบอร์ดความเสี่ยง
+          <small>อิงรายงานล่าสุดของ{asOfLabel}</small>
+        </h2>
+
+        <div className="tiles">
+          <div className="tile crit">
+            <span className="lab">ความเสี่ยงระดับวิกฤต</span>
+            <div className="val st-bad">
+              {fmt(riskStat.crit)}
+            </div>
+            <div className="note">ระดับสูงมาก</div>
+          </div>
+          <div className="tile warn">
+            <span className="lab">ความเสี่ยงเฝ้าระวัง</span>
+            <div className="val st-warn">
+              {fmt(riskStat.warn)}
+            </div>
+            <div className="note">ระดับสูง หรือยังไม่รายงาน</div>
+          </div>
+          <div className="tile">
+            <span className="lab">รายงานความเสี่ยงแล้ว</span>
+            <div className="val">
+              {fmt(riskStat.reported)}
+              <span className="unit">/ {fmt(PROJECTS.length)}</span>
+            </div>
+            <div className="note">
+              คิดเป็น {pct((riskStat.reported / PROJECTS.length) * 100)}
+            </div>
+          </div>
+          <div className="tile">
+            <span className="lab">งบของโครงการเสี่ยงสูง</span>
+            <div className="val">{money(riskStat.budgetAtRisk)}</div>
+            <div className="note">บาท</div>
+          </div>
+        </div>
+
+        <div className="card pad" style={{ marginTop: 14 }}>
+          <Bars
+            data={RISK_LEVELS.map((lv) => ({
+              label: lv.label,
+              value: riskStat.byLevel[lv.value] || 0,
+              display: fmt(riskStat.byLevel[lv.value] || 0) + " โครงการ",
+              color:
+                lv.cls === "bad"
+                  ? "var(--bad)"
+                  : lv.cls === "warn"
+                  ? "var(--warn)"
+                  : "var(--ok)",
+            }))}
+          />
+        </div>
+
+        <div className="hint">
+          รายงานความเสี่ยงรายเดือนกรอกที่หน้า <b>โครงการ/กิจกรรม</b> —
+          เป็นขั้นตอนสุดท้ายของการรายงานผลแต่ละโครงการ
+        </div>
+      </section>
 
       <section className="block">
         <h2>

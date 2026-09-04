@@ -3,9 +3,8 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { MONTHS, byUid } from "@/lib/plan";
-import { RISK_TYPES, RISK_LEVELS, CONTROL_FIELDS, riskLevelInfo } from "@/lib/rollup";
 import { money, pct } from "@/lib/format";
-import { useResults, riskAt } from "@/lib/store";
+import { useResults } from "@/lib/store";
 import { KIND_LABEL, SEV_LABEL } from "@/lib/alerts";
 import ReportTab from "@/components/report-tab";
 import DownloadButton from "@/components/download-button";
@@ -17,16 +16,15 @@ import DownloadButton from "@/components/download-button";
    จนตามไม่ทันว่าใครแก้อะไร
 
      ผลการดำเนินงาน (ReportTab) -> หน้า /projects
-     รายงานความเสี่ยงรายเดือน   -> หน้า /risk
+     รายงานความเสี่ยงรายเดือน   -> ขั้นตอนหนึ่งใน ReportTab (ไม่มีแท็บแยกแล้ว)
      ล้างข้อมูลโครงการ          -> หน้า /projects (ลบทั้งสามชนิดพร้อมกัน)
      รายการงบประมาณ            -> หน้า /budget เท่านั้น (ไม่มีในลิ้นชักอยู่แล้ว)
 */
 export default function ProjectDrawer({ uid, alerts, onClose }) {
   const pathname = usePathname();
-  const canEditRisk = pathname === "/risk";
   const canClear = pathname === "/projects";
 
-  const { risk, asOfMonth, setRisk, clearProject } = useResults();
+  const { clearProject } = useResults();
   const [tab, setTab] = useState("report");
 
   // ปิดด้วย Esc
@@ -68,18 +66,8 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
     ["แนวทาง แผนปฏิบัติราชการ กษ.", p.mWay],
   ].filter(([, v]) => v != null && v !== "");
 
-  const inputStyle = {
-    width: "100%",
-    background: "var(--surface)",
-    border: "1px solid var(--border)",
-    borderRadius: 6,
-    padding: "4px 7px",
-    fontSize: 12.5,
-  };
-
   const TABS = [
     ["report", "รายงานผลรายเดือน"],
-    ["risk", "ความเสี่ยง"],
     ["info", "รายละเอียดตามแผน"],
   ];
 
@@ -138,116 +126,6 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
               กิจกรรมย่อยกับที่ไม่มี และลิ้นชักตัวนี้ยาวเกินไปแล้ว */}
           {tab === "report" ? <ReportTab item={p} /> : null}
 
-          {/* ---------------- ความเสี่ยง ---------------- */}
-          {tab === "risk" ? (
-            <>
-              {p.rScen || p.rFactor ? (
-                <>
-                  <h4>ทะเบียนความเสี่ยงตามแผน</h4>
-                  <dl className="dl">
-                    {p.rFactor ? (
-                      <>
-                        <dt>ปัจจัยเสี่ยง</dt>
-                        <dd>{p.rFactor}</dd>
-                      </>
-                    ) : null}
-                    {p.rScen ? (
-                      <>
-                        <dt>สถานการณ์ความเสี่ยง</dt>
-                        <dd>{p.rScen}</dd>
-                      </>
-                    ) : null}
-                    <dt>ประเภทความเสี่ยง</dt>
-                    <dd>{RISK_TYPES[p.rType] || p.rType || "ไม่ระบุ"}</dd>
-                    {CONTROL_FIELDS.map((c) =>
-                      p[c.key] ? (
-                        <div key={c.key} style={{ display: "contents" }}>
-                          <dt>{c.label}</dt>
-                          <dd>{p[c.key]} / 3</dd>
-                        </div>
-                      ) : null
-                    )}
-                    <dt>สรุปคะแนนควบคุมภายใน</dt>
-                    <dd>{p.rSum ? p.rSum + " / 9" : "–"}</dd>
-                  </dl>
-                </>
-              ) : (
-                <div className="banner">โครงการนี้ไม่ได้อยู่ในทะเบียนความเสี่ยงตามไฟล์แผน</div>
-              )}
-
-              <h4>รายงานความเสี่ยงรายเดือน</h4>
-              {!canEditRisk ? (
-                <div className="banner">
-                  ตารางนี้ดูได้อย่างเดียว — <b>รายงานความเสี่ยงกรอกที่หน้า “ความเสี่ยง”</b>{" "}
-                  ที่เดียว
-                </div>
-              ) : null}
-              <fieldset className="plainset" disabled={!canEditRisk}>
-              <div className="tablewrap">
-                <table className="mrep stack">
-                  <thead>
-                    <tr>
-                      <th>เดือน</th>
-                      <th style={{ width: 130 }}>ระดับ</th>
-                      <th>สถานการณ์ที่พบ</th>
-                      <th>มาตรการจัดการ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {MONTHS.map((label, i) => {
-                      const cur = riskAt(risk, uid, i) || {};
-                      const info = riskLevelInfo(cur.level === "" ? null : cur.level);
-                      return (
-                        <tr key={i}>
-                          <td className="lead nowrap">
-                            {label}
-                            {i === asOfMonth ? (
-                              <span className="chip" style={{ marginInlineStart: 6 }}>
-                                ณ เดือนนี้
-                              </span>
-                            ) : null}
-                            <div className={"small st-" + info.cls}>
-                              <span className={"dot bg-" + info.cls} />
-                              {info.label}
-                            </div>
-                          </td>
-                          <td className="wide" data-label="ระดับความเสี่ยง">
-                            <select
-                              value={cur.level == null ? "" : cur.level}
-                              onChange={(ev) => setRisk(uid, i, { level: ev.target.value })}
-                              style={{ ...inputStyle, textAlign: "start" }}
-                            >
-                              <option value="">— ยังไม่รายงาน —</option>
-                              {RISK_LEVELS.map((lv) => (
-                                <option key={lv.value} value={lv.value}>
-                                  {lv.label}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className="wide" data-label="สถานการณ์ที่พบ">
-                            <input
-                              value={cur.situation || ""}
-                              onChange={(ev) => setRisk(uid, i, { situation: ev.target.value })}
-                              style={{ ...inputStyle, textAlign: "start" }}
-                            />
-                          </td>
-                          <td className="wide" data-label="มาตรการจัดการ">
-                            <input
-                              value={cur.action || ""}
-                              onChange={(ev) => setRisk(uid, i, { action: ev.target.value })}
-                              style={{ ...inputStyle, textAlign: "start" }}
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              </fieldset>
-            </>
-          ) : null}
 
           {/* ---------------- รายละเอียดตามแผน ---------------- */}
           {tab === "info" ? (
