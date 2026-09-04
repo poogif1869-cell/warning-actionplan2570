@@ -4,7 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { MONTHS, PROJECTS, FUNDS } from "@/lib/plan";
 import { STRATEGIES, ORG_UNITS, ORG_OWNERS, inUnit, leadUnit } from "@/lib/rollup";
 import { money, fmt, pct } from "@/lib/format";
-import { useResults, entriesByCost, budgetRollup, COST_FIELDS } from "@/lib/store";
+import {
+  useResults,
+  entriesByCost,
+  entriesTotal,
+  budgetRollup,
+  COST_FIELDS,
+} from "@/lib/store";
 import MonthPicker from "@/components/month-picker";
 import MonthBudget from "@/components/month-budget";
 import BudgetReport from "@/components/budget-report";
@@ -25,6 +31,10 @@ const DONUT_VIEWS = [
   ["month", "เบิกจ่ายรายเดือน"],
   ["fund", "เบิกจ่ายตามแหล่งงบประมาณ"],
   ["strategy", "เบิกจ่ายตามยุทธศาสตร์"],
+  /* ส่วนงานที่ระบุไว้ในแต่ละ "รายการ" ค่าใช้จ่าย ไม่ใช่หน่วยงานเจ้าของโครงการ
+     หนึ่งกิจกรรมมีหลายส่วนงานมาใช้งบร่วมกัน มุมมองนี้จึงตอบคำถามที่
+     ตารางสรุปตามหน่วยงานเจ้าของงบตอบไม่ได้ */
+  ["orgunit", "เบิกจ่ายตามส่วนงานที่ใช้งบ"],
 ];
 
 /* ขอบเขตของไฟล์ PDF ที่จะดาวน์โหลดในหน้ารายงาน */
@@ -124,8 +134,23 @@ export default function BudgetPage() {
     }).filter((f) => f.count > 0);
   }, [budget, month, org]);
 
-  /* ---------- ข้อมูลกราฟโดนัท 3 มุมมอง ---------- */
+  /* ---------- ข้อมูลกราฟโดนัท 4 มุมมอง ---------- */
   const donutData = useMemo(() => {
+    if (view === "orgunit") {
+      /* อ่านจากช่อง org ของ "รายการ" ค่าใช้จ่ายโดยตรง จึงต้องไล่ทุกรายการ
+         ไม่ใช่รวมจากหน่วยงานเจ้าของโครงการเหมือนตารางด้านล่าง */
+      const m = new Map();
+      PROJECTS.forEach((p) => {
+        const r = budgetRollup(budget, p, month);
+        [...r.own, ...r.byActivity.flatMap((a) => a.list)].forEach((e) => {
+          const k = (e.org || "").trim() || "(ไม่ระบุส่วนงาน)";
+          m.set(k, (m.get(k) || 0) + entriesTotal([e]));
+        });
+      });
+      return [...m.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([label, value]) => ({ key: label, label, value }));
+    }
     if (view === "month") {
       return MONTHS.map((label, i) => ({
         key: "m" + i,

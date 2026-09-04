@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { MONTHS } from "@/lib/plan";
+import { useMemo, useState } from "react";
+import { MONTHS, byUid } from "@/lib/plan";
+import { ORG_UNITS, orgSegments, normUnit } from "@/lib/rollup";
 import { money } from "@/lib/format";
 import {
   useResults,
@@ -31,6 +32,37 @@ export default function BudgetEntries({ uid, month, title }) {
 
   const list = entriesOf(budget, uid, month);
   const total = entriesTotal(list);
+
+  /* ---------------------------------------------------------------
+     ตัวเลือกส่วนงานที่มาใช้งบของรายการนี้
+
+     หนึ่งกิจกรรมมีหลายส่วนงานมาใช้งบร่วมกัน จึงต้องระบุที่ระดับ "รายการ"
+     ไม่ใช่ระดับโครงการ (คอลัมน์หน่วยงานในไฟล์แผนเป็นของทั้งโครงการ)
+
+     เอาหน่วยงานที่อยู่ในสายของโครงการนี้ขึ้นก่อน เพราะเป็นตัวที่จะเลือกจริง
+     เกือบทุกครั้ง ส่วนหน่วยงานที่เหลือทั้งองค์กรอยู่ในกลุ่มถัดไป
+     เผื่อกรณีที่หน่วยอื่นมาร่วมใช้งบด้วย
+     --------------------------------------------------------------- */
+  const orgChoices = useMemo(() => {
+    const item = byUid.get(uid);
+    const own = orgSegments(item ? item.org : "");
+    const ownKeys = own.map(normUnit);
+    const rest = ORG_UNITS.map((u) => u.name).filter(
+      (n) => ownKeys.indexOf(normUnit(n)) < 0
+    );
+    return { own, rest };
+  }, [uid]);
+
+  /* รวมยอดตามส่วนงาน — เหตุผลทั้งหมดที่เก็บช่องส่วนงานก็เพื่อดูตัวเลขนี้
+     แสดงเฉพาะตอนมีมากกว่าหนึ่งส่วนงาน ไม่งั้นเป็นการทวนยอดรวมเปล่า ๆ */
+  const byOrg = useMemo(() => {
+    const m = new Map();
+    list.forEach((e) => {
+      const k = (e.org || "").trim() || "(ไม่ระบุส่วนงาน)";
+      m.set(k, (m.get(k) || 0) + entryTotal(e));
+    });
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  }, [list]);
 
   /* ถ้าฐานข้อมูลยังไม่มีคอลัมน์ saved ให้ถือว่าทุกแถวแก้ได้ และซ่อนปุ่มล็อก
      กรอกตัวเลขยังบันทึกได้ตามปกติ ขาดแค่ความสามารถล็อกรายการเท่านั้น */
@@ -88,6 +120,10 @@ export default function BudgetEntries({ uid, month, title }) {
               <tr>
                 <th style={{ width: 34 }}>สถานะ</th>
                 <th style={{ minWidth: 120 }}>วันที่</th>
+                <th style={{ minWidth: 130 }}>
+                  ส่วนงานที่ใช้งบ
+                  <div className="thhint">หนึ่งกิจกรรมมีหลายส่วนงานร่วมใช้ได้</div>
+                </th>
                 <th style={{ minWidth: 170 }}>รายละเอียด</th>
                 {COST_FIELDS.map((c) => (
                   <th className="num" key={c.key} title={c.hint || undefined}>
@@ -122,6 +158,34 @@ export default function BudgetEntries({ uid, month, title }) {
                         }
                         style={{ ...cell, textAlign: "start" }}
                       />
+                    </td>
+                    <td className="wide" data-label="ส่วนงานที่ใช้งบ">
+                      <select
+                        disabled={ro}
+                        value={e.org || ""}
+                        onChange={(ev) =>
+                          updateBudgetEntry(uid, e.id, { org: ev.target.value })
+                        }
+                        style={{ ...cell, textAlign: "start" }}
+                      >
+                        <option value="">— ไม่ระบุ —</option>
+                        {orgChoices.own.length ? (
+                          <optgroup label="หน่วยงานของโครงการนี้">
+                            {orgChoices.own.map((n) => (
+                              <option key={n} value={n}>
+                                {n}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ) : null}
+                        <optgroup label="หน่วยงานอื่น">
+                          {orgChoices.rest.map((n) => (
+                            <option key={n} value={n}>
+                              {n}
+                            </option>
+                          ))}
+                        </optgroup>
+                      </select>
                     </td>
                     <td className="wide" data-label="รายละเอียด">
                       <input
@@ -180,7 +244,8 @@ export default function BudgetEntries({ uid, month, title }) {
                 );
               })}
               <tr>
-                <td colSpan={3} className="lead">
+                {/* 4 = สถานะ + วันที่ + ส่วนงาน + รายละเอียด */}
+                <td colSpan={4} className="lead">
                   <b>รวมเดือน {MONTHS[month]}</b>
                 </td>
                 {COST_FIELDS.map((c) => {
@@ -207,6 +272,17 @@ export default function BudgetEntries({ uid, month, title }) {
           ยังไม่มีรายการงบประมาณในเดือน {MONTHS[month]}
         </div>
       )}
+
+      {byOrg.length > 1 ? (
+        <div className="orgsplit">
+          <span className="orgsplit-lab">รวมตามส่วนงาน</span>
+          {byOrg.map(([name, sum]) => (
+            <span className="orgsplit-item" key={name}>
+              {name} <b>{money(sum)}</b>
+            </span>
+          ))}
+        </div>
+      ) : null}
 
       {/* ทั้งแถวนี้เป็นปุ่มแก้ข้อมูลล้วน บัญชีที่ดูอย่างเดียวจึงไม่ต้องเห็นเลย */}
       {canEdit ? (

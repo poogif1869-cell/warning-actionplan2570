@@ -302,6 +302,8 @@ export function ResultsProvider({ children }) {
   const [budgetHasSaved, setBudgetHasSaved] = useState(true);
   // คอลัมน์ other เพิ่มมาทีหลัง saved อีกรอบหนึ่ง เช็คแยกกัน
   const [budgetHasOther, setBudgetHasOther] = useState(true);
+  // คอลัมน์ org เพิ่มมาหลัง other อีกรอบ เช็คแยกกันเหมือนกัน
+  const [budgetHasOrg, setBudgetHasOrg] = useState(true);
   // ฐานข้อมูลที่ยังไม่ได้รัน schema.sql รอบล่าสุดจะไม่มี issue/solution
   const [monthlyHasIssue, setMonthlyHasIssue] = useState(true);
   const [hasIndicatorCols, setHasIndicatorCols] = useState(true);
@@ -309,6 +311,8 @@ export function ResultsProvider({ children }) {
   hasSavedRef.current = budgetHasSaved;
   const hasOtherRef = useRef(true);
   hasOtherRef.current = budgetHasOther;
+  const hasOrgRef = useRef(true);
+  hasOrgRef.current = budgetHasOrg;
 
   /* ------------------------------------------------------------------
      ด่านฝั่งหน้าเว็บ ไม่ให้ผู้ดูอย่างเดียวยิงคำขอที่รู้อยู่แล้วว่า RLS จะปฏิเสธ
@@ -429,7 +433,7 @@ export function ResultsProvider({ children }) {
 
        จึงตัดทีละตัวจากท้ายมาหน้า ตามลำดับที่เพิ่มเข้ามาจริง
        --------------------------------------------------------------- */
-    const budOptional = ["saved", "other"];
+    const budOptional = ["saved", "other", "org"];
     let budRes = null;
     let budKept = budOptional.slice();
     for (let drop = 0; drop <= budOptional.length; drop++) {
@@ -457,6 +461,7 @@ export function ResultsProvider({ children }) {
     }
     const hasSaved = budKept.indexOf("saved") >= 0;
     const hasOther = budKept.indexOf("other") >= 0;
+    const hasOrg = budKept.indexOf("org") >= 0;
 
     const firstError =
       kpiRes.error || projRes.error || monRes.error || budRes.error || riskRes.error;
@@ -508,6 +513,7 @@ export function ResultsProvider({ children }) {
         travel: row.travel == null ? "" : String(row.travel),
         fuel: row.fuel == null ? "" : String(row.fuel),
         other: hasOther && row.other != null ? String(row.other) : "",
+        org: hasOrg && row.org != null ? row.org : "",
         // ถ้าฐานข้อมูลยังไม่มีคอลัมน์ saved ให้ถือว่าทุกแถวยังแก้ได้
         saved: hasSaved ? row.saved === true : false,
       });
@@ -523,7 +529,7 @@ export function ResultsProvider({ children }) {
       };
     });
 
-    return { raw: nextRaw, budget: nextBudget, risk: nextRisk, hasSaved, hasOther, hasIssue, hasIndicator };
+    return { raw: nextRaw, budget: nextBudget, risk: nextRisk, hasSaved, hasOther, hasOrg, hasIssue, hasIndicator };
   }
 
   useEffect(() => {
@@ -561,6 +567,7 @@ export function ResultsProvider({ children }) {
           setBudget(next.budget);
           setBudgetHasSaved(next.hasSaved !== false);
           setBudgetHasOther(next.hasOther !== false);
+          setBudgetHasOrg(next.hasOrg !== false);
           setMonthlyHasIssue(next.hasIssue !== false);
           setHasIndicatorCols(next.hasIndicator !== false);
           setRiskState(next.risk);
@@ -677,6 +684,7 @@ export function ResultsProvider({ children }) {
           travel: toNum(found.travel),
           fuel: toNum(found.fuel),
           ...(hasOtherRef.current ? { other: toNum(found.other) } : {}),
+          ...(hasOrgRef.current ? { org: found.org || null } : {}),
           // ส่งคอลัมน์ saved เฉพาะเมื่อฐานข้อมูลมีจริง ไม่งั้น PostgREST จะปฏิเสธทั้งคำสั่ง
           ...(hasSavedRef.current ? { saved: found.saved === true } : {}),
         });
@@ -835,6 +843,7 @@ export function ResultsProvider({ children }) {
         let cols = "id,uid,month,occurred_on,note,perdiem,lodging,travel,fuel";
         if (budgetHasSaved) cols += ",saved";
         if (budgetHasOther) cols += ",other";
+        if (budgetHasOrg) cols += ",org";
         const { data, error } = await supabase
           .from("budget_entries")
           .insert({
@@ -847,7 +856,7 @@ export function ResultsProvider({ children }) {
             ...(budgetHasOther ? { other: 0 } : {}),
             ...(budgetHasSaved ? { saved: false } : {}),
           })
-          // cols ต่อ saved กับ other ให้แล้วด้านบน อย่าต่อซ้ำอีก
+          // cols ต่อคอลัมน์เสริมให้แล้วด้านบน อย่าต่อซ้ำอีก
           .select(cols)
           .single();
 
@@ -867,6 +876,7 @@ export function ResultsProvider({ children }) {
           travel: "",
           fuel: "",
           other: "",
+          org: "",
         };
         setBudget((prev) => ({ ...prev, [uid]: [...(prev[uid] || []), entry] }));
         return entry.id;
@@ -996,6 +1006,7 @@ export function ResultsProvider({ children }) {
           setBudget(next.budget);
           setBudgetHasSaved(next.hasSaved !== false);
           setBudgetHasOther(next.hasOther !== false);
+          setBudgetHasOrg(next.hasOrg !== false);
           setMonthlyHasIssue(next.hasIssue !== false);
           setHasIndicatorCols(next.hasIndicator !== false);
           setRiskState(next.risk);
@@ -1079,6 +1090,7 @@ export function ResultsProvider({ children }) {
               travel: toNum(e.travel),
               fuel: toNum(e.fuel),
               ...(hasOtherRef.current ? { other: toNum(e.other) } : {}),
+              ...(hasOrgRef.current ? { org: e.org || null } : {}),
             });
           });
         });
@@ -1113,6 +1125,7 @@ export function ResultsProvider({ children }) {
         setBudget(next.budget);
         setBudgetHasSaved(next.hasSaved !== false);
         setBudgetHasOther(next.hasOther !== false);
+        setBudgetHasOrg(next.hasOrg !== false);
         setMonthlyHasIssue(next.hasIssue !== false);
         setHasIndicatorCols(next.hasIndicator !== false);
         setRiskState(next.risk);

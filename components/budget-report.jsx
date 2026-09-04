@@ -19,10 +19,19 @@ export default function BudgetReport({ item, budget }) {
   const planned = item.budget || 0;
   const used = roll.total;
   const left = planned - used;
-  const byCost = entriesByCost([
-    ...roll.own,
-    ...roll.byActivity.flatMap((a) => a.list),
-  ]);
+  const allEntries = [...roll.own, ...roll.byActivity.flatMap((a) => a.list)];
+  const byCost = entriesByCost(allEntries);
+
+  /* ยอดตามส่วนงานที่มาใช้งบ — หนึ่งกิจกรรมมีหลายส่วนงานร่วมใช้ได้
+     เรียงจากมากไปน้อย ผู้อ่านรายงานมักอยากรู้ว่าใครใช้เยอะสุดก่อน */
+  const byOrg = (() => {
+    const m = new Map();
+    allEntries.forEach((e) => {
+      const k = (e.org || "").trim() || "(ไม่ระบุส่วนงาน)";
+      m.set(k, (m.get(k) || 0) + entriesTotal([e]));
+    });
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  })();
 
   /* ยอดรายเดือน รวมของกิจกรรมลูกด้วย */
   const monthly = MONTHS.map((label, i) => {
@@ -201,6 +210,41 @@ export default function BudgetReport({ item, budget }) {
         </tbody>
       </table>
 
+      {byOrg.length > 1 ? (
+        <>
+          <h2>เบิกจ่ายตามส่วนงานที่ใช้งบ</h2>
+          <table className="rpt-tbl">
+            <thead>
+              <tr>
+                <th>ส่วนงาน</th>
+                <th className="num">เบิกจ่าย (บาท)</th>
+                <th className="num">สัดส่วน</th>
+              </tr>
+            </thead>
+            <tbody>
+              {byOrg.map(([name, sum]) => (
+                <tr key={name}>
+                  <td>{name}</td>
+                  <td className="num">{money(sum)}</td>
+                  <td className="num">{used ? pct((sum / used) * 100) : "–"}</td>
+                </tr>
+              ))}
+              <tr>
+                <td>
+                  <b>รวม</b>
+                </td>
+                <td className="num">
+                  <b>{money(used)}</b>
+                </td>
+                <td className="num">
+                  <b>100%</b>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </>
+      ) : null}
+
       <h2>รายละเอียดรายการเบิกจ่าย</h2>
       {roll.count ? (
         <table className="rpt-tbl">
@@ -208,6 +252,7 @@ export default function BudgetReport({ item, budget }) {
             <tr>
               <th>เดือน</th>
               <th>วันที่</th>
+              <th>ส่วนงาน</th>
               <th>รายการ / กิจกรรม</th>
               {COST_FIELDS.map((c) => (
                 <th key={c.key} className="num">
@@ -229,6 +274,7 @@ export default function BudgetReport({ item, budget }) {
                 <tr key={e.id}>
                   <td>{label}</td>
                   <td className="mono">{e.occurred_on || "–"}</td>
+                  <td>{e.org || "–"}</td>
                   <td>
                     {e.note || "–"}
                     {from ? <div className="rpt-sub">กิจกรรม: {from.name}</div> : null}
