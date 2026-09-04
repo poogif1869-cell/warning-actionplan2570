@@ -340,3 +340,206 @@ alter table public.project_results
   add column if not exists outcome_issue text;    -- ปัญหาอุปสรรคของผลลัพธ์
 
 notify pgrst, 'reload schema';
+
+
+-- =====================================================================
+-- เพิ่มเมื่อ 4 ก.ย. — บทบาทผู้ใช้ และการแสดงว่าใครแก้ไขล่าสุด
+--
+-- ปัญหาที่แก้: เดิมทุกคนที่ล็อกอินแก้ได้ทุกอย่าง (RLS เป็น using(true) ล้วน)
+-- ข้อมูลเป็นของใช้ร่วมกันทั้งองค์กร จึงต้องแยกว่าใครกรอกได้ ใครดูอย่างเดียว
+--
+-- ⚠️ **การซ่อนปุ่มในหน้าเว็บไม่ใช่ความปลอดภัย** anon key เป็นของสาธารณะ
+-- โดยการออกแบบ ใครก็ยิง API ตรงได้ ด่านจริงมีแค่ RLS ในไฟล์นี้เท่านั้น
+-- หน้าเว็บซ่อนปุ่มเพื่อ "ไม่ให้กดแล้วเจอ error" ไม่ใช่เพื่อกันคน
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- ทะเบียนผู้ใช้ฝั่งที่เว็บอ่านได้
+--
+-- ตาราง auth.users ของ Supabase **อ่านจากฝั่งเว็บด้วย anon key ไม่ได้**
+-- ถ้าจะแสดงว่า "แก้ไขล่าสุดโดยใคร" จึงต้องมีสำเนาชื่อ/อีเมลไว้ใน public
+-- ตารางนี้จึงรับสองหน้าที่พร้อมกัน: บอกชื่อคน และเก็บบทบาท
+--
+-- คอลัมน์ org เตรียมไว้เผื่ออนาคตที่จะจำกัดสิทธิ์ตามหน่วยงาน ยังไม่ได้ใช้
+-- ---------------------------------------------------------------------
+create table if not exists public.profiles (
+  id          uuid primary key references auth.users (id) on delete cascade,
+  email       text,
+  full_name   text,                                -- ชื่อที่อยากให้คนอื่นเห็น
+  role        text not null default 'viewer'
+              check (role in ('viewer', 'editor', 'admin')),
+  org         text,                                -- เผื่อไว้สำหรับจำกัดตามหน่วยงาน
+  updated_at  timestamptz not null default now()
+);
+
+-- สร้างโปรไฟล์ให้อัตโนมัติทุกครั้งที่เพิ่มผู้ใช้ใน Supabase Dashboard
+-- ผู้ใช้ใหม่เป็น viewer เสมอ ต้องมาเปิดสิทธิ์ให้ทีหลัง
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, email) values (new.id, new.email)
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+-- ---------------------------------------------------------------------
+-- เติมโปรไฟล์ให้ผู้ใช้ที่มีอยู่แล้ว
+--
+-- ⚠️ คนที่มีบัญชีอยู่ก่อนหน้านี้ตั้งเป็น **admin** โดยตั้งใจ
+-- เพราะเดิมทุกคนแก้ได้ทุกอย่างอยู่แล้ว ถ้าตั้งเป็น viewer หมด
+-- จะไม่เหลือใครแก้อะไรได้เลยแม้แต่คนที่รันสคริปต์นี้ — ระบบล็อกตัวเอง
+--
+-- หลังรันเสร็จให้ไปลดสิทธิ์คนที่ควรเป็นผู้ดูอย่างเดียวเอง (ดูคำสั่งท้ายไฟล์)
+-- ส่วนผู้ใช้ที่สร้าง**หลังจากนี้**จะเป็น viewer อัตโนมัติ
+-- ---------------------------------------------------------------------
+insert into public.profiles (id, email, role)
+select id, email, 'admin' from auth.users
+on conflict (id) do nothing;
+
+-- ---------------------------------------------------------------------
+-- ตัวช่วยอ่านบทบาท
+--
+-- ต้องเป็น security definer เพื่อ **ข้าม RLS ของ profiles เอง**
+-- ไม่งั้น policy ของ profiles ที่เรียกฟังก์ชันนี้จะวนไม่รู้จบ
+-- (policy → ฟังก์ชัน → select profiles → policy → ...)
+--
+-- stable บอก Postgres ว่าผลลัพธ์ไม่เปลี่ยนภายในคำสั่งเดียว
+-- จะได้เรียกครั้งเดียวต่อคำสั่ง ไม่ใช่ทุกแถว
+-- ---------------------------------------------------------------------
+create or replace function public.my_role()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce((select role from public.profiles where id = auth.uid()), 'viewer');
+$$;
+
+create or replace function public.can_edit()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.my_role() in ('editor', 'admin');
+$$;
+
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.my_role() = 'admin';
+$$;
+
+-- ---------------------------------------------------------------------
+-- RLS ของ profiles
+--
+-- อ่านได้ทุกคนที่ล็อกอิน เพราะต้องเอาชื่อไปแสดงว่า "แก้ไขล่าสุดโดยใคร"
+-- ทุกคนในระบบเป็นเพื่อนร่วมงานกันอยู่แล้ว อีเมลจึงไม่ใช่ความลับ
+-- ---------------------------------------------------------------------
+alter table public.profiles enable row level security;
+
+drop policy if exists profiles_read on public.profiles;
+drop policy if exists profiles_update_self on public.profiles;
+drop policy if exists profiles_admin_all on public.profiles;
+
+create policy profiles_read on public.profiles
+  for select to authenticated using (true);
+
+-- แก้ชื่อตัวเองได้ แต่ **เปลี่ยนบทบาทตัวเองไม่ได้** (with check บังคับให้ role เท่าเดิม)
+create policy profiles_update_self on public.profiles
+  for update to authenticated
+  using (id = auth.uid())
+  with check (id = auth.uid() and role = public.my_role());
+
+-- ผู้ดูแลเปลี่ยนบทบาทคนอื่นได้
+create policy profiles_admin_all on public.profiles
+  for all to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+grant select, update on public.profiles to authenticated;
+
+-- ---------------------------------------------------------------------
+-- เปลี่ยน RLS ของตารางข้อมูลทั้ง 5 ตาราง
+--
+-- อ่าน: ทุกคนที่ล็อกอิน — ข้อมูลแผนเป็นของใช้ร่วมกัน ทุกคนควรเห็นภาพรวม
+-- เขียน/ลบ: เฉพาะ editor กับ admin
+-- ---------------------------------------------------------------------
+do $$
+declare
+  t text;
+begin
+  foreach t in array array[
+    'kpi_results', 'project_results', 'monthly_reports',
+    'budget_entries', 'risk_reports'
+  ]
+  loop
+    execute format('drop policy if exists %I on public.%I', t || '_write', t);
+    execute format('drop policy if exists %I on public.%I', t || '_update', t);
+    execute format('drop policy if exists %I on public.%I', t || '_delete', t);
+
+    execute format(
+      'create policy %I on public.%I for insert to authenticated with check (public.can_edit())',
+      t || '_write', t);
+    execute format(
+      'create policy %I on public.%I for update to authenticated using (public.can_edit()) with check (public.can_edit())',
+      t || '_update', t);
+    execute format(
+      'create policy %I on public.%I for delete to authenticated using (public.can_edit())',
+      t || '_delete', t);
+  end loop;
+end;
+$$;
+
+notify pgrst, 'reload schema';
+
+-- =====================================================================
+-- คำสั่งที่ผู้ดูแลใช้บ่อย — คัดลอกไปรันทีละบรรทัดตามต้องการ
+-- =====================================================================
+--
+-- ดูว่าตอนนี้ใครมีบทบาทอะไร:
+--     select email, role from public.profiles order by role, email;
+--
+-- ตั้งให้คนหนึ่งเป็นผู้กรอกข้อมูล:
+--     update public.profiles set role = 'editor' where email = 'someone@example.com';
+--
+-- ลดเหลือผู้ดูอย่างเดียว:
+--     update public.profiles set role = 'viewer' where email = 'someone@example.com';
+--
+-- ตั้งผู้ดูแล (เปลี่ยนบทบาทคนอื่นได้):
+--     update public.profiles set role = 'admin'  where email = 'someone@example.com';
+--
+-- ⚠️ ต้องเหลือ admin อย่างน้อยหนึ่งคนเสมอ ไม่งั้นจะไม่มีใครแก้บทบาทได้อีก
+--    ต้องกลับมาแก้ผ่าน SQL Editor แบบนี้เท่านั้น
+
+
+-- =====================================================================
+-- เพิ่มเมื่อ 4 ก.ย. — หมวดค่าใช้จ่าย "อื่น ๆ" ในรายการงบประมาณ
+--
+-- ถังรวมของค่าใช้จ่ายที่ไม่เข้าสี่หมวดแรก เช่น ค่าอาหาร ค่าลงทะเบียน
+-- ค่าวิทยากร ค่าอุปกรณ์ ค่าปัจจัยการผลิต
+--
+-- ไม่แตกเป็นหมวดละคอลัมน์ เพราะรายการพวกนี้ไม่ได้มีทุกโครงการ
+-- แตกไปก็จะเป็นตารางที่ว่างเป็นส่วนใหญ่ ให้เขียนว่าเป็นค่าอะไรในช่อง note แทน
+-- =====================================================================
+
+alter table public.budget_entries
+  add column if not exists other numeric not null default 0;
+
+notify pgrst, 'reload schema';

@@ -30,6 +30,8 @@ export default function Shell({ children }) {
     loadError,
     saveError,
     userEmail,
+    canEdit,
+    hasRoles,
     signOut,
     saveNow,
   } = useResults();
@@ -125,6 +127,17 @@ export default function Shell({ children }) {
           </div>
         ) : null}
         {saveError ? <div className="banner bad">{saveError}</div> : null}
+
+        {/* บอกให้รู้ตัวว่าเข้ามาแบบดูอย่างเดียว ไม่งั้นจะงงว่าทำไมกรอกไม่ได้
+            ขึ้นเฉพาะตอนที่ระบบบทบาทเปิดใช้จริงแล้ว (ฐานข้อมูลมีตาราง profiles) */}
+        {loaded && hasRoles && !canEdit ? (
+          <div className="banner">
+            คุณเข้าใช้งานแบบ <b>ดูอย่างเดียว</b> — ดูและออกรายงานได้ทุกหน้า
+            แต่แก้ไขข้อมูลไม่ได้ ถ้าต้องกรอกข้อมูล ให้ผู้ดูแลระบบเปิดสิทธิ์
+            "ผู้กรอกข้อมูล" ให้บัญชี {userEmail || "ของคุณ"}
+          </div>
+        ) : null}
+
         {children}
       </main>
 

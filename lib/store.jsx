@@ -8,7 +8,7 @@
      project_results  uid, code, status, progress, note, output_result, output_issue,
                       outcome_result, outcome_issue
      monthly_reports  uid, month, output, outcome, issue, solution, spend
-     budget_entries   id, uid, month, occurred_on, note, perdiem, lodging, travel, fuel, saved
+     budget_entries   id, uid, month, occurred_on, note, perdiem, lodging, travel, fuel, other, saved
      risk_reports     uid, month, level, situation, action
 
    คีย์ของโครงการใช้ uid = code + "#" + ลำดับแถว ไม่ใช่ code เปล่า ๆ
@@ -82,12 +82,17 @@ export function kpiActual(results, no) {
   return ((results.kpi || {})[no] || {}).actual;
 }
 
-/* ---------- รายการงบประมาณ ---------- */
+/* ---------- รายการงบประมาณ ----------
+   "อื่น ๆ" เป็นถังรวมของค่าใช้จ่ายที่ไม่เข้าสี่หมวดแรก
+   (ค่าอาหาร ค่าลงทะเบียน ค่าวิทยากร ค่าอุปกรณ์ ค่าปัจจัยการผลิต ฯลฯ)
+   ไม่แตกเป็นหมวดละคอลัมน์ เพราะรายการพวกนี้ไม่ได้มีทุกโครงการ
+   แตกไปก็จะเป็นตารางที่ว่างเป็นส่วนใหญ่ ให้เขียนรายละเอียดในช่อง note แทน */
 export const COST_FIELDS = [
   { key: "perdiem", label: "ค่าเบี้ยเลี้ยง" },
   { key: "lodging", label: "ค่าที่พัก" },
   { key: "travel", label: "ค่าเดินทาง" },
   { key: "fuel", label: "ค่าน้ำมันเชื้อเพลิง" },
+  { key: "other", label: "ค่าใช้จ่ายอื่น ๆ", hint: "ค่าอาหาร ค่าลงทะเบียน ค่าวิทยากร ค่าอุปกรณ์ ค่าปัจจัยการผลิต" },
 ];
 
 export function entryTotal(e) {
@@ -104,7 +109,7 @@ export function entriesTotal(list) {
   return (list || []).reduce((a, e) => a + entryTotal(e), 0);
 }
 
-/* ยอดแยกตามหมวดค่าใช้จ่าย 4 หมวด ของรายการชุดหนึ่ง */
+/* ยอดแยกตามหมวดค่าใช้จ่ายทุกหมวด ของรายการชุดหนึ่ง */
 export function entriesByCost(list) {
   const sums = {};
   COST_FIELDS.forEach((c) => (sums[c.key] = 0));
@@ -276,14 +281,55 @@ export function ResultsProvider({ children }) {
   const [saveError, setSaveError] = useState("");
   const [savedHint, setSavedHint] = useState("");
   const [userEmail, setUserEmail] = useState("");
+
+  /* ---------------------------------------------------------------
+     บทบาทและทะเบียนชื่อผู้ใช้
+
+     role  — viewer / editor / admin จากตาราง profiles
+     people — id ของผู้ใช้ → ชื่อที่เอาไปแสดงว่า "แก้ไขล่าสุดโดยใคร"
+              (ตาราง auth.users ของ Supabase อ่านจากฝั่งเว็บไม่ได้
+              จึงต้องมีสำเนาไว้ใน public.profiles)
+
+     ฐานข้อมูลที่ยังไม่ได้รัน schema.sql รอบล่าสุดจะไม่มีตาราง profiles
+     กรณีนั้นถือว่าแก้ได้ทุกคนเหมือนเดิม ไม่ล็อกคนออกจากระบบตัวเอง
+     --------------------------------------------------------------- */
+  const [role, setRole] = useState(null);   // null = ยังไม่รู้
+  const [people, setPeople] = useState({});
+  const [hasRoles, setHasRoles] = useState(false);
+
   // ฐานข้อมูลที่ยังไม่ได้รัน schema.sql รอบล่าสุดจะไม่มีคอลัมน์ saved
   // ปิดเฉพาะฟีเจอร์ล็อกรายการ ส่วนที่เหลือยังใช้ได้ตามปกติ
   const [budgetHasSaved, setBudgetHasSaved] = useState(true);
+  // คอลัมน์ other เพิ่มมาทีหลัง saved อีกรอบหนึ่ง เช็คแยกกัน
+  const [budgetHasOther, setBudgetHasOther] = useState(true);
   // ฐานข้อมูลที่ยังไม่ได้รัน schema.sql รอบล่าสุดจะไม่มี issue/solution
   const [monthlyHasIssue, setMonthlyHasIssue] = useState(true);
   const [hasIndicatorCols, setHasIndicatorCols] = useState(true);
   const hasSavedRef = useRef(true);
   hasSavedRef.current = budgetHasSaved;
+  const hasOtherRef = useRef(true);
+  hasOtherRef.current = budgetHasOther;
+
+  /* ------------------------------------------------------------------
+     ด่านฝั่งหน้าเว็บ ไม่ให้ผู้ดูอย่างเดียวยิงคำขอที่รู้อยู่แล้วว่า RLS จะปฏิเสธ
+
+     ⚠️ **นี่ไม่ใช่ความปลอดภัย** anon key เป็นของสาธารณะ ใครก็ยิง API ตรงได้
+     ด่านจริงคือ RLS ในฐานข้อมูล (supabase/schema.sql) ตรงนี้มีไว้เพื่อให้
+     ผู้ใช้เห็นข้อความที่เข้าใจได้ แทนที่จะเจอ error ดิบ ๆ จาก Postgres
+
+     ใช้ ref เพราะฟังก์ชันใน useMemo อ่านค่าตอนถูกเรียก ไม่ใช่ตอนถูกสร้าง
+     ------------------------------------------------------------------ */
+  const canEditRef = useRef(false);
+  canEditRef.current = role === "editor" || role === "admin";
+
+  function denyReadOnly() {
+    if (canEditRef.current) return false;
+    setSaveError(
+      "บัญชีนี้เข้าใช้งานแบบดูอย่างเดียว จึงแก้ไขข้อมูลไม่ได้ — " +
+        "ให้ผู้ดูแลระบบเปิดสิทธิ์ “ผู้กรอกข้อมูล” ให้ก่อน"
+    );
+    return true;
+  }
   const hasIssueRef = useRef(true);
   hasIssueRef.current = monthlyHasIssue;
   const hasIndicatorRef = useRef(true);
@@ -373,14 +419,44 @@ export function ResultsProvider({ children }) {
     const monRes = mon.res;
     const hasIssue = mon.supported;
 
-    const bud = await selectOptional(
-      "budget_entries",
-      "id,uid,month,occurred_on,note,perdiem,lodging,travel,fuel",
-      ["saved"],
-      "occurred_on"
-    );
-    const budRes = bud.res;
-    const hasSaved = bud.supported;
+    /* ---------------------------------------------------------------
+       budget_entries มีคอลัมน์ที่เพิ่มมาคนละรอบสองตัว: saved แล้วก็ other
+       ฐานข้อมูลจึงมีได้สามสภาพ ไม่มีทั้งคู่ / มีแต่ saved / มีครบ
+
+       selectOptional ตัวเดิมตัดคอลัมน์เสริม**ทั้งชุดพร้อมกัน** ถ้าใช้กับสองตัวนี้
+       เครื่องที่มี saved แต่ยังไม่มี other จะโดนตัด saved ไปด้วย
+       แล้วรายการงบที่เคยล็อกไว้จะกลับมาแก้ได้ — ถอยหลังเข้าคลอง
+
+       จึงตัดทีละตัวจากท้ายมาหน้า ตามลำดับที่เพิ่มเข้ามาจริง
+       --------------------------------------------------------------- */
+    const budOptional = ["saved", "other"];
+    let budRes = null;
+    let budKept = budOptional.slice();
+    for (let drop = 0; drop <= budOptional.length; drop++) {
+      const keep = budOptional.slice(0, budOptional.length - drop);
+      const cols =
+        "id,uid,month,occurred_on,note,perdiem,lodging,travel,fuel" +
+        (keep.length ? "," + keep.join(",") : "");
+      const res = await supabase
+        .from("budget_entries")
+        .select(cols)
+        .order("occurred_on", { ascending: true });
+
+      if (!res.error) {
+        budRes = res;
+        budKept = keep;
+        break;
+      }
+      // พังด้วยเหตุอื่นที่ไม่ใช่คอลัมน์หาย ก็ไม่ต้องไล่ตัดต่อ
+      const msg = res.error.message || "";
+      if (!keep.some((c) => new RegExp("\\b" + c + "\\b", "i").test(msg))) {
+        budRes = res;
+        budKept = keep;
+        break;
+      }
+    }
+    const hasSaved = budKept.indexOf("saved") >= 0;
+    const hasOther = budKept.indexOf("other") >= 0;
 
     const firstError =
       kpiRes.error || projRes.error || monRes.error || budRes.error || riskRes.error;
@@ -431,6 +507,7 @@ export function ResultsProvider({ children }) {
         lodging: row.lodging == null ? "" : String(row.lodging),
         travel: row.travel == null ? "" : String(row.travel),
         fuel: row.fuel == null ? "" : String(row.fuel),
+        other: hasOther && row.other != null ? String(row.other) : "",
         // ถ้าฐานข้อมูลยังไม่มีคอลัมน์ saved ให้ถือว่าทุกแถวยังแก้ได้
         saved: hasSaved ? row.saved === true : false,
       });
@@ -446,7 +523,7 @@ export function ResultsProvider({ children }) {
       };
     });
 
-    return { raw: nextRaw, budget: nextBudget, risk: nextRisk, hasSaved, hasIssue, hasIndicator };
+    return { raw: nextRaw, budget: nextBudget, risk: nextRisk, hasSaved, hasOther, hasIssue, hasIndicator };
   }
 
   useEffect(() => {
@@ -456,13 +533,34 @@ export function ResultsProvider({ children }) {
       try {
         const supabase = getSupabase();
         const { data } = await supabase.auth.getUser();
-        if (alive && data && data.user) setUserEmail(data.user.email || "");
+        const me = data && data.user ? data.user : null;
+        if (alive && me) setUserEmail(me.email || "");
+
+        /* อ่านทะเบียนผู้ใช้แยกต่างหาก และ **ห้ามให้ล้มทั้งหน้าถ้าตารางยังไม่มี**
+           ฐานข้อมูลที่ยังไม่ได้รัน schema.sql รอบล่าสุดต้องยังใช้เว็บได้ปกติ */
+        const prof = await supabase.from("profiles").select("id,email,full_name,role");
+        if (alive) {
+          if (prof.error) {
+            setHasRoles(false);
+            setRole("admin"); // ยังไม่มีระบบบทบาท = ทำได้ทุกอย่างเหมือนเดิม
+          } else {
+            const map = {};
+            (prof.data || []).forEach((p) => {
+              map[p.id] = p.full_name || p.email || "ผู้ใช้";
+            });
+            setPeople(map);
+            setHasRoles(true);
+            const mine = (prof.data || []).find((p) => me && p.id === me.id);
+            setRole(mine ? mine.role : "viewer");
+          }
+        }
 
         const next = await loadAllWithRetry();
         if (alive) {
           setRaw(next.raw);
           setBudget(next.budget);
           setBudgetHasSaved(next.hasSaved !== false);
+          setBudgetHasOther(next.hasOther !== false);
           setMonthlyHasIssue(next.hasIssue !== false);
           setHasIndicatorCols(next.hasIndicator !== false);
           setRiskState(next.risk);
@@ -578,6 +676,7 @@ export function ResultsProvider({ children }) {
           lodging: toNum(found.lodging),
           travel: toNum(found.travel),
           fuel: toNum(found.fuel),
+          ...(hasOtherRef.current ? { other: toNum(found.other) } : {}),
           // ส่งคอลัมน์ saved เฉพาะเมื่อฐานข้อมูลมีจริง ไม่งั้น PostgREST จะปฏิเสธทั้งคำสั่ง
           ...(hasSavedRef.current ? { saved: found.saved === true } : {}),
         });
@@ -655,6 +754,30 @@ export function ResultsProvider({ children }) {
       monthlyHasIssue,
       hasIndicatorCols,
 
+      /* ---------------------------------------------------------
+         สิทธิ์การแก้ไข
+
+         ⚠️ ใช้ปิดปุ่มในหน้าเว็บเท่านั้น **ไม่ใช่ด่านความปลอดภัย**
+         anon key ของ Supabase เป็นของสาธารณะ ใครก็ยิง API ตรงได้
+         ด่านจริงคือ RLS ในฐานข้อมูล (ดู supabase/schema.sql)
+         ตรงนี้มีไว้เพื่อไม่ให้ผู้ดูอย่างเดียวกดแล้วเจอ error เฉย ๆ
+
+         role เป็น null ตอนยังโหลดไม่เสร็จ ให้ถือว่าแก้ไม่ได้ไว้ก่อน
+         จะได้ไม่มีจังหวะที่ช่องกรอกเปิดแวบหนึ่งแล้วปิด
+         --------------------------------------------------------- */
+      role,
+      hasRoles,
+      canEdit: role === "editor" || role === "admin",
+      isAdmin: role === "admin",
+      people,
+
+      /* ชื่อคนจาก id ที่เก็บใน updated_by — ไม่รู้จักก็คืนค่าว่าง
+         ให้หน้าเว็บตัดสินใจเองว่าจะแสดงหรือไม่แสดงบรรทัดนั้น */
+      personName(id) {
+        if (!id) return "";
+        return people[id] || "";
+      },
+
       /* asOf เป็นค่าที่ผู้ใช้เลือก (-1 = ทั้งปี)
          asOfMonth คือเดือนที่ใช้คำนวณจริง ทั้งปีนับเสมือนถึงสิ้นปีงบ
          โค้ดที่ต้องวนเดือนหรือตัดยอดสะสมให้ใช้ asOfMonth ไม่ใช่ asOf */
@@ -672,6 +795,7 @@ export function ResultsProvider({ children }) {
       },
 
       setKpi(no, actual) {
+        if (denyReadOnly()) return;
         setRaw((prev) => ({
           ...prev,
           kpi: { ...prev.kpi, [no]: { ...(prev.kpi[no] || {}), actual } },
@@ -681,6 +805,7 @@ export function ResultsProvider({ children }) {
       },
 
       setProject(uid, patch) {
+        if (denyReadOnly()) return;
         setRaw((prev) => ({
           ...prev,
           project: { ...prev.project, [uid]: { ...(prev.project[uid] || {}), ...patch } },
@@ -690,6 +815,7 @@ export function ResultsProvider({ children }) {
       },
 
       setMonthly(uid, i, patch) {
+        if (denyReadOnly()) return;
         setRaw((prev) => {
           const curP = prev.project[uid] || {};
           const monthly = { ...(curP.monthly || {}) };
@@ -702,8 +828,13 @@ export function ResultsProvider({ children }) {
 
       /* ---------- รายการงบประมาณ ---------- */
       async addBudgetEntry(uid, month) {
+        if (denyReadOnly()) return;
         const supabase = getSupabase();
-        const cols = "id,uid,month,occurred_on,note,perdiem,lodging,travel,fuel";
+        /* คอลัมน์เสริมสองตัวเพิ่มมาคนละรอบ ต้องต่อทีละตัวตามที่ฐานข้อมูลมีจริง
+           ถ้าส่งคอลัมน์ที่ไม่มี PostgREST จะปฏิเสธทั้งคำสั่ง */
+        let cols = "id,uid,month,occurred_on,note,perdiem,lodging,travel,fuel";
+        if (budgetHasSaved) cols += ",saved";
+        if (budgetHasOther) cols += ",other";
         const { data, error } = await supabase
           .from("budget_entries")
           .insert({
@@ -713,9 +844,11 @@ export function ResultsProvider({ children }) {
             lodging: 0,
             travel: 0,
             fuel: 0,
+            ...(budgetHasOther ? { other: 0 } : {}),
             ...(budgetHasSaved ? { saved: false } : {}),
           })
-          .select(budgetHasSaved ? cols + ",saved" : cols)
+          // cols ต่อ saved กับ other ให้แล้วด้านบน อย่าต่อซ้ำอีก
+          .select(cols)
           .single();
 
         if (error) {
@@ -733,12 +866,14 @@ export function ResultsProvider({ children }) {
           lodging: "",
           travel: "",
           fuel: "",
+          other: "",
         };
         setBudget((prev) => ({ ...prev, [uid]: [...(prev[uid] || []), entry] }));
         return entry.id;
       },
 
       updateBudgetEntry(uid, id, patch) {
+        if (denyReadOnly()) return;
         setBudget((prev) => ({
           ...prev,
           [uid]: (prev[uid] || []).map((e) => (e.id === id ? { ...e, ...patch } : e)),
@@ -753,6 +888,7 @@ export function ResultsProvider({ children }) {
          ซึ่งยังไม่มีค่า saved ที่เพิ่งตั้งไป (setState ยังไม่ทัน re-render)
          แต่ต้อง flush ค่าที่พิมพ์ค้างไว้ก่อน ไม่งั้นตัวเลขที่เพิ่งกรอกจะยังไม่ถูกบันทึก */
       async setEntriesSaved(uid, ids, saved) {
+        if (denyReadOnly()) return;
         if (!ids || !ids.length) return true;
 
         if (!budgetHasSaved) {
@@ -794,6 +930,7 @@ export function ResultsProvider({ children }) {
       },
 
       async deleteBudgetEntry(uid, id) {
+        if (denyReadOnly()) return;
         setBudget((prev) => ({
           ...prev,
           [uid]: (prev[uid] || []).filter((e) => e.id !== id),
@@ -805,6 +942,7 @@ export function ResultsProvider({ children }) {
 
       /* ---------- รายงานความเสี่ยงรายเดือน ---------- */
       setRisk(uid, month, patch) {
+        if (denyReadOnly()) return;
         setRiskState((prev) => {
           const cur = prev[uid] || {};
           return { ...prev, [uid]: { ...cur, [month]: { ...(cur[month] || {}), ...patch } } };
@@ -815,6 +953,7 @@ export function ResultsProvider({ children }) {
 
       /* ล้างข้อมูลของโครงการเดียว — ลบออกจากฐานข้อมูลจริง ทุกคนจะเห็นผล */
       async clearProject(uid) {
+        if (denyReadOnly()) return;
         setRaw((prev) => {
           const project = { ...prev.project };
           delete project[uid];
@@ -856,6 +995,7 @@ export function ResultsProvider({ children }) {
           setRaw(next.raw);
           setBudget(next.budget);
           setBudgetHasSaved(next.hasSaved !== false);
+          setBudgetHasOther(next.hasOther !== false);
           setMonthlyHasIssue(next.hasIssue !== false);
           setHasIndicatorCols(next.hasIndicator !== false);
           setRiskState(next.risk);
@@ -883,6 +1023,7 @@ export function ResultsProvider({ children }) {
 
       /* นำเข้าไฟล์สำรองแล้วเขียนทับลง Supabase */
       async importJson(text) {
+        if (denyReadOnly()) return;
         const parsed = JSON.parse(text);
         if (!parsed || typeof parsed !== "object") throw new Error("ไฟล์ไม่ถูกรูปแบบ");
 
@@ -937,6 +1078,7 @@ export function ResultsProvider({ children }) {
               lodging: toNum(e.lodging),
               travel: toNum(e.travel),
               fuel: toNum(e.fuel),
+              ...(hasOtherRef.current ? { other: toNum(e.other) } : {}),
             });
           });
         });
@@ -970,6 +1112,7 @@ export function ResultsProvider({ children }) {
         setRaw(next.raw);
         setBudget(next.budget);
         setBudgetHasSaved(next.hasSaved !== false);
+        setBudgetHasOther(next.hasOther !== false);
         setMonthlyHasIssue(next.hasIssue !== false);
         setHasIndicatorCols(next.hasIndicator !== false);
         setRiskState(next.risk);
@@ -985,7 +1128,7 @@ export function ResultsProvider({ children }) {
         window.location.href = "/login";
       },
     };
-  }, [results, raw, budget, risk, loaded, loadError, saveError, savedHint, userEmail, budgetHasSaved, monthlyHasIssue, hasIndicatorCols, asOf, fyStarted]);
+  }, [results, raw, budget, risk, loaded, loadError, saveError, savedHint, userEmail, budgetHasSaved, monthlyHasIssue, hasIndicatorCols, asOf, fyStarted, role, hasRoles, people]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

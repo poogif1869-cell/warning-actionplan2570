@@ -20,6 +20,7 @@ import {
 export default function BudgetEntries({ uid, month, title }) {
   const {
     budget,
+    canEdit,
     budgetHasSaved,
     addBudgetEntry,
     updateBudgetEntry,
@@ -89,8 +90,9 @@ export default function BudgetEntries({ uid, month, title }) {
                 <th style={{ minWidth: 120 }}>วันที่</th>
                 <th style={{ minWidth: 170 }}>รายละเอียด</th>
                 {COST_FIELDS.map((c) => (
-                  <th className="num" key={c.key}>
+                  <th className="num" key={c.key} title={c.hint || undefined}>
                     {c.label}
+                    {c.hint ? <div className="thhint">{c.hint}</div> : null}
                   </th>
                 ))}
                 <th className="num">รวม</th>
@@ -99,7 +101,8 @@ export default function BudgetEntries({ uid, month, title }) {
             </thead>
             <tbody>
               {list.map((e) => {
-                const ro = budgetHasSaved && e.saved === true;
+                /* ล็อกเมื่อบันทึกไปแล้ว หรือเมื่อบัญชีนี้เข้ามาแบบดูอย่างเดียว */
+                const ro = (budgetHasSaved && e.saved === true) || !canEdit;
                 return (
                   <tr key={e.id} className={ro ? "locked" : ""}>
                     <td className="nowrap" data-label="สถานะ">
@@ -140,6 +143,9 @@ export default function BudgetEntries({ uid, month, title }) {
                           onChange={(ev) =>
                             updateBudgetEntry(uid, e.id, { [c.key]: ev.target.value })
                           }
+                          /* หมวด "อื่น ๆ" มีตัวอย่างกำกับ จะได้รู้ว่าอะไรลงช่องนี้ได้บ้าง
+                             โดยไม่ต้องเพิ่มข้อความในตารางที่แน่นอยู่แล้ว */
+                          title={c.hint ? c.label + ": " + c.hint : c.label}
                           style={cell}
                         />
                       </td>
@@ -148,7 +154,8 @@ export default function BudgetEntries({ uid, month, title }) {
                       <b>{money(entryTotal(e))}</b>
                     </td>
                     <td className="nowrap" data-label="">
-                      {ro ? (
+                      {/* บัญชีที่ดูอย่างเดียวไม่ต้องมีปุ่มอะไรเลย กดไปก็ถูกปฏิเสธ */}
+                      {!canEdit ? null : ro ? (
                         <button
                           className="iconbtn"
                           disabled={busy}
@@ -201,23 +208,26 @@ export default function BudgetEntries({ uid, month, title }) {
         </div>
       )}
 
-      <div className="btnrow">
-        <button className="btn ghost" onClick={add} disabled={busy}>
-          + เพิ่มรายการ
-        </button>
-
-        {budgetHasSaved ? (
-          <button className="btn" onClick={saveAll} disabled={busy || !draft.length}>
-            {draft.length ? "บันทึกรายงาน (" + draft.length + " รายการ)" : "บันทึกรายงาน"}
+      {/* ทั้งแถวนี้เป็นปุ่มแก้ข้อมูลล้วน บัญชีที่ดูอย่างเดียวจึงไม่ต้องเห็นเลย */}
+      {canEdit ? (
+        <div className="btnrow">
+          <button className="btn ghost" onClick={add} disabled={busy}>
+            + เพิ่มรายการ
           </button>
-        ) : null}
 
-        {budgetHasSaved && locked.length ? (
-          <button className="btn ghost" onClick={unlockAll} disabled={busy}>
-            แก้ไขทั้งหมด ({locked.length})
-          </button>
-        ) : null}
-      </div>
+          {budgetHasSaved ? (
+            <button className="btn" onClick={saveAll} disabled={busy || !draft.length}>
+              {draft.length ? "บันทึกรายงาน (" + draft.length + " รายการ)" : "บันทึกรายงาน"}
+            </button>
+          ) : null}
+
+          {budgetHasSaved && locked.length ? (
+            <button className="btn ghost" onClick={unlockAll} disabled={busy}>
+              แก้ไขทั้งหมด ({locked.length})
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {!budgetHasSaved ? (
         <div className="small muted" style={{ marginTop: 6 }}>
