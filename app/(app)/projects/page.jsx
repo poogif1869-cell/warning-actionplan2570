@@ -117,23 +117,67 @@ export default function ProjectsPage() {
             className="iconbtn"
             title="รายงานโครงการและกิจกรรม"
             sheets={() => [
+              /* คอลัมน์ต้องครบเท่าที่ตาราง (และไฟล์ PDF) แสดง — ตัวชี้วัด
+                 แผน/ผลรายเดือน และการแจ้งเตือน เดิมหายไปจากไฟล์ Excel
+                 เดือนที่มีแผนเขียนเป็นรายชื่อเดือน ไม่ใช่แค่จำนวน
+                 เพราะไฟล์ PDF แสดงเป็นจุดรายเดือนที่ดูออกว่าเดือนไหน */
               {
                 name: "โครงการและกิจกรรม",
-                widths: [12, 52, 20, 10, 14, 16, 16, 14, 14, 14],
+                widths: [12, 52, 20, 10, 14, 16, 16, 16, 16, 14, 40, 40, 26, 26, 12, 14, 20],
                 rows: [
-                  ["รหัส", "ชื่อรายการ", "หน่วยงาน", "ระดับ", "ยุทธศาสตร์", "กลยุทธ์", "แหล่งเงิน", "งบตามแผน", "เบิกจ่าย", "สถานะ"],
-                  ...rows.map((p) => [
-                    p.code,
-                    p.name,
-                    p.org || "",
-                    p.lvl === 1 ? "โครงการ" : "กิจกรรม",
-                    p.sNo ? "ที่ " + p.sNo : "",
-                    p.tNo ? "ที่ " + p.tNo : "",
-                    p.fund || "",
-                    p.budget || 0,
-                    budgetRollup(budget, p, null).total,
-                    projectTrack(results, p.uid).status || "ยังไม่ระบุ",
-                  ]),
+                  [
+                    "รหัส",
+                    "ชื่อรายการ",
+                    "หน่วยงาน",
+                    "ระดับ",
+                    "ยุทธศาสตร์",
+                    "กลยุทธ์",
+                    "แหล่งเงิน",
+                    "งบตามแผน",
+                    "เบิกจ่าย",
+                    "คงเหลือ",
+                    "ตัวชี้วัดผลผลิต",
+                    "ตัวชี้วัดผลลัพธ์",
+                    "เดือนที่มีแผน",
+                    "เดือนที่รายงานแล้ว",
+                    "รายงานแล้ว/แผน",
+                    "สถานะ",
+                    "การแจ้งเตือน",
+                  ],
+                  ...rows.map((p) => {
+                    const roll = budgetRollup(budget, p, null);
+                    const rep = rolledReport(results, p);
+                    const plan = monthsOf(p);
+                    const planIdx = [];
+                    const doneIdx = [];
+                    for (let i = 0; i < 12; i++) {
+                      if (plan[i]) planIdx.push(i);
+                      if (rep.reported[i]) doneIdx.push(i);
+                    }
+                    const list = byUidAlerts.get(p.uid) || [];
+                    const sev = worstSev(list);
+                    return [
+                      p.code,
+                      p.name,
+                      p.org || "",
+                      p.lvl === 1 ? "โครงการ" : "กิจกรรม",
+                      p.sNo ? "ที่ " + p.sNo : "",
+                      p.tNo ? "ที่ " + p.tNo : "",
+                      p.fund || "",
+                      p.budget || 0,
+                      roll.total,
+                      (p.budget || 0) - roll.total,
+                      p.output || "",
+                      p.outcome || "",
+                      planIdx.map((i) => MONTHS_SHORT[i]).join(" ") || "ไม่มีแผนรายเดือน",
+                      doneIdx.map((i) => MONTHS_SHORT[i]).join(" ") || "ยังไม่รายงาน",
+                      doneIdx.length + "/" + planIdx.length,
+                      projectTrack(results, p.uid).status || "ยังไม่ระบุ",
+                      sev
+                        ? (SEV_LABEL[sev] || sev) + " " + list.length + " รายการ"
+                        : "ไม่พบปัญหา",
+                    ];
+                  }),
                 ],
               },
             ]}

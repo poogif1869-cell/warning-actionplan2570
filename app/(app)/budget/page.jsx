@@ -45,7 +45,7 @@ const PDF_SCOPES = [
 ];
 
 export default function BudgetPage() {
-  const { budget, asOfMonth, asOfLabel, allMonths, loaded } = useResults();
+  const { budget, asOfMonth, asOfLabel, allMonths, loaded, budgetSubmitted } = useResults();
   const [pane, setPane] = useState("dash");
   const [q, setQ] = useState("");
   const [org, setOrg] = useState("");
@@ -252,6 +252,32 @@ export default function BudgetPage() {
                 title="แดชบอร์ดสรุปงบประมาณ"
                 subtitle={asOfLabel}
                 sheets={() => [
+                  /* ไฟล์ PDF เป็นภาพทั้งแดชบอร์ด มีไทล์ โดนัท และกราฟหมวดค่าใช้จ่าย
+                     ชีตแรกจึงเก็บทุกก้อนที่ไม่ใช่ตาราง ให้ Excel มีข้อมูลเท่ากัน */
+                  {
+                    name: "สรุปแดชบอร์ด",
+                    widths: [40, 22, 30],
+                    rows: [
+                      ["รายการ", "ค่า", "หมายเหตุ"],
+                      ["ช่วงเวลาที่ดู", asOfLabel, ""],
+                      ["ตัวกรองหน่วยงาน", orgName || "ทั้งหมด", ""],
+                      ["ตัวกรองแหล่งเงิน", fund || "ทั้งหมด", ""],
+                      [],
+                      ["ยอดเบิกจ่ายรวม (บาท)", grand, ""],
+                      ["โครงการที่มีรายการ", withEntries.length, "จากที่แสดง " + rows.length + " โครงการ"],
+                      ["จำนวนรายการค่าใช้จ่าย", withEntries.reduce((a, r) => a + r.roll.count, 0), ""],
+                      [],
+                      ["ยอดตามหมวดค่าใช้จ่าย (บาท)", "", "สัดส่วนของยอดรวม"],
+                      ...COST_FIELDS.map((c) => [
+                        c.label,
+                        byCost[c.key],
+                        grand ? Math.round((byCost[c.key] / grand) * 1000) / 10 + "%" : "0%",
+                      ]),
+                      [],
+                      ["สัดส่วนยอดเบิกจ่าย — " + donutLabel, "บาท", ""],
+                      ...donutData.map((d) => [d.label, d.value, ""]),
+                    ],
+                  },
                   {
                     name: "สรุปตามหน่วยงาน",
                     widths: [24, 12, 16, 16, 16].concat(COST_FIELDS.map(() => 16)),
@@ -268,10 +294,16 @@ export default function BudgetPage() {
                   },
                   {
                     name: "สรุปตามแหล่งงบประมาณ",
-                    widths: [16, 40, 12, 16, 16, 16],
+                    widths: [16, 40, 12, 16, 16, 16].concat(COST_FIELDS.map(() => 16)),
                     rows: [
-                      ["รหัสแหล่งเงิน", "ชื่อแหล่งเงิน", "โครงการ", "เพดานงบ", "งบตามแผน", "เบิกจ่าย"],
-                      ...byFund.map((f) => [f.code, f.name, f.count, f.ceiling || 0, f.planned, f.used]),
+                      ["รหัสแหล่งเงิน", "ชื่อแหล่งเงิน", "โครงการ", "เพดานงบ", "งบตามแผน", "เบิกจ่าย"].concat(
+                        COST_FIELDS.map((c) => c.label)
+                      ),
+                      ...byFund.map((f) =>
+                        [f.code, f.name, f.count, f.ceiling || 0, f.planned, f.used].concat(
+                          COST_FIELDS.map((c) => (f.cost || {})[c.key] || 0)
+                        )
+                      ),
                     ],
                   },
                 ]}
@@ -610,11 +642,11 @@ export default function BudgetPage() {
                     sheets={() => [
                       {
                         name: "รายการเบิกจ่าย",
-                        widths: [12, 40, 10, 14, 20, 30].concat(COST_FIELDS.map(() => 14)).concat([16]),
+                        widths: [12, 40, 10, 14, 20, 30].concat(COST_FIELDS.map(() => 14)).concat([16, 14]),
                         rows: [
                           ["รหัสโครงการ", "โครงการ", "เดือน", "วันที่", "ส่วนงานที่ใช้งบ", "รายละเอียด"]
                             .concat(COST_FIELDS.map((c) => c.label))
-                            .concat(["รวมรายการ"]),
+                            .concat(["รวมรายการ", "สถานะรายการ"]),
                           ...rows.flatMap(({ p, roll }) =>
                             [...roll.own, ...roll.byActivity.flatMap((a) => a.list)].map((e) =>
                               [
@@ -626,25 +658,51 @@ export default function BudgetPage() {
                                 e.note || "",
                               ]
                                 .concat(COST_FIELDS.map((c) => Number(String(e[c.key] || "0").replace(/,/g, "")) || 0))
-                                .concat([entriesTotal([e])])
+                                .concat([entriesTotal([e]), e.saved ? "บันทึกแล้ว" : "ร่าง"])
                             )
                           ),
                         ],
                       },
                       {
                         name: "สรุปรายโครงการ",
-                        widths: [12, 44, 20, 16, 16, 16, 12],
+                        widths: [12, 44, 20, 16, 16, 16, 12, 18].concat(
+                          COST_FIELDS.map(() => 14)
+                        ),
                         rows: [
-                          ["รหัส", "โครงการ", "หน่วยงาน", "งบตามแผน", "เบิกจ่าย", "คงเหลือ", "จำนวนรายการ"],
-                          ...rows.map(({ p, roll }) => [
-                            p.code,
-                            p.name,
-                            p.org || "",
-                            p.budget || 0,
-                            roll.total,
-                            (p.budget || 0) - roll.total,
-                            roll.count,
-                          ]),
+                          [
+                            "รหัส",
+                            "โครงการ",
+                            "หน่วยงาน",
+                            "งบตามแผน",
+                            "เบิกจ่าย",
+                            "คงเหลือ",
+                            "จำนวนรายการ",
+                            "สถานะการส่งงบ",
+                          ].concat(COST_FIELDS.map((c) => c.label)),
+                          ...rows.map(({ p, roll }) =>
+                            [
+                              p.code,
+                              p.name,
+                              p.org || "",
+                              p.budget || 0,
+                              roll.total,
+                              (p.budget || 0) - roll.total,
+                              roll.count,
+                              allMonths
+                                ? "ดูทั้งปี ไม่ระบุรายเดือน"
+                                : budgetSubmitted(p.uid, asOfMonth)
+                                ? "ส่งข้อมูลแล้ว"
+                                : "ยังไม่ส่ง",
+                            ].concat(
+                              COST_FIELDS.map(
+                                (c) =>
+                                  entriesByCost([
+                                    ...roll.own,
+                                    ...roll.byActivity.flatMap((a) => a.list),
+                                  ])[c.key] || 0
+                              )
+                            )
+                          ),
                         ],
                       },
                     ]}

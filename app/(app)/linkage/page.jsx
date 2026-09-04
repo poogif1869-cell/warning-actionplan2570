@@ -63,18 +63,41 @@ export default function LinkagePage() {
             subtitle={plan.name + " · " + level.label}
             sheets={() => [
               {
-                name: "ความเชื่อมโยงแผน",
-                widths: [50, 12, 18, 12, 46],
+                name: "สรุปการเชื่อมโยง",
+                widths: [40, 22, 34],
                 rows: [
-                  [level.label, "จำนวนโครงการ", "งบตามแผน", "รหัส", "โครงการ"],
+                  ["รายการ", "ค่า", "หมายเหตุ"],
+                  ["แผนที่เชื่อมโยง", plan.name, ""],
+                  ["ชั้นที่ดู", level.label, q ? "กรองด้วยคำค้น “" + q + "”" : ""],
+                  ["จำนวนรายการในชั้นนี้", groups.length, ""],
+                  ["โครงการที่เชื่อมโยงแล้ว", PROJECTS.length - missing, "จากทั้งหมด " + PROJECTS.length + " โครงการ"],
+                  ["ยังไม่ระบุการเชื่อมโยง", missing, "โครงการ"],
+                  ["งบประมาณที่เชื่อมโยง (บาท)", totalBudget, ""],
+                ],
+              },
+              {
+                name: "สรุปรายชั้น",
+                widths: [56, 14, 20, 14],
+                rows: [
+                  [level.label, "จำนวนโครงการ", "งบประมาณ", "สัดส่วน (%)"],
+                  ...groups.map((g) => [
+                    g.value,
+                    g.list.length,
+                    g.budget,
+                    totalBudget ? Math.round((g.budget / totalBudget) * 1000) / 10 : 0,
+                  ]),
+                ],
+              },
+              /* g.value ไม่ใช่ g.name — ของเดิมเขียน g.name ไว้ คอลัมน์แรก
+                 จึงว่างทั้งไฟล์ ทั้งที่บนหน้าจอแสดงชื่อชั้นได้ถูกต้อง
+                 และเติมหน่วยงานกับงบรายโครงการ ให้ตรงกับที่กางดูบนหน้าจอ */
+              {
+                name: "โครงการรายชั้น",
+                widths: [50, 12, 46, 22, 18],
+                rows: [
+                  [level.label, "รหัสโครงการ", "โครงการ", "หน่วยงาน", "งบตามแผน"],
                   ...groups.flatMap((g) =>
-                    g.list.map((p, i) => [
-                      i === 0 ? g.name : "",
-                      i === 0 ? g.list.length : "",
-                      i === 0 ? g.budget : "",
-                      p.code,
-                      p.name,
-                    ])
+                    g.list.map((p) => [g.value, p.code, p.name, p.org || "", p.budget || 0])
                   ),
                 ],
               },

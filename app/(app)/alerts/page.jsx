@@ -2,7 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { useResults, riskOf } from "@/lib/store";
-import { buildAlerts, summarize, SEV_LABEL, KIND_LABEL, RULES } from "@/lib/alerts";
+import {
+  buildAlerts,
+  summarize,
+  SEV_LABEL,
+  KIND_LABEL,
+  criteriaRows,
+} from "@/lib/alerts";
 import { PROJECTS, MONTHS, EXPECTED, reconcile } from "@/lib/plan";
 import { ORG_UNITS, inUnit, RISK_LEVELS } from "@/lib/rollup";
 import { money, mb, fmt, pct } from "@/lib/format";
@@ -102,6 +108,50 @@ export default function AlertsPage() {
             title="รายงานการแจ้งเตือน"
             subtitle={asOfLabel}
             sheets={() => [
+              /* ---------- ชีตสรุป ----------
+                 ไฟล์ PDF คือภาพหน้าจอทั้งหน้า มีทั้งไทล์สรุปและแดชบอร์ดความเสี่ยง
+                 ไฟล์ Excel จึงต้องมีทุกก้อนเหมือนกัน ไม่ใช่มีแต่ตารางรายการ
+                 ไทล์กับกราฟแท่งกลายเป็นแถว ป้าย/ค่า เพราะ Excel ไม่มีไทล์ */
+              {
+                name: "สรุปการแจ้งเตือน",
+                widths: [40, 20, 34],
+                rows: [
+                  ["รายการ", "ค่า", "หมายเหตุ"],
+                  ["ช่วงเวลาที่ดู", asOfLabel, ""],
+                  ["วิกฤต", stats.crit, "ต้องเร่งแก้ไข"],
+                  ["เฝ้าระวัง", stats.warn, "ยังพอแก้ไขทัน"],
+                  ["โครงการที่ติดแจ้งเตือน", stats.projects, "จากทั้งหมด " + PROJECTS.length + " โครงการ"],
+                  ["โครงการที่ยังไม่พบปัญหา", stats.okProjects, ""],
+                  ["งบประมาณที่เกี่ยวข้อง (บาท)", stats.budgetAtRisk, "คิดเป็น " + pct(riskShare) + " ของงบโครงการทั้งหมด"],
+                  [],
+                  ["แยกตามประเภทการแจ้งเตือน", "จำนวนรายการ", ""],
+                  ...KINDS.filter((k) => stats.byKind[k]).map((k) => [
+                    KIND_LABEL[k],
+                    stats.byKind[k],
+                    "",
+                  ]),
+                ],
+              },
+              {
+                name: "สรุปความเสี่ยง",
+                widths: [40, 20, 34],
+                rows: [
+                  ["รายการ", "ค่า", "หมายเหตุ"],
+                  ["อิงรายงานล่าสุดของ", asOfLabel, "ดูย้อนหลังได้ ไม่จำกัดเฉพาะเดือนที่เลือก"],
+                  ["ความเสี่ยงระดับวิกฤต", riskStat.crit, "ระดับสูงมาก"],
+                  ["ความเสี่ยงเฝ้าระวัง", riskStat.warn, "ระดับสูง หรือยังไม่รายงาน"],
+                  ["รายงานความเสี่ยงแล้ว", riskStat.reported, "จากทั้งหมด " + PROJECTS.length + " โครงการ"],
+                  ["งบของโครงการเสี่ยงสูง (บาท)", riskStat.budgetAtRisk, ""],
+                  [],
+                  ["แยกตามระดับความเสี่ยง", "จำนวนโครงการ", ""],
+                  ...RISK_LEVELS.map((lv) => [lv.label, riskStat.byLevel[lv.value] || 0, ""]),
+                ],
+              },
+              {
+                name: "เกณฑ์ที่ใช้แจ้งเตือน",
+                widths: [26, 62, 24, 24],
+                rows: [["ประเภท", "เงื่อนไข", "วิกฤต", "เฝ้าระวัง"], ...criteriaRows(MONTHS)],
+              },
               {
                 name: "การแจ้งเตือน",
                 widths: [10, 22, 14, 44, 40, 16, 14],
@@ -356,50 +406,14 @@ export default function AlertsPage() {
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td>{KIND_LABEL["kpi-below"]}</td>
-                <td className="small">
-                  ตัวชี้วัดระดับองค์กร 13 ตัว เทียบผลที่รายงานกับค่าเป้าหมายปี 2570
-                </td>
-                <td className="small">บรรลุ &lt; {RULES.kpiCrit}%</td>
-                <td className="small">บรรลุ {RULES.kpiCrit}–99%</td>
-              </tr>
-              <tr>
-                <td>{KIND_LABEL["kpi-noreport"]}</td>
-                <td className="small">ยังไม่กรอกผลตัวชี้วัด</td>
-                <td className="small">–</td>
-                <td className="small">ตั้งแต่ {MONTHS[RULES.kpiNoReportFrom]} เป็นต้นไป</td>
-              </tr>
-              <tr>
-                <td>{KIND_LABEL["no-report"]}</td>
-                <td className="small">
-                  เดือนที่มีแผนดำเนินงานและผ่านไปแล้ว แต่ไม่มีการรายงานผล
-                  (แผนรายเดือนม้วนมาจากกิจกรรมย่อย)
-                </td>
-                <td className="small">ขาด ≥ {RULES.missedCrit} เดือน</td>
-                <td className="small">ขาด 1–{RULES.missedCrit - 1} เดือน</td>
-              </tr>
-              <tr>
-                <td>{KIND_LABEL["spend-behind"]}</td>
-                <td className="small">
-                  เบิกจ่ายสะสม เทียบกับสัดส่วนเดือนที่มีแผนซึ่งผ่านไปแล้ว
-                  (ประเมินเฉพาะโครงการที่รายงานผลมาแล้วอย่างน้อย 1 เดือน)
-                </td>
-                <td className="small">&lt; {RULES.spendCrit}% ของที่ควรได้</td>
-                <td className="small">{RULES.spendCrit}–{RULES.spendWarn}%</td>
-              </tr>
-              <tr>
-                <td>{KIND_LABEL["status-delayed"]}</td>
-                <td className="small">ผู้รับผิดชอบระบุสถานะเอง</td>
-                <td className="small">ล่าช้า</td>
-                <td className="small">ยกเลิก</td>
-              </tr>
-              <tr>
-                <td>{KIND_LABEL["overdue-open"]}</td>
-                <td className="small">เดือนสุดท้ายที่มีแผนผ่านไปแล้ว แต่สถานะยังไม่ใช่ “แล้วเสร็จ”</td>
-                <td className="small">ทุกกรณี</td>
-                <td className="small">–</td>
-              </tr>
+              {criteriaRows(MONTHS).map((r) => (
+                <tr key={r[0]}>
+                  <td>{r[0]}</td>
+                  <td className="small">{r[1]}</td>
+                  <td className="small">{r[2]}</td>
+                  <td className="small">{r[3]}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
