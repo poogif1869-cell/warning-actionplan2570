@@ -54,7 +54,9 @@ export default function PrintButton({ title, subtitle, label, className, mode })
 
   return (
     <button
-      className={className || "btn ghost"}
+      /* pdfbtn ติดไปด้วยเสมอ เป็นตัวที่ทำให้ปุ่มไปชิดขวาของหัวข้อ
+         และได้สีทองต่างจากปุ่มอื่นในหน้า แก้ที่เดียวได้ทุกหน้า */
+      className={(className || "btn ghost") + " pdfbtn"}
       onClick={() => setPrinting(true)}
       disabled={printing}
       title="เปิดกล่องพิมพ์ แล้วเลือก Save as PDF เพื่อดาวน์โหลดไฟล์"

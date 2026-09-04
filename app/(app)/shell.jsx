@@ -7,6 +7,7 @@ import { useResults } from "@/lib/store";
 import { buildAlerts } from "@/lib/alerts";
 import Assistant from "@/components/assistant";
 import InstallButton from "@/components/install-button";
+import ThemeToggle from "@/components/theme-toggle";
 
 const NAV = [
   { href: "/", label: "ภาพรวม" },
@@ -50,6 +51,13 @@ export default function Shell({ children }) {
 
   return (
     <>
+      {/* แถบหัวเรื่องกับเมนูติดหนึบไปด้วยกันเป็นก้อนเดียว
+
+          เดิมแยกกัน sticky คนละตัว แล้วเมนูตั้ง top:74px ตายตัว
+          พอแถบหัวเรื่องสูงไม่เท่า 74px (ตัวหนังสือขึ้นบรรทัดใหม่ ปุ่มเพิ่ม ฯลฯ)
+          เมนูจะเลื่อนไปซ้อนใต้แถบหัวเรื่อง ตัวอักษรโดนบังไปครึ่งหนึ่ง
+          ห่อรวมแล้ว sticky ที่ตัวห่อทีเดียว จึงไม่ต้องเดาความสูงอีก */}
+      <div className="appbar">
       <header className="topbar">
         <div className="topbar-in">
           {/* ตราสัญลักษณ์ทางการของ กยท. ครอบตัดจาก "โลโก้ กยท..jpg" ด้วย build\make-logo.ps1 ของโปรเจกต์เดิม
@@ -74,7 +82,8 @@ export default function Shell({ children }) {
 
           <div className="topbar-right">
             {savedHint ? <span className="savehint">{savedHint}</span> : null}
-            {userEmail ? <span className="savehint">{userEmail}</span> : null}
+            {userEmail ? <span className="savehint useremail">{userEmail}</span> : null}
+            <ThemeToggle />
             <InstallButton />
             <button className="iconbtn" onClick={handleSignOut} disabled={signingOut}>
               {signingOut ? "กำลังออก…" : "ออกจากระบบ"}
@@ -95,6 +104,7 @@ export default function Shell({ children }) {
           </Link>
         ))}
       </nav>
+      </div>
 
       <main>
         {loadError ? (

@@ -592,14 +592,17 @@ export default function BudgetPage() {
                         {roll.count ? fmt(roll.count) : "–"}
                       </td>
                       <td className="nowrap wide" data-label="">
+                        {/* ปุ่มกรอกงบเป็นงานหลักของแถวนี้ จึงเป็นปุ่มทึบสีหลัก
+                            ส่วน PDF เป็นงานรอง ให้เป็นปุ่มโครงสีทองแบบเดียว
+                            กับปุ่มดาวน์โหลดที่หัวข้อ ไม่แย่งสายตากัน */}
                         <button
-                          className="btn ghost"
+                          className={open ? "btn ghost" : "btn"}
                           onClick={() => setOpenUid(open ? null : p.uid)}
                         >
                           {open ? "ปิด" : "รายงานงบประมาณ"}
                         </button>{" "}
                         <button
-                          className="iconbtn"
+                          className="iconbtn pdfbtn"
                           onClick={() => setPrintItem(p)}
                           title="พิมพ์รายงานของโครงการนี้หรือบันทึกเป็น PDF"
                         >

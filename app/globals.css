@@ -52,11 +52,16 @@ h1,h2,h3,h4{margin:0; font-weight:700; line-height:1.4}
 button,input,select,textarea{font:inherit; color:inherit}
 a{color:var(--accent)}
 
-/* ---------- แถบหัวเรื่อง ---------- */
+/* ---------- แถบหัวเรื่อง + เมนู ติดหนึบไปด้วยกัน ----------
+   ⚠️ ต้อง sticky ที่ตัวห่อเท่านั้น ห้ามให้ .topbar กับ .tabs sticky แยกกัน
+   ของเดิมทำแบบนั้นแล้วต้องตั้ง .tabs{top:74px} ตายตัว พอแถบหัวเรื่อง
+   สูงไม่เท่า 74px (ข้อความขึ้นบรรทัดใหม่ ปุ่มเพิ่ม ฟอนต์ต่างเครื่อง)
+   เมนูจะเลื่อนไปซ้อนใต้แถบหัวเรื่อง ตัวอักษรโดนบังไปครึ่งหนึ่ง */
+.appbar{position:sticky; top:0; z-index:30}
+
 .topbar{
   background:linear-gradient(118deg,var(--brand-1) 0%,var(--brand-2) 52%,var(--brand-3) 100%);
   color:var(--on-brand); border-bottom:3px solid var(--gold);
-  position:sticky; top:0; z-index:30;
 }
 .topbar-in{
   max-width:1500px; margin:0 auto; padding:12px 20px;
@@ -91,11 +96,15 @@ a{color:var(--accent)}
 .topbar .iconbtn{background:rgba(255,255,255,.1); border-color:var(--brand-line); color:var(--on-brand)}
 .topbar .iconbtn:hover{background:rgba(255,255,255,.22); border-color:var(--gold); color:var(--on-brand)}
 
+/* ปุ่มสลับโหมดสว่าง/มืด */
+.themebtn{display:inline-flex; align-items:center; gap:7px}
+.themebtn span[aria-hidden]{font-size:14px; line-height:1}
+
 /* ---------- เมนู ---------- */
 .tabs{
   display:flex; gap:2px; padding:0 20px; background:var(--surface);
   border-bottom:1px solid var(--border); overflow-x:auto;
-  position:sticky; top:74px; z-index:29; box-shadow:var(--shadow);
+  box-shadow:var(--shadow);
 }
 .tabs a{
   background:none; border:none; border-bottom:2.5px solid transparent;
@@ -109,18 +118,49 @@ a{color:var(--accent)}
   font-size:11px; font-weight:600; min-width:19px; text-align:center;
 }
 
-main{padding:22px 20px 70px; max-width:1500px; margin:0 auto}
-section.block{margin-bottom:26px}
+main{padding:26px 20px 70px; max-width:1500px; margin:0 auto}
+
+/* หัวข้อต้องเด่นพอให้กวาดตาหาได้ และมีอากาศคั่นให้รู้ว่าจบส่วนหนึ่งแล้ว
+   ระยะห่างเทลงข้างบนของหัวข้อ ไม่ใช่ข้างล่างของส่วนก่อนหน้า
+   หัวข้อจึงติดกับเนื้อหาของตัวเองเสมอ ไม่ลอยอยู่กลางช่องว่าง */
+section.block{margin-bottom:16px}
+section.block + section.block{margin-top:44px}
+
 section.block > h2{
-  font-size:15px; margin-bottom:12px; color:var(--text);
-  display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;
+  font-size:18px; font-weight:700; letter-spacing:-.015em;
+  margin-bottom:15px; padding-bottom:9px; color:var(--text);
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:11px; flex-wrap:wrap;
 }
-section.block > h2 small{font-weight:400; font-size:12.5px; color:var(--muted)}
-/* ขีดทองหน้าหัวข้อ */
+section.block > h2 small{font-weight:400; font-size:13px; color:var(--muted)}
+/* ขีดทองหน้าหัวข้อ — หนาขึ้นตามขนาดตัวอักษรที่ใหญ่ขึ้น */
 section.block > h2::before{
-  content:""; width:3px; height:15px; background:var(--gold);
-  border-radius:2px; display:inline-block; align-self:center; flex:none;
+  content:""; width:4px; height:19px; background:var(--gold);
+  border-radius:2px; display:inline-block; flex:none;
 }
+
+/* ---------- ปุ่มดาวน์โหลด PDF ----------
+   อยู่ในบรรทัดเดียวกับหัวข้อ ดันไปชิดขวาสุดเสมอ ไม่ให้ไปเบียดชื่อหัวข้อ
+   และให้สีทองต่างจากปุ่มอื่นในหน้า จะได้หาเจอทันทีว่าปุ่มออกรายงานอยู่ไหน
+
+   ⚠️ ดันชิดขวาเฉพาะตอนอยู่ในหัวข้อเท่านั้น ห้ามตั้งเป็นกฎรวมของ .pdfbtn
+   เพราะปุ่มเดียวกันนี้ไปโผล่ใน .field ซึ่งเรียงเป็นคอลัมน์
+   margin auto ที่นั่นจะดันปุ่มไปติดขอบขวาของช่อง ดูเหมือนวางผิดที่ */
+section.block > h2 > .pdfbtn{margin-inline-start:auto}
+
+.iconbtn.pdfbtn,
+.btn.ghost.pdfbtn{
+  background:var(--gold-soft); border:1px solid var(--gold); color:var(--gold);
+  font-weight:600;
+}
+.iconbtn.pdfbtn:hover,
+.btn.ghost.pdfbtn:hover{
+  /* ตัวหนังสือใช้สีพื้นผิว ไม่ใช่ #fff ตายตัว — โหมดมืดทองสว่างกว่ามาก
+     ขาวบนทองอ่อนจะอ่านแทบไม่ออก แต่สีพื้นผิวเป็นสีเข้มพอดี */
+  background:var(--gold); border-color:var(--gold); color:var(--surface);
+}
+.iconbtn.pdfbtn:disabled,
+.btn.ghost.pdfbtn:disabled{opacity:.6; cursor:default}
 
 .card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow)}
 .pad{padding:16px}
@@ -373,6 +413,7 @@ tr.exp-body > td{background:var(--surface2); padding:0}
   .chatdock,.chatfab,.chatpanel{display:none !important}
 
   /* ซ่อนทุกอย่างที่ไม่ใช่ตัวรายงาน */
+  body.printing-report .appbar,
   body.printing-report .topbar,
   body.printing-report .tabs,
   body.printing-report .scrim,
@@ -449,26 +490,52 @@ th{box-shadow:inset 0 -1px 0 var(--border)}
   body{font-size:14.5px}
   main{padding:14px 12px 80px}
 
-  /* แถบหัวเรื่องเตี้ยลง เหลือแต่ของจำเป็น */
-  .topbar{position:static}
-  .topbar-in{padding:10px 12px; gap:10px}
-  .emblem{width:38px; height:38px}
-  .brand h1{font-size:15px}
-  .brand .sub{font-size:11.5px}
-  .brand .en{display:none}
-  .fybadge{padding:2px 10px; margin-inline-start:0}
-  .fybadge b{font-size:13px}
-  .topbar-right{width:100%; margin-inline-start:0; justify-content:space-between}
+  /* =============================================================
+     แถบบนแบบ app bar
 
-  /* เมนูเลื่อนแนวนอนแบบสแนป ให้หยุดตรงหัวข้อพอดี ไม่ค้างครึ่ง ๆ */
+     เดิมแถบหัวเรื่องสูงสามบรรทัด (ชื่อ + คำบรรยาย + ปุ่มอีกแถวเต็มความกว้าง)
+     กินจอมือถือไปเกือบ 1 ใน 3 ก่อนจะเห็นเนื้อหาสักตัว
+     ทำใหม่ให้เป็นแถวเดียวเหมือน app bar ของแอปมือถือ:
+     ตรา + ชื่อย่อ + ปุ่มชิดขวา แล้วเมนูอยู่ใต้ลงมาในก้อน sticky เดียวกัน
+     ============================================================= */
+  .topbar-in{
+    padding:0 10px; gap:9px; min-height:52px;
+    flex-wrap:nowrap; align-items:center;
+  }
+  .emblem{width:32px; height:32px; padding:1.5px}
+
+  /* ชื่อเหลือบรรทัดเดียว ยาวเกินก็ตัดด้วย … ไม่ดันความสูงแถบ */
+  .brand{flex:1; min-width:0}
+  .brand h1{
+    font-size:14.5px; line-height:1.3;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .brand .sub,.brand .en{display:none}
+
+  /* ปีงบกับอีเมลไม่ใช่ของที่ต้องเห็นตลอดเวลาบนจอเล็ก */
+  .fybadge{display:none}
+  /* ซ่อนเฉพาะอีเมล ส่วนคำว่า "บันทึกแล้ว" ต้องเห็นบนมือถือด้วย
+     ไม่งั้นผู้ใช้ไม่รู้ว่าที่พิมพ์ไปขึ้นระบบแล้วหรือยัง */
+  .savehint.useremail{display:none}
+  .savehint{font-size:11px}
+
+  .topbar-right{width:auto; margin-inline-start:auto; gap:6px; flex-wrap:nowrap}
+  .topbar-right .iconbtn{padding:6px 9px; font-size:12px}
+  /* ปุ่มสลับโหมดเหลือแค่ไอคอน คำว่า "ตามเครื่อง" กินที่เกินไป */
+  .themebtn-text{display:none}
+
+  /* เมนูเลื่อนแนวนอนแบบสแนป ให้หยุดตรงหัวข้อพอดี ไม่ค้างครึ่ง ๆ
+     ไม่ต้อง sticky เอง เพราะ .appbar ที่ห่ออยู่ sticky ให้แล้ว */
   .tabs{
-    position:sticky; top:0; padding:0 12px;
+    padding:0 10px;
     scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;
   }
   .tabs a{padding:10px 12px; font-size:13.5px; scroll-snap-align:start}
 
-  section.block{margin-bottom:20px}
-  section.block > h2{font-size:14.5px}
+  section.block{margin-bottom:14px}
+  section.block + section.block{margin-top:32px}
+  section.block > h2{font-size:16px; margin-bottom:12px; padding-bottom:8px}
+  section.block > h2::before{height:17px}
 
   /* ตัวกรองเรียงเป็นแถวเดียวเต็มความกว้าง กดง่ายกว่าบีบให้อยู่ข้างกัน */
   .filters{gap:10px}
@@ -567,6 +634,7 @@ th{box-shadow:inset 0 -1px 0 var(--border)}
    แค่ซ่อนเมนู ตัวกรอง และปุ่มทิ้ง
    ===================================================================== */
 @media print{
+  body.printing-page .appbar,
   body.printing-page .topbar,
   body.printing-page .tabs,
   body.printing-page .scrim,
@@ -645,6 +713,7 @@ th{box-shadow:inset 0 -1px 0 var(--border)}
    ซ่อนหน้าเบื้องหลังทิ้ง แล้วคลี่ลิ้นชักให้เป็นเอกสารเต็มหน้ากระดาษ
    --------------------------------------------------------------------- */
 @media print{
+  body.printing-drawer .appbar,
   body.printing-drawer .topbar,
   body.printing-drawer .tabs,
   body.printing-drawer main,

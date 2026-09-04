@@ -142,6 +142,7 @@ powershell -File check\verify-imports.ps1   # ตรวจ import/export แล�
 | `lib/assistant-context.js` | ประกอบสรุปข้อมูลจริงที่ส่งไปพร้อมคำถาม (ไม่ส่งไฟล์แผนทั้งก้อน) |
 | `app/api/chat/route.js` | เรียก Gemini ฝั่งเซิร์ฟเวอร์ — คีย์อยู่ที่นี่ที่เดียว |
 | `components/assistant.jsx` | ปุ่มลอย + แผงแชท |
+| `components/theme-toggle.jsx` | ปุ่มสลับโหมดสว่าง/มืด (ค่าอ่านก่อนวาดจอใน `app/layout.jsx`) |
 | `app/manifest.js` · `public/sw.js` | ไฟล์ PWA — manifest กับ service worker |
 | `build/make-icons.ps1` · `build/make-og.ps1` | สร้างไอคอนและรูปตัวอย่างตอนแชร์ลิงก์ |
 | `middleware.js` | ต่ออายุเซสชัน Supabase + กันคนที่ยังไม่ล็อกอิน + คืน 401 ให้ `/api/*` + ปล่อยไฟล์ PWA ผ่าน |

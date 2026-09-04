@@ -106,10 +106,20 @@ export const viewport = {
   ],
 };
 
+/* อ่านโหมดที่ผู้ใช้เลือกไว้แล้วติดลงบน <html> **ก่อนหน้าจอวาดครั้งแรก**
+   ถ้าไปทำใน useEffect ของ React จะช้าไปหนึ่งเฟรม คนที่เลือกโหมดมืด
+   จะเห็นจอขาววาบขึ้นมาทุกครั้งที่โหลดหน้า
+
+   ห่อ try/catch เพราะเบราว์เซอร์ที่ปิด storage จะโยน error ตั้งแต่บรรทัดแรก
+   แล้วสคริปต์ที่เหลือในหน้าจะไม่ทำงานทั้งหมด */
+const THEME_BOOT = `try{var t=localStorage.getItem('raot-theme');
+if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}`;
+
 export default function RootLayout({ children }) {
   return (
     <html lang="th">
       <body>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
         {children}
         <RegisterSW />
       </body>
