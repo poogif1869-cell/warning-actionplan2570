@@ -426,7 +426,7 @@ export default function OverviewPage() {
 
       <section className="block">
         <h2>
-          เพดานงบตามแหล่งเงิน เทียบกับที่จัดสรรลงโครงการ
+          งบประมาณตามแหล่งเงิน
           <small>7 แหล่ง · ตามมาตรา 13 และกองทุนพัฒนายางพารา มาตรา 49</small>
         </h2>
         <div className="tablewrap">
