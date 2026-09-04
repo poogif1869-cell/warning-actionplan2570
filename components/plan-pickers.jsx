@@ -612,6 +612,13 @@ export function PlanLinkFields({ form, setForm }) {
                   </select>
                 </div>
 
+                <RaotKpiPicker
+                  value={form.kpi}
+                  onChange={(v) => set({ kpi: v })}
+                  sNo={strategy ? strategy.no : ""}
+                  id="lk-raotkpi"
+                />
+
                 <div className="field">
                   <label>วัตถุประสงค์เชิงยุทธศาสตร์ (SO)</label>
                   <div className={"linkro" + (form.so ? "" : " empty")}>
@@ -810,5 +817,42 @@ export function ActivityFields({ acts, setActs, projectCode }) {
         ) : null}
       </div>
     </>
+  );
+}
+
+/* ---------------------------------------------------------------------
+   ตัวชี้วัดตามยุทธศาสตร์ของแผนวิสาหกิจ กยท.
+
+   เป็นคนละอย่างกับ "ตัวชี้วัดผลผลิต/ผลลัพธ์" ของโครงการ —
+   อันนั้นคือสิ่งที่โครงการนี้ทำได้ ส่วนอันนี้คือตัวชี้วัดระดับองค์กร
+   ที่โครงการนี้ไปช่วยดัน จึงเลือกจากรายการตายตัว 13 ตัวเท่านั้น
+
+   กรองตามเลขยุทธศาสตร์ที่เลือกไว้ — ยุทธศาสตร์ที่ 2 เห็นเฉพาะ 2.x
+   ไม่งั้นจะเลือกตัวชี้วัดข้ามยุทธศาสตร์ได้ ซึ่งผิดตั้งแต่หลักการ
+   --------------------------------------------------------------------- */
+export function RaotKpiPicker({ value, onChange, sNo, id }) {
+  const all = linkOptions("raotKpi");
+  const list = underNo(all, sNo || "");
+  const val = value || "";
+  // ค่าที่มีอยู่เดิมแต่ไม่อยู่ในรายการ (แผนเก่า) ต้องคงไว้ ไม่ให้ดรอปดาวน์กลืนหาย
+  const extra = val && list.indexOf(val) < 0 ? [val] : [];
+  const key = id || "raotkpi";
+
+  return (
+    <div className="field">
+      <label htmlFor={key}>ตัวชี้วัดตามยุทธศาสตร์</label>
+      <select id={key} value={val} onChange={(e) => onChange(e.target.value)}>
+        <option value="">
+          {sNo
+            ? "— เลือกตัวชี้วัด (" + fmt(list.length) + " ตัว) —"
+            : "เลือกยุทธศาสตร์ก่อน จะได้เห็นเฉพาะตัวชี้วัดของยุทธศาสตร์นั้น"}
+        </option>
+        {extra.concat(list).map((v) => (
+          <option key={v} value={v}>
+            {v}
+          </option>
+        ))}
+      </select>
+    </div>
   );
 }

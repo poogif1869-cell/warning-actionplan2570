@@ -235,7 +235,11 @@ export default function Shell({ children }) {
 
       {navGroup ? (
         <>
-          <div className="scrim scrim-top" onClick={() => setNavGroup(null)} />
+          {/* ⚠️ ต้องเป็น navscrim ไม่ใช่ scrim-top
+              scrim-top มี z-index 69 (ทำไว้ให้ป๊อปอัพยืนยันซ้อนทับทุกอย่าง)
+              ซึ่งสูงกว่าแผ่นเมนู (56) แผ่นจึงไปอยู่ใต้ฉากดำ กดลิงก์ไม่โดน
+              แตะตรงไหนก็โดนฉากแล้วปิดทิ้ง — เมนูมือถือจึงใช้ไม่ได้เลย */}
+          <div className="scrim navscrim" onClick={() => setNavGroup(null)} />
           <div className="navsheet" role="dialog" aria-label={navGroup}>
             <div className="navsheet-head">
               <b>{navGroup}</b>

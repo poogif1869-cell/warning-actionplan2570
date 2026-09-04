@@ -39,6 +39,7 @@ import {
   ScheduleFields,
   scheduleProblem,
   PlanLinkFields,
+  RaotKpiPicker,
   ActivityFields,
   activityProblem,
 } from "@/components/plan-pickers";
@@ -65,7 +66,7 @@ const PARTS = [
   {
     key: "kpi",
     label: "ตัวชี้วัด",
-    hint: "ผลผลิต ผลลัพธ์ ตัวชี้วัดอื่น ๆ",
+    hint: "ผลผลิต ผลลัพธ์ และตัวชี้วัดตามยุทธศาสตร์",
     needsApproval: true,
   },
   {
@@ -960,6 +961,14 @@ export default function PlanEditPage() {
                             <>
                               <h4>ตัวชี้วัด</h4>
                               <Indicators form={f} setForm={setF} idPrefix={t.uid} />
+                              {/* ตัวชี้วัดระดับองค์กรที่โครงการนี้ไปช่วยดัน
+                                  กรองตามยุทธศาสตร์ของรายการนั้นเอง */}
+                              <RaotKpiPicker
+                                value={f.kpi}
+                                onChange={(v) => setF({ ...f, kpi: v })}
+                                sNo={t.sNo}
+                                id={"ed-kpi-" + t.uid}
+                              />
                             </>
                           ) : null}
 
@@ -1234,15 +1243,9 @@ function Indicators({ form, setForm, requireOutput, idPrefix }) {
           onChange={(e) => setForm({ ...form, outcome: e.target.value })}
         />
       </div>
-      <div className="field">
-        <label htmlFor={p + "kpi"}>ตัวชี้วัดอื่น ๆ</label>
-        <textarea
-          id={p + "kpi"}
-          rows={2}
-          value={form.kpi}
-          onChange={(e) => setForm({ ...form, kpi: e.target.value })}
-        />
-      </div>
+      {/* ตัวชี้วัดตามยุทธศาสตร์ (field kpi) ไม่ได้อยู่ที่นี่แล้ว
+          เพราะเป็นตัวชี้วัดระดับองค์กรที่เลือกจากรายการตายตัว
+          ไม่ใช่ข้อความอิสระของโครงการ — ดู RaotKpiPicker */}
     </>
   );
 }
