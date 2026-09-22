@@ -20,14 +20,20 @@ import StepsTable from "@/components/steps-table";
 
 /* แท็บ "รายงานผลรายเดือน" ในลิ้นชักรายละเอียด
 
-   โครงสร้าง:
-   1. งบประมาณของโครงการ (จัดสรร / ใช้ไป / คงเหลือ) — อ่านอย่างเดียว
-   2. สถานะ + ความก้าวหน้า
-   3. ตัวชี้วัดผลผลิต  พร้อมช่องรายงานผล + ปัญหาอุปสรรค
-   4. ตัวชี้วัดผลลัพธ์ พร้อมช่องรายงานผล + ปัญหาอุปสรรค
-   5. ตารางรายงานผลรายเดือน 12 เดือน
-   6. ถ้ามีกิจกรรมย่อย — เลือกกิจกรรม แล้วดูงบของกิจกรรมนั้น
-      พร้อมตัวชี้วัดผลผลิตและช่องรายงานผล + ปัญหาอุปสรรคของกิจกรรม
+   แบ่งเป็นขั้น (ผลโครงการ → ผลกิจกรรม → ความเสี่ยง) แต่ละขั้นแบ่งเป็นกล่อง
+   มีเลขข้อกำกับ (คอมโพเนนต์ Sec ด้านล่าง)
+
+   ขั้นผลโครงการ
+     1. งบประมาณโครงการ (จัดสรร / ใช้ไป / คงเหลือ) — อ่านอย่างเดียว
+     2. สถานะการดำเนินงาน + ความก้าวหน้า
+     3. ขั้นตอนการดำเนินงาน (แผน/ผลรายเดือน)
+     4. ตัวชี้วัดผลผลิต  พร้อมช่องรายงานผล + ปัญหาอุปสรรค
+     5. ตัวชี้วัดผลลัพธ์ พร้อมช่องรายงานผล + ปัญหาอุปสรรค
+     6. รายงานผลการดำเนินงานรายเดือน (เฉพาะเดือนที่ถึงแล้ว)
+   ขั้นผลกิจกรรม (มีเฉพาะโครงการที่มีกิจกรรมย่อย)
+     1. เลือกกิจกรรม  2. งบของกิจกรรม  3. ตัวชี้วัดผลผลิต  4. ขั้นตอนของกิจกรรม
+   ขั้นความเสี่ยง
+     1. ทะเบียนความเสี่ยงตามแผน — อ่านอย่างเดียว  2. รายงานความเสี่ยงรายเดือน
 
    **รายงานหลักอยู่ที่ระดับโครงการเสมอ** กิจกรรมเป็นส่วนเพิ่ม ไม่ใช่ตัวแทน
    กิจกรรมไม่มีช่องผลลัพธ์ เพราะผลลัพธ์ (Outcome) เป็นตัวชี้วัดของทั้งโครงการ
@@ -41,6 +47,33 @@ import StepsTable from "@/components/steps-table";
    หน้าอื่นเปิดลิ้นชักได้ตามปกติ แต่เป็นอ่านอย่างเดียว
    --------------------------------------------------------------------- */
 const HOME_PATH = "/projects";
+
+/* กล่องหัวข้อมีเลขข้อ — หัวกล่องบอกว่าข้อนี้คืออะไร ต้องทำอะไร
+   และมีช่องมุมขวาไว้ใส่ป้ายสรุป (สถานะ / รายงานแล้วกี่รายการ)
+
+   ประกาศไว้นอก ReportTab โดยตั้งใจ ถ้าประกาศข้างใน React จะเห็นเป็น
+   คอมโพเนนต์ชนิดใหม่ทุกครั้งที่วาด แล้วรื้อทุกช่องในกล่องสร้างใหม่
+   ช่องที่กำลังพิมพ์จะหลุดโฟกัสหลังพิมพ์ทุกตัวอักษร */
+function Sec({ no, title, hint, right, children }) {
+  return (
+    <section className="rsec">
+      <header className="rsec-head">
+        <span className="rsec-no" aria-hidden="true">
+          {no}
+        </span>
+        <div className="rsec-titles">
+          <h4 className="rsec-title">
+            <span className="sr-only">ข้อ {no} </span>
+            {title}
+          </h4>
+          {hint ? <div className="rsec-hint">{hint}</div> : null}
+        </div>
+        {right ? <div className="rsec-right">{right}</div> : null}
+      </header>
+      <div className="rsec-body">{children}</div>
+    </section>
+  );
+}
 
 export default function ReportTab({ item }) {
   const pathname = usePathname();
@@ -203,7 +236,7 @@ export default function ReportTab({ item }) {
   }
 
   /* ไทล์งบ 3 ช่อง ใช้ทั้งระดับโครงการและระดับกิจกรรม */
-  function BudgetTiles({ target, note }) {
+  function budgetTiles({ target, note }) {
     const r = budgetRollup(budget, target, null);
     const planned = target.budget || 0;
     const left = planned - r.total;
@@ -229,7 +262,7 @@ export default function ReportTab({ item }) {
           </div>
         </div>
         {note ? (
-          <div className="small muted" style={{ marginBottom: 16 }}>
+          <div className="small muted" style={{ marginTop: 4 }}>
             {note}
           </div>
         ) : null}
@@ -237,12 +270,17 @@ export default function ReportTab({ item }) {
     );
   }
 
-  /* บล็อกตัวชี้วัด: ค่าตามแผน + ช่องรายงานผล + ช่องปัญหาอุปสรรค */
-  function Indicator({ label, planValue, uid, resultKey, issueKey }) {
+  /* บล็อกตัวชี้วัด: ค่าตามแผน + ช่องรายงานผล + ช่องปัญหาอุปสรรค
+
+     ⚠️ ต้องเรียกเป็นฟังก์ชัน {indicator({...})} ห้ามเรียกเป็น <Indicator />
+     ฟังก์ชันนี้ประกาศอยู่ในตัว ReportTab จึงเกิดใหม่ทุกครั้งที่วาด ถ้าใช้เป็น
+     คอมโพเนนต์ React จะเห็นเป็น "คนละชนิด" ทุกรอบแล้ว unmount ทิ้งสร้างใหม่
+     ช่องที่กำลังพิมพ์จะหลุดโฟกัสหลังพิมพ์ทุกตัวอักษร
+     หัวข้อไม่ได้อยู่ในนี้แล้ว ย้ายไปเป็นหัวของกล่อง Sec แทน */
+  function indicator({ planValue, uid, resultKey, issueKey }) {
     const t = projectTrack(results, uid);
     return (
       <>
-        <h4>{label}</h4>
         <dl className="dl">
           <dt>ค่าตามแผน</dt>
           <dd>{planValue || "–"}</dd>
@@ -350,35 +388,45 @@ export default function ReportTab({ item }) {
         ))}
       </ol>
 
-      {/* ---------- 1. งบประมาณของโครงการ ---------- */}
+      {/* ================= ขั้นผลโครงการ =================
+          แบ่งเป็นกล่องมีเลขข้อ 1-6 ทุกกล่องมีหัวข้อ คำอธิบายสั้น ๆ
+          ว่ากล่องนี้ต้องทำอะไร และป้ายสรุปสถานะอยู่มุมขวา
+          เดิมเป็นหัวข้อ h4 เรียงต่อกันยาวลงไป มองไม่ออกว่าข้อไหนจบตรงไหน */}
       {step === "project" ? (
         <>
-      <h4>งบประมาณโครงการ</h4>
-      <BudgetTiles
-        target={item}
-        note={
-          "ยอดนี้ดึงมาจากหน้า งบประมาณโครงการ ซึ่งเป็นที่เดียวที่บันทึกงบได้" +
-          (roll.kidsTotal ? " · รวมที่บันทึกจากกิจกรรม " + money(roll.kidsTotal) + " บาท" : "")
-        }
-      />
+      <Sec
+        no={1}
+        title="งบประมาณโครงการ"
+        hint="ดูอย่างเดียว — บันทึกงบที่หน้างบประมาณโครงการ"
+      >
+        {budgetTiles({
+          target: item,
+          note:
+            "ยอดนี้ดึงมาจากหน้า งบประมาณโครงการ ซึ่งเป็นที่เดียวที่บันทึกงบได้" +
+            (roll.kidsTotal ? " · รวมที่บันทึกจากกิจกรรม " + money(roll.kidsTotal) + " บาท" : ""),
+        })}
+      </Sec>
 
-      {/* ---------- 2. สถานะและความก้าวหน้า ---------- */}
-      <h4>
-        สถานะการดำเนินงาน
-        {/* ป้ายสรุปข้าง ๆ หัวข้อ ให้รู้สถานะปัจจุบันโดยไม่ต้องกวาดตาหาในดรอปดาวน์
-            และเห็นทันทีว่าเดือนที่มีแผนรายงานครบหรือยัง */}
-        <span className="badgerow" style={{ marginInlineStart: 10 }}>
-          <StatusBadge status={tk.status} />
-          <ReportBadge
-            done={(() => {
-              let n = 0;
-              for (let i = 0; i < 12; i++) if (hasReport(rep[i])) n++;
-              return n;
-            })()}
-            planned={plan.filter(Boolean).length}
-          />
-        </span>
-      </h4>
+      <Sec
+        no={2}
+        title="สถานะการดำเนินงาน"
+        hint="สถานะปัจจุบันของโครงการ และความก้าวหน้าโดยรวม"
+        right={
+          /* ป้ายสรุปมุมขวา ให้รู้สถานะปัจจุบันโดยไม่ต้องกวาดตาหาในดรอปดาวน์
+             และเห็นทันทีว่าเดือนที่มีแผนรายงานครบหรือยัง */
+          <span className="badgerow" style={{ marginTop: 0 }}>
+            <StatusBadge status={tk.status} />
+            <ReportBadge
+              done={(() => {
+                let n = 0;
+                for (let i = 0; i < 12; i++) if (hasReport(rep[i])) n++;
+                return n;
+              })()}
+              planned={plan.filter(Boolean).length}
+            />
+          </span>
+        }
+      >
       <div className="trackgrid">
         <div>
           <label className="small muted" htmlFor={"st-" + item.uid}>
@@ -416,15 +464,20 @@ export default function ReportTab({ item }) {
           ) : null}
         </div>
       </div>
+      </Sec>
 
-      {/* ---------- ขั้นตอนการดำเนินงาน (แผน/ผลรายเดือน) ---------- */}
-      <h4>ขั้นตอนการดำเนินงาน</h4>
-      <StepsTable
-        uid={item.uid}
-        upto={lastMonth}
-        editable={editable}
-        onProgress={syncProgress(item.uid)}
-      />
+      <Sec
+        no={3}
+        title="ขั้นตอนการดำเนินงาน"
+        hint="วางแผนรายเดือนแต่ละขั้น แล้วรายงานผลเทียบกับแผน"
+      >
+        <StepsTable
+          uid={item.uid}
+          upto={lastMonth}
+          editable={editable}
+          onProgress={syncProgress(item.uid)}
+        />
+      </Sec>
 
       {!hasIndicatorCols ? (
         <div className="banner" style={{ marginTop: 14 }}>
@@ -434,33 +487,45 @@ export default function ReportTab({ item }) {
         </div>
       ) : null}
 
-      {/* ---------- 3-4. ตัวชี้วัดผลผลิตและผลลัพธ์ ---------- */}
-      <Indicator
-        label="ตัวชี้วัดผลผลิต (Output)"
-        planValue={item.output}
-        uid={item.uid}
-        resultKey="outputResult"
-        issueKey="outputIssue"
-      />
-      <Indicator
-        label="ตัวชี้วัดผลลัพธ์ (Outcome)"
-        planValue={item.outcome}
-        uid={item.uid}
-        resultKey="outcomeResult"
-        issueKey="outcomeIssue"
-      />
+      <Sec
+        no={4}
+        title="ตัวชี้วัดผลผลิต (Output)"
+        hint="สิ่งที่โครงการทำได้ เทียบกับค่าตามแผน"
+      >
+        {indicator({
+          planValue: item.output,
+          uid: item.uid,
+          resultKey: "outputResult",
+          issueKey: "outputIssue",
+        })}
+      </Sec>
 
-      {/* ---------- 5. ตารางรายเดือน ที่ระดับโครงการ ----------
+      <Sec
+        no={5}
+        title="ตัวชี้วัดผลลัพธ์ (Outcome)"
+        hint="ผลที่เกิดกับกลุ่มเป้าหมาย เทียบกับค่าตามแผน"
+      >
+        {indicator({
+          planValue: item.outcome,
+          uid: item.uid,
+          resultKey: "outcomeResult",
+          issueKey: "outcomeIssue",
+        })}
+      </Sec>
+
+      {/* ---------- 6. ตารางรายเดือน ที่ระดับโครงการ ----------
           แสดงเฉพาะเดือนที่ถึงแล้ว เดือนอนาคตไม่ต้องขึ้นมาให้กรอก
           ตารางที่มีช่องว่างของเดือนที่ยังไม่ถึงอยู่ครึ่งตาราง ทำให้ดูเหมือน
           งานค้างเต็มไปหมด ทั้งที่ยังไม่ถึงเวลาต้องทำ
 
           เดือนที่ผ่านไปแล้วยังแก้ได้ ไม่ได้ล็อกเป็นอ่านอย่างเดียว
           เพราะการแก้ข้อมูลย้อนหลังของเดือนที่กรอกผิดเป็นเรื่องปกติ */}
-      <h4>
-        รายงานผลการดำเนินงานรายเดือน
-        <span className="pill none">ถึง {MONTHS[lastMonth]}</span>
-      </h4>
+      <Sec
+        no={6}
+        title="รายงานผลการดำเนินงานรายเดือน"
+        hint="ผลผลิต ผลลัพธ์ ปัญหา และวิธีแก้ ของแต่ละเดือนที่ถึงแล้ว"
+        right={<span className="pill none">ถึง {MONTHS[lastMonth]}</span>}
+      >
       <div className="tablewrap">
         <table className="mrep stack">
           <thead>
@@ -535,122 +600,133 @@ export default function ReportTab({ item }) {
           <code>monthly_reports.issue</code> และ <code>solution</code>
         </div>
       ) : null}
+      </Sec>
 
         </>
       ) : null}
 
-      {/* ---------- 6. กิจกรรมย่อย (ถ้ามี) ---------- */}
       {step === "activity" && kids.length ? (
         <>
-          <h4>
-            รายงานผลรายกิจกรรม ({kids.length} กิจกรรม)
-            <span
-              className={"pill " + (actDone === kids.length ? "ok" : actDone ? "warn" : "none")}
-              style={{ marginInlineStart: 8 }}
-            >
-              รายงานแล้ว {actDone}/{kids.length}
-            </span>
-          </h4>
+          <Sec
+            no={1}
+            title="เลือกกิจกรรมที่จะรายงาน"
+            hint="กดที่กิจกรรมเพื่อเปิดช่องรายงานของกิจกรรมนั้นด้านล่าง"
+            right={
+              <span
+                className={"pill " + (actDone === kids.length ? "ok" : actDone ? "warn" : "none")}
+              >
+                รายงานแล้ว {actDone}/{kids.length}
+              </span>
+            }
+          >
+            {/* รายการกิจกรรมพร้อมสถานะ ให้เห็นทีเดียวว่าเหลือกิจกรรมไหนยังไม่ได้ทำ
+                ถ้ามีแต่ดรอปดาวน์ ต้องกดไล่ทีละตัวถึงจะรู้ว่าตกอันไหน */}
+            <div className="actlist">
+              {kids.map((k) => {
+                const done = actReported(k);
+                return (
+                  <button
+                    type="button"
+                    key={k.uid}
+                    className={
+                      "actrow" + (done ? " done" : "") + (k.uid === actUid ? " on" : "")
+                    }
+                    onClick={() => setActUid(k.uid === actUid ? "" : k.uid)}
+                  >
+                    <span className="actmark">{done ? "✓" : "•"}</span>
+                    <span className="actname">
+                      <b>{k.code}</b> {k.name}
+                    </span>
+                    <span className={"pill " + (done ? "ok" : "none")}>
+                      {done ? "รายงานแล้ว" : "ยังไม่รายงาน"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
-          {/* รายการกิจกรรมพร้อมสถานะ ให้เห็นทีเดียวว่าเหลือกิจกรรมไหนยังไม่ได้ทำ
-              ถ้ามีแต่ดรอปดาวน์ ต้องกดไล่ทีละตัวถึงจะรู้ว่าตกอันไหน */}
-          <div className="actlist">
-            {kids.map((k) => {
-              const done = actReported(k);
-              return (
-                <button
-                  type="button"
-                  key={k.uid}
-                  className={
-                    "actrow" + (done ? " done" : "") + (k.uid === actUid ? " on" : "")
-                  }
-                  onClick={() => setActUid(k.uid === actUid ? "" : k.uid)}
-                >
-                  <span className="actmark">{done ? "✓" : "•"}</span>
-                  <span className="actname">
-                    <b>{k.code}</b> {k.name}
-                  </span>
-                  <span className={"pill " + (done ? "ok" : "none")}>
-                    {done ? "รายงานแล้ว" : "ยังไม่รายงาน"}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="field" style={{ marginBottom: 14 }}>
-            <label className="small muted" htmlFor={"act-" + item.uid}>
-              เลือกกิจกรรม
-            </label>
-            <select
-              id={"act-" + item.uid}
-              value={actUid}
-              onChange={(e) => setActUid(e.target.value)}
-              style={{ width: "100%", maxWidth: "none" }}
-            >
-              <option value="">— เลือกกิจกรรม —</option>
-              {kids.map((k) => (
-                <option key={k.uid} value={k.uid}>
-                  {actReported(k) ? "✓ รายงานแล้ว" : "• ยังไม่รายงาน"} — {k.code} {k.name}
-                </option>
-              ))}
-            </select>
-          </div>
+            <div className="field" style={{ marginBottom: 0 }}>
+              <label className="small muted" htmlFor={"act-" + item.uid}>
+                หรือเลือกจากรายการ
+              </label>
+              <select
+                id={"act-" + item.uid}
+                value={actUid}
+                onChange={(e) => setActUid(e.target.value)}
+                style={{ width: "100%", maxWidth: "none" }}
+              >
+                <option value="">— เลือกกิจกรรม —</option>
+                {kids.map((k) => (
+                  <option key={k.uid} value={k.uid}>
+                    {actReported(k) ? "✓ รายงานแล้ว" : "• ยังไม่รายงาน"} — {k.code} {k.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </Sec>
 
           {activity ? (
-            <div
-              style={{
-                borderInlineStart: "3px solid var(--gold)",
-                paddingInlineStart: 14,
-                marginBottom: 10,
-              }}
-            >
-              <div className="small muted" style={{ marginBottom: 10 }}>
-                <b>{activity.code}</b> {activity.name}
+            <>
+              {/* ชื่อกิจกรรมที่เลือกอยู่ตรึงเป็นแถบเหนือกล่อง 2-4
+                  สามกล่องนี้เป็นของกิจกรรมนี้เท่านั้น ไม่ใช่ของทั้งโครงการ */}
+              <div className="rsec-for">
+                กำลังรายงาน <b>{activity.code}</b> {activity.name}
               </div>
 
-              <BudgetTiles target={activity} />
+              <Sec no={2} title="งบประมาณของกิจกรรม" hint="ดูอย่างเดียว — บันทึกงบที่หน้างบประมาณโครงการ">
+                {budgetTiles({ target: activity })}
+              </Sec>
 
-              <Indicator
-                label="ตัวชี้วัดผลผลิตของกิจกรรม"
-                planValue={activity.output}
-                uid={activity.uid}
-                resultKey="outputResult"
-                issueKey="outputIssue"
-              />
-              <div className="small muted" style={{ marginTop: 8 }}>
-                กิจกรรมไม่มีช่องผลลัพธ์ เพราะผลลัพธ์ (Outcome) เป็นตัวชี้วัดของทั้งโครงการ
-                ไม่ได้วัดรายกิจกรรม
-              </div>
+              <Sec
+                no={3}
+                title="ตัวชี้วัดผลผลิตของกิจกรรม"
+                hint="กิจกรรมไม่มีตัวชี้วัดผลลัพธ์ เพราะผลลัพธ์เป็นของทั้งโครงการ"
+              >
+                {indicator({
+                  planValue: activity.output,
+                  uid: activity.uid,
+                  resultKey: "outputResult",
+                  issueKey: "outputIssue",
+                })}
+              </Sec>
 
               {/* กิจกรรมมีตารางขั้นตอนของตัวเอง แยกจากของโครงการ
                   ใช้ uid ของกิจกรรมเป็นเจ้าของ ความคืบหน้าจึงแยกกันด้วย */}
-              <h4>ขั้นตอนการดำเนินงานของกิจกรรม</h4>
-              <StepsTable
-                uid={activity.uid}
-                upto={lastMonth}
-                editable={editable}
-                onProgress={syncProgress(activity.uid)}
-              />
-            </div>
+              <Sec
+                no={4}
+                title="ขั้นตอนการดำเนินงานของกิจกรรม"
+                hint="แผนรายเดือนของกิจกรรมนี้ และผลเทียบกับแผน"
+              >
+                <StepsTable
+                  uid={activity.uid}
+                  upto={lastMonth}
+                  editable={editable}
+                  onProgress={syncProgress(activity.uid)}
+                />
+              </Sec>
+            </>
           ) : (
-            <div className="small muted" style={{ marginBottom: 10 }}>
-              เลือกกิจกรรมด้านบนเพื่อดูงบประมาณและรายงานผลผลิตของกิจกรรมนั้น
+            <div className="rsec-empty">
+              เลือกกิจกรรมในข้อ 1 เพื่อเปิดข้อ 2–4 (งบประมาณ ตัวชี้วัด และขั้นตอนของกิจกรรมนั้น)
             </div>
           )}
         </>
       ) : null}
 
-
-      {/* ---------- 7. ความเสี่ยง ----------
+      {/* ================= ขั้นความเสี่ยง =================
           ย้ายมาจากหน้า /risk ที่ยุบทิ้ง เพราะเป็นส่วนหนึ่งของการรายงานผล
-          ไม่ใช่เรื่องแยกที่ต้องมีหน้าของตัวเอง */}
+          ไม่ใช่เรื่องแยกที่ต้องมีหน้าของตัวเอง
+          ข้อ 1 เป็นข้อมูลตามแผน (อ่านอย่างเดียว) ข้อ 2 เป็นส่วนที่ต้องกรอก */}
       {step === "risk" ? (
         <>
+          <Sec
+            no={1}
+            title="ทะเบียนความเสี่ยงตามแผน"
+            hint="ดูอย่างเดียว — มาจากไฟล์แผนปฏิบัติการ"
+          >
           {item.rScen || item.rFactor ? (
             <>
-              <h4>ทะเบียนความเสี่ยงตามแผน</h4>
-              <dl className="dl">
+              <dl className="dl" style={{ marginBottom: 0 }}>
                 {item.rFactor ? (
                   <>
                     <dt>ปัจจัยเสี่ยง</dt>
@@ -670,13 +746,19 @@ export default function ReportTab({ item }) {
               </dl>
             </>
           ) : (
-            <div className="banner">
-              โครงการนี้ไม่ได้อยู่ในทะเบียนความเสี่ยงตามไฟล์แผน — รายงานได้ตามปกติ
+            <div className="small muted">
+              โครงการนี้ไม่ได้อยู่ในทะเบียนความเสี่ยงตามไฟล์แผน — รายงานในข้อ 2 ได้ตามปกติ
               ถ้าเดือนไหนพบความเสี่ยงจริง
             </div>
           )}
+          </Sec>
 
-          <h4>รายงานความเสี่ยงรายเดือน</h4>
+          <Sec
+            no={2}
+            title="รายงานความเสี่ยงรายเดือน"
+            hint="ระดับความเสี่ยงที่พบ สถานการณ์ และมาตรการจัดการ ของแต่ละเดือนที่ถึงแล้ว"
+            right={<span className="pill none">ถึง {MONTHS[lastMonth]}</span>}
+          >
           <div className="tablewrap">
             <table className="mrep stack">
               <thead>
@@ -740,8 +822,10 @@ export default function ReportTab({ item }) {
               </tbody>
             </table>
           </div>
+          </Sec>
         </>
       ) : null}
+
       {editable ? (
         <>
           {/* ตรงนี้เหลือบรรทัดเดียวพอ เพราะคำอธิบายเต็มอยู่ในแถบเตือนด้านบนแล้ว

@@ -1787,3 +1787,65 @@ section.block > h2 > .dlwrap{margin-inline-start:auto}
 .rctl-state.open i{background:var(--ok); box-shadow:0 0 0 4px color-mix(in srgb, var(--ok) 22%, transparent)}
 .rctl-state.closed{color:var(--bad)}
 .rctl-state.closed i{background:var(--bad)}
+
+/* ---------- กล่องหัวข้อมีเลขข้อ ในหน้ารายงานผล ----------
+   เดิมเป็น h4 เรียงต่อกันยาวลงไป มองไม่ออกว่าข้อไหนจบตรงไหน
+   ตอนนี้แต่ละข้อเป็นกล่องของตัวเอง หัวกล่องมีเลขข้อ ชื่อ คำอธิบายสั้น ๆ
+   และป้ายสรุปชิดขวา — ไล่ดูทีละข้อได้ และรู้ว่าอยู่ข้อไหนของทั้งหมด */
+.rsec{
+  border:1px solid var(--border); border-radius:12px; background:var(--surface);
+  margin:0 0 14px; box-shadow:0 1px 2px rgba(0,0,0,.04);
+}
+.rsec-head{
+  display:flex; align-items:flex-start; gap:11px; flex-wrap:wrap;
+  padding:11px 14px; background:var(--tint);
+  border-bottom:1px solid var(--border-soft); border-radius:12px 12px 0 0;
+}
+.rsec-no{
+  flex:none; display:inline-grid; place-items:center;
+  width:26px; height:26px; border-radius:50%; margin-top:1px;
+  background:var(--accent); color:var(--surface); font-size:13px; font-weight:700;
+}
+.rsec-titles{flex:1 1 180px; min-width:0}
+/* ต้องชนะ .drawer h4 ที่มีเส้นใต้และสีเขียว — ตรงนี้หัวกล่องทำหน้าที่นั้นแล้ว */
+.rsec .rsec-title{
+  display:block; margin:0; padding:0; border:0;
+  font-size:14.5px; font-weight:700; color:var(--text); overflow-wrap:anywhere;
+}
+.rsec-hint{font-size:12px; color:var(--muted); margin-top:2px}
+.rsec-right{
+  flex:0 0 auto; margin-inline-start:auto;
+  display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+}
+.rsec-body{padding:14px}
+/* ของชิ้นสุดท้ายในกล่องไม่ต้องมีระยะห่างล่าง กล่องมี padding ของตัวเองแล้ว
+   ใช้ !important เพราะบางชิ้นตั้ง margin ไว้แบบ inline style */
+.rsec-body > :last-child{margin-bottom:0 !important}
+
+/* แถบบอกว่ากล่องข้อ 2-4 ของขั้นผลกิจกรรมเป็นของกิจกรรมไหน */
+.rsec-for{
+  margin:0 0 12px; padding:8px 12px; border-radius:8px; font-size:13px;
+  background:var(--gold-soft); border:1px solid var(--gold); overflow-wrap:anywhere;
+}
+.rsec-empty{
+  margin:0 0 14px; padding:18px 14px; border-radius:12px; text-align:center;
+  border:1px dashed var(--border); color:var(--muted); font-size:13px;
+}
+
+@media (max-width:560px){
+  .rsec-head{padding:10px 12px}
+  .rsec-body{padding:12px}
+  .rsec-right{margin-inline-start:37px}
+}
+
+@media print{
+  .rsec{box-shadow:none; border-color:#999; break-inside:auto}
+  .rsec-head{background:none; break-after:avoid}
+  .rsec-no{background:none; color:#000; border:1px solid #000}
+}
+
+/* ข้อความสำหรับโปรแกรมอ่านหน้าจอเท่านั้น (เช่น "ข้อ 1") ตาไม่เห็นแต่อ่านออกเสียง */
+.sr-only{
+  position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+}
