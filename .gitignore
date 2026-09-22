@@ -5,3 +5,6 @@ out/
 .env*.local
 *.log
 ui-lab.html
+
+# ไฟล์คำของบประมาณจาก Google Drive (ข้อมูลภายใน ขนาดหลายร้อย MB) — ห้ามขึ้น git
+data/project-details/
