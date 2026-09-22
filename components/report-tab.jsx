@@ -17,11 +17,12 @@ import {
   stepsOf,
 } from "@/lib/store";
 import StepsTable from "@/components/steps-table";
+import Sec from "@/components/sec";
 
 /* แท็บ "รายงานผลรายเดือน" ในลิ้นชักรายละเอียด
 
    แบ่งเป็นขั้น (ผลโครงการ → ผลกิจกรรม → ความเสี่ยง) แต่ละขั้นแบ่งเป็นกล่อง
-   มีเลขข้อกำกับ (คอมโพเนนต์ Sec ด้านล่าง)
+   มีเลขข้อกำกับ (คอมโพเนนต์ Sec ใน components/sec.jsx)
 
    ขั้นผลโครงการ
      1. งบประมาณโครงการ (จัดสรร / ใช้ไป / คงเหลือ) — อ่านอย่างเดียว
@@ -47,33 +48,6 @@ import StepsTable from "@/components/steps-table";
    หน้าอื่นเปิดลิ้นชักได้ตามปกติ แต่เป็นอ่านอย่างเดียว
    --------------------------------------------------------------------- */
 const HOME_PATH = "/projects";
-
-/* กล่องหัวข้อมีเลขข้อ — หัวกล่องบอกว่าข้อนี้คืออะไร ต้องทำอะไร
-   และมีช่องมุมขวาไว้ใส่ป้ายสรุป (สถานะ / รายงานแล้วกี่รายการ)
-
-   ประกาศไว้นอก ReportTab โดยตั้งใจ ถ้าประกาศข้างใน React จะเห็นเป็น
-   คอมโพเนนต์ชนิดใหม่ทุกครั้งที่วาด แล้วรื้อทุกช่องในกล่องสร้างใหม่
-   ช่องที่กำลังพิมพ์จะหลุดโฟกัสหลังพิมพ์ทุกตัวอักษร */
-function Sec({ no, title, hint, right, children }) {
-  return (
-    <section className="rsec">
-      <header className="rsec-head">
-        <span className="rsec-no" aria-hidden="true">
-          {no}
-        </span>
-        <div className="rsec-titles">
-          <h4 className="rsec-title">
-            <span className="sr-only">ข้อ {no} </span>
-            {title}
-          </h4>
-          {hint ? <div className="rsec-hint">{hint}</div> : null}
-        </div>
-        {right ? <div className="rsec-right">{right}</div> : null}
-      </header>
-      <div className="rsec-body">{children}</div>
-    </section>
-  );
-}
 
 export default function ReportTab({ item }) {
   const pathname = usePathname();
@@ -141,17 +115,24 @@ export default function ReportTab({ item }) {
   /* โครงการที่ไม่ได้รับงบเลย ไม่ต้องส่งงบก่อน — ไม่มีอะไรให้ส่ง
      ดูจากงบตามแผนของทั้งโครงการรวมกิจกรรมลูก ถ้าเป็นศูนย์ทั้งหมด
      แปลว่าเป็นงานที่ทำโดยไม่ใช้งบ บังคับไปก็ได้แค่รายการ 0 บาทเปล่า ๆ */
-  const noBudget =
-    (item.budget || 0) === 0 && kids.every((k) => (k.budget || 0) === 0);
+  /* การส่งข้อมูลงบประมาณเก็บที่ระดับโครงการเสมอ (กดส่งครั้งเดียวทั้งโครงการ
+     ที่หน้างบประมาณ ข้อ 4) ถ้าลิ้นชักนี้เปิดเป็นกิจกรรม ต้องไต่ขึ้นไปดูที่โครงการแม่
+     ไม่งั้นจะหาการส่งที่ uid ของกิจกรรมซึ่งไม่มีวันเจอ แล้วบันทึกไม่ได้ตลอดไป */
+  let top = item;
+  while (top._parent) top = top._parent;
+  const topKids = top._kids || [];
 
-  const budgetReady = !allMonths && (noBudget || budgetSubmitted(item.uid, asOfMonth));
+  const noBudget =
+    (top.budget || 0) === 0 && topKids.every((k) => (k.budget || 0) === 0);
+
+  const budgetReady = !allMonths && (noBudget || budgetSubmitted(top.uid, asOfMonth));
   const [ackWarn, setAckWarn] = useState(false);
 
   /* พาไปที่โครงการนี้ในหน้างบประมาณเลย ไม่ใช่ให้ไปค้นเองใหม่
      ส่ง uid ไม่ใช่ code เพราะรหัสโครงการซ้ำกัน 9 รหัส ถ้าส่ง code
      จะเปิดผิดโครงการได้ (ดูหมายเหตุเรื่องรหัสซ้ำใน lib/plan.js) */
   function goBudget() {
-    router.push("/budget?uid=" + encodeURIComponent(item.uid));
+    router.push("/budget?uid=" + encodeURIComponent(top.uid));
   }
 
   /* ---------------------------------------------------------------

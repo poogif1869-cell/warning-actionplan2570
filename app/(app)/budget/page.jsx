@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { MONTHS, PROJECTS, FUNDS } from "@/lib/plan";
+import { MONTHS, PROJECTS, FUNDS, byUid } from "@/lib/plan";
 import { STRATEGIES, ORG_UNITS, ORG_OWNERS, inUnit, leadUnit } from "@/lib/rollup";
 import { money, fmt, pct } from "@/lib/format";
 import {
@@ -12,11 +12,12 @@ import {
   COST_FIELDS,
 } from "@/lib/store";
 import MonthPicker from "@/components/month-picker";
-import MonthBudget from "@/components/month-budget";
+import MonthBudget, { budgetMonthState } from "@/components/month-budget";
 import BudgetReport from "@/components/budget-report";
 import Bars from "@/components/bars";
 import Donut from "@/components/donut";
 import DownloadButton from "@/components/download-button";
+import Sec from "@/components/sec";
 
 const S_COLORS = ["", "var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)"];
 
@@ -40,7 +41,16 @@ const DONUT_VIEWS = [
 ];
 
 export default function BudgetPage() {
-  const { budget, asOfMonth, asOfLabel, allMonths, loaded } = useResults();
+  const {
+    budget,
+    asOfMonth,
+    asOfLabel,
+    allMonths,
+    loaded,
+    setAsOf,
+    fyStarted,
+    budgetSubmitted,
+  } = useResults();
   const [pane, setPane] = useState("report");
   const [q, setQ] = useState("");
   const [org, setOrg] = useState("");
@@ -50,7 +60,7 @@ export default function BudgetPage() {
   // โครงการที่กำลังจะพิมพ์เป็น PDF — ต้อง render DOM ของรายงานก่อนเรียก print
   const [printItem, setPrintItem] = useState(null);
 
-  // ดรอปดาวน์ช่วงเวลาด้านบนคุมทั้งหน้า — ทั้งปี = null (ไม่กรองเดือน)
+  // เดือนที่เลือก (ข้อ 1 ของหน้าต่างรายงาน = ดรอปดาวน์ของแดชบอร์ด ค่าเดียวกัน) — ทั้งปี = null
   const month = allMonths ? null : asOfMonth;
 
   /* ---------------------------------------------------------------
@@ -64,18 +74,28 @@ export default function BudgetPage() {
   useEffect(() => {
     const want = new URLSearchParams(window.location.search).get("uid");
     if (!want) return;
+    /* ถ้าส่งมาเป็น uid ของกิจกรรม ให้ไต่ขึ้นไปหาโครงการแม่
+       หน้านี้เลือกได้แค่ระดับโครงการ (กิจกรรมกรอกอยู่ในข้อ 3 ของโครงการแม่) */
+    let top = byUid.get(want);
+    while (top && top._parent) top = top._parent;
     setPane("report");
-    setOpenUid(want);
+    setOpenUid(top ? top.uid : want);
     // ล้าง query ทิ้ง ไม่งั้นกดปิดแผงแล้วรีเฟรชหน้า มันจะเด้งกลับมาเปิดอีก
     window.history.replaceState(null, "", window.location.pathname);
   }, []);
 
-  /* เลื่อนไปที่แถวที่ถูกสั่งให้เปิด ไม่งั้นแผงกางอยู่นอกจอ
-     คนที่กดปุ่มมาจะนึกว่าไม่มีอะไรเกิดขึ้น */
+  /* โครงการที่เลือกในข้อ 2 — หาจาก PROJECTS ทั้งหมด ไม่ใช่จาก rows ที่กรองแล้ว
+     เปลี่ยนตัวกรองทีหลังจะได้ไม่ทำให้โครงการที่กำลังกรอกอยู่หายไปเฉย ๆ */
+  const openItem = openUid ? PROJECTS.find((p) => p.uid === openUid) || null : null;
+  const openYear = openItem ? budgetRollup(budget, openItem, null) : { total: 0 };
+  const openLeft = openItem ? (openItem.budget || 0) - openYear.total : 0;
+
+  /* เลือกโครงการแล้วเลื่อนไปที่ข้อ 2 ให้เห็นการ์ดโครงการกับข้อ 3 ต่อลงมาทันที
+     รายการโครงการยุบหายไปแล้ว ถ้าไม่เลื่อน จอจะค้างอยู่ตรงกลางหน้าที่ว่างเปล่า */
   useEffect(() => {
     if (!openUid || !loaded) return;
-    const el = document.getElementById("bud-" + openUid);
-    if (el && el.scrollIntoView) el.scrollIntoView({ block: "center" });
+    const el = document.getElementById("bud-step2");
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: "start" });
   }, [openUid, loaded]);
 
   /* ยอดของแต่ละโครงการ รวมรายการของกิจกรรมลูกด้วย */
@@ -223,9 +243,9 @@ export default function BudgetPage() {
 
   return (
     <>
-      <MonthPicker />
-
-      {/* ---------- สลับหน้าต่าง ---------- */}
+      {/* ---------- สลับหน้าต่าง ----------
+          อยู่บนสุด ตัวเลือกเดือนแยกไปอยู่ในแต่ละหน้าต่างเอง
+          หน้าต่างรายงานใช้เป็นข้อ 1 ของลำดับงาน จะได้ไม่มีดรอปดาวน์เดือนสองอัน */}
       <div className="segmented" style={{ marginBottom: 18 }}>
         {PANES.map(([k, label]) => (
           <button key={k} aria-pressed={pane === k} onClick={() => setPane(k)}>
@@ -233,6 +253,8 @@ export default function BudgetPage() {
           </button>
         ))}
       </div>
+
+      {pane === "dash" ? <MonthPicker /> : null}
 
       {/* =================== หน้าต่างที่ 1: แดชบอร์ด =================== */}
       {pane === "dash" ? (
@@ -530,145 +552,259 @@ export default function BudgetPage() {
         </>
       ) : null}
 
-      {/* =================== หน้าต่างที่ 2: รายงานรายโครงการ =================== */}
+      {/* =================== หน้าต่างที่ 2: รายงานรายโครงการ ===================
+          ทำตามลำดับ 1 → 4 แต่ละข้อเป็นกล่องมีเลขข้อ ข้อที่ต้องทำตอนนี้มีกรอบเน้น
+          และป้าย "ทำข้อนี้" ข้อที่เสร็จแล้ววงกลมเป็นเครื่องหมายถูกสีเขียว
+
+            1 เลือกเดือน → 2 เลือกโครงการ → 3 กรอกรายการค่าใช้จ่าย → 4 ส่งข้อมูล
+
+          เดิมเป็นตารางโครงการยาว ๆ กดแล้วกางแผงกรอกออกมาในแถว มีปุ่ม 4-5 ปุ่ม
+          เรียงกันในทุกกล่องกิจกรรม คนกรอกไม่รู้ว่าต้องเริ่มกดตรงไหน */}
       {pane === "report" ? (
         <section className="block">
           <h2>
             รายงานงบประมาณโครงการ
-            <small>
-              {asOfLabel} · แสดง {fmt(rows.length)} โครงการ
-              {org ? " · " + orgName : ""}
-            </small>
+            <small>ทำตามลำดับข้อ 1 → 4</small>
           </h2>
 
-          <div className="hint">
-            เพิ่มได้หลายรายการต่อเดือน · โครงการที่มีกิจกรรมย่อยให้บันทึกที่กิจกรรมเท่านั้น ·
-            แยก {COST_FIELDS.map((c) => c.label).join(" / ")} ·
-            <b>ดาวน์โหลด PDF ได้ที่ปุ่มท้ายแถวของแต่ละโครงการ</b>
-            ซึ่งได้รายงานเนื้อหาเดียวกับที่กรอกในหน้านี้ทั้งหมด
-          </div>
-
-          <div className="filters">
-            <div className="field">
-              <label htmlFor="b-q">ค้นหา</label>
-              <input
-                id="b-q"
-                type="search"
-                placeholder="ชื่อโครงการ / รหัส / หน่วยงาน"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="b-org">หน่วยงาน</label>
-              <select id="b-org" value={org} onChange={(e) => setOrg(e.target.value)}>
-                <option value="">ทุกหน่วยงาน</option>
-                {ORG_UNITS.map((u) => (
-                  <option key={u.key} value={u.key}>
-                    {u.name} ({u.count})
+          <Sec
+            no={1}
+            state={allMonths ? "now" : "done"}
+            title="เลือกเดือนที่จะรายงาน"
+            hint="รายการค่าใช้จ่ายทุกรายการผูกกับเดือนเสมอ"
+            right={!allMonths ? <span className="pill ok">{MONTHS[asOfMonth]}</span> : null}
+          >
+            <div className="field" style={{ marginBottom: 0, maxWidth: 320 }}>
+              <label htmlFor="b-month">เดือน</label>
+              {/* ค่าเดียวกับดรอปดาวน์ช่วงเวลาของทุกหน้า เลือกที่นี่แล้วหน้าอื่นเปลี่ยนตาม
+                  ไม่มีตัวเลือก "ทั้งปี" ให้กด เพราะรายงานงบทำทีละเดือน */}
+              <select
+                id="b-month"
+                className={allMonths ? "needpick" : ""}
+                value={allMonths ? "" : String(asOfMonth)}
+                onChange={(e) => {
+                  if (e.target.value !== "") setAsOf(Number(e.target.value));
+                }}
+              >
+                {allMonths ? <option value="">— เลือกเดือน —</option> : null}
+                {MONTHS.map((m, i) => (
+                  <option key={m} value={String(i)}>
+                    {m}
                   </option>
                 ))}
               </select>
             </div>
-            <div className="field">
-              <label htmlFor="b-fund">แหล่งงบประมาณ</label>
-              <select id="b-fund" value={fund} onChange={(e) => setFund(e.target.value)}>
-                <option value="">ทุกแหล่ง</option>
-                {FUNDS.map((f) => (
-                  <option key={f.code} value={f.code}>
-                    {f.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+            {!fyStarted ? (
+              <div className="small muted" style={{ marginTop: 6 }}>
+                ปีงบประมาณ 2570 ยังไม่เริ่ม — เลือกเดือนเพื่อจำลองการรายงานได้
+              </div>
+            ) : null}
+          </Sec>
 
-          {/* ไม่มีปุ่มดาวน์โหลดรวมทั้งหน้าแล้ว — ดาวน์โหลดเป็นรายโครงการ
-              ที่ปุ่ม PDF ท้ายแถวแทน เพราะรายงานงบประมาณเป็นเอกสารรายโครงการ
-              ไฟล์รวมทุกโครงการเป็นร้อยหน้าไม่มีใครเอาไปใช้จริง */}
+          <Sec
+            no={2}
+            id="bud-step2"
+            state={allMonths ? "todo" : openItem ? "done" : "now"}
+            title="เลือกโครงการ"
+            hint={
+              openItem
+                ? "กำลังรายงานโครงการนี้ — กด “เปลี่ยนโครงการ” เพื่อเลือกโครงการอื่น"
+                : "ค้นหาแล้วกด “รายงานงบประมาณ” ที่แถวของโครงการ · ปุ่ม PDF ท้ายแถวพิมพ์รายงานของโครงการนั้น"
+            }
+            right={
+              openItem ? null : (
+                <span className="pill none">
+                  {fmt(rows.length)} โครงการ{org ? " · " + orgName : ""}
+                </span>
+              )
+            }
+          >
+            {openItem ? (
+              /* ---------- โครงการที่เลือกแล้ว ----------
+                 ยุบรายการโครงการทั้งหมดเหลือการ์ดเดียว ข้อ 3-4 จะได้อยู่ติดกัน
+                 ไม่ต้องเลื่อนผ่านโครงการเป็นร้อยแถวเพื่อหาแผงกรอกของตัวเอง */
+              <div className="bpick">
+                <div className="bpick-name">
+                  {openItem.sNo ? (
+                    <span className={"chip s" + openItem.sNo}>{openItem.tNo || openItem.sNo}</span>
+                  ) : null}{" "}
+                  <span className="projname">{openItem.name}</span>
+                  <div className="small muted">
+                    {openItem.code} · {openItem.org}
+                  </div>
+                </div>
+                <div className="bpick-nums">
+                  <div>
+                    <span>งบตามแผน</span>
+                    <b>{money(openItem.budget)}</b>
+                  </div>
+                  <div>
+                    <span>เบิกจ่ายทั้งปี</span>
+                    <b>{money(openYear.total)}</b>
+                  </div>
+                  <div>
+                    <span>คงเหลือ</span>
+                    <b className={openLeft < 0 ? "st-bad" : ""}>{money(openLeft)}</b>
+                  </div>
+                </div>
+                <div className="btnrow" style={{ marginTop: 0 }}>
+                  <button className="btn ghost" onClick={() => setOpenUid(null)}>
+                    ← เปลี่ยนโครงการ
+                  </button>
+                  <button
+                    className="iconbtn pdfbtn"
+                    onClick={() => setPrintItem(openItem)}
+                    title="พิมพ์รายงานของโครงการนี้หรือบันทึกเป็น PDF"
+                  >
+                    PDF
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="filters">
+                  <div className="field">
+                    <label htmlFor="b-q">ค้นหา</label>
+                    <input
+                      id="b-q"
+                      type="search"
+                      placeholder="ชื่อโครงการ / รหัส / หน่วยงาน"
+                      value={q}
+                      onChange={(e) => setQ(e.target.value)}
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="b-org">หน่วยงาน</label>
+                    <select id="b-org" value={org} onChange={(e) => setOrg(e.target.value)}>
+                      <option value="">ทุกหน่วยงาน</option>
+                      {ORG_UNITS.map((u) => (
+                        <option key={u.key} value={u.key}>
+                          {u.name} ({u.count})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="b-fund">แหล่งงบประมาณ</label>
+                    <select id="b-fund" value={fund} onChange={(e) => setFund(e.target.value)}>
+                      <option value="">ทุกแหล่ง</option>
+                      {FUNDS.map((f) => (
+                        <option key={f.code} value={f.code}>
+                          {f.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
-          <div className="tablewrap">
-            <table className="stack">
-              <thead>
-                <tr>
-                  <th>โครงการ</th>
-                  <th className="num">งบตามแผน</th>
-                  <th className="num">เบิกจ่าย</th>
-                  <th className="num">คงเหลือ</th>
-                  <th className="num">รายการ</th>
-                  <th style={{ width: 210 }} />
-                </tr>
-              </thead>
-              <tbody>
-                {rows.slice(0, 150).map(({ p, roll }) => {
-                  const open = openUid === p.uid;
-                  const yearRoll = budgetRollup(budget, p, null);
-                  const left = (p.budget || 0) - yearRoll.total;
-                  return [
-                    <tr key={p.uid} id={"bud-" + p.uid}>
-                      <td className="lead">
-                        {p.sNo ? <span className={"chip s" + p.sNo}>{p.tNo || p.sNo}</span> : null}{" "}
-                        {/* ชื่อโครงการหนาตามกติกาเดียวกันทุกหน้า */}
-                        <span className="projname">{p.name}</span>
-                        <div className="small muted">
-                          {p.code} · {p.org}
-                          {leadUnit(p) ? " · เจ้าของ " + leadUnit(p) : ""}
-                          {roll.kidsTotal
-                            ? " · จากกิจกรรม " + money(roll.kidsTotal) + " บาท"
-                            : ""}
-                        </div>
-                      </td>
-                      <td className="num" data-label="งบตามแผน">
-                        {money(p.budget)}
-                      </td>
-                      <td className="num" data-label="เบิกจ่าย">
-                        {roll.total ? money(roll.total) : "–"}
-                      </td>
-                      <td className={"num " + (left < 0 ? "st-bad" : "")} data-label="คงเหลือ">
-                        {money(left)}
-                      </td>
-                      <td className="num" data-label="จำนวนรายการ">
-                        {roll.count ? fmt(roll.count) : "–"}
-                      </td>
-                      <td className="nowrap wide" data-label="">
-                        {/* ปุ่มกรอกงบเป็นงานหลักของแถวนี้ จึงเป็นปุ่มทึบสีหลัก
-                            ส่วน PDF เป็นงานรอง ให้เป็นปุ่มโครงสีทองแบบเดียว
-                            กับปุ่มดาวน์โหลดที่หัวข้อ ไม่แย่งสายตากัน */}
-                        <button
-                          className={open ? "btn ghost" : "btn"}
-                          onClick={() => setOpenUid(open ? null : p.uid)}
-                        >
-                          {open ? "ปิด" : "รายงานงบประมาณ"}
-                        </button>{" "}
-                        <button
-                          className="iconbtn pdfbtn"
-                          onClick={() => setPrintItem(p)}
-                          title="พิมพ์รายงานของโครงการนี้หรือบันทึกเป็น PDF"
-                        >
-                          PDF
-                        </button>
-                      </td>
-                    </tr>,
-                    open ? (
-                      <tr className="exp-body" key={p.uid + "/entries"}>
-                        <td colSpan={6}>
-                          <div style={{ padding: "12px 14px" }}>
-                            <MonthBudget item={p} month={asOfMonth} allMonths={allMonths} />
-                          </div>
-                        </td>
+                {/* ไม่มีปุ่มดาวน์โหลดรวมทั้งหน้า — ดาวน์โหลดเป็นรายโครงการ
+                    ที่ปุ่ม PDF ท้ายแถวแทน เพราะรายงานงบประมาณเป็นเอกสารรายโครงการ
+                    ไฟล์รวมทุกโครงการเป็นร้อยหน้าไม่มีใครเอาไปใช้จริง */}
+                <div className="tablewrap">
+                  <table className="stack">
+                    <thead>
+                      <tr>
+                        <th>โครงการ</th>
+                        <th className="num">งบตามแผน</th>
+                        <th className="num">เบิกจ่าย</th>
+                        <th className="num">คงเหลือ</th>
+                        <th>{allMonths ? "สถานะ" : "สถานะ " + MONTHS[asOfMonth]}</th>
+                        <th style={{ width: 210 }} />
                       </tr>
-                    ) : null,
-                  ];
-                })}
-              </tbody>
-            </table>
-          </div>
+                    </thead>
+                    <tbody>
+                      {rows.slice(0, 150).map(({ p, roll }) => {
+                        const yearRoll = budgetRollup(budget, p, null);
+                        const left = (p.budget || 0) - yearRoll.total;
+                        const ms = budgetMonthState(budget, p, month, budgetSubmitted);
+                        return (
+                          <tr key={p.uid} id={"bud-" + p.uid}>
+                            <td className="lead">
+                              {p.sNo ? <span className={"chip s" + p.sNo}>{p.tNo || p.sNo}</span> : null}{" "}
+                              {/* ชื่อโครงการหนาตามกติกาเดียวกันทุกหน้า */}
+                              <span className="projname">{p.name}</span>
+                              <div className="small muted">
+                                {p.code} · {p.org}
+                                {leadUnit(p) ? " · เจ้าของ " + leadUnit(p) : ""}
+                                {roll.kidsTotal
+                                  ? " · จากกิจกรรม " + money(roll.kidsTotal) + " บาท"
+                                  : ""}
+                              </div>
+                            </td>
+                            <td className="num" data-label="งบตามแผน">
+                              {money(p.budget)}
+                            </td>
+                            <td className="num" data-label="เบิกจ่าย">
+                              {roll.total ? money(roll.total) : "–"}
+                            </td>
+                            <td className={"num " + (left < 0 ? "st-bad" : "")} data-label="คงเหลือ">
+                              {money(left)}
+                            </td>
+                            {/* สถานะของเดือนที่เลือก — เห็นทันทีว่าโครงการไหนยังค้าง */}
+                            <td data-label="สถานะ">
+                              {allMonths ? (
+                                "–"
+                              ) : ms.submitted ? (
+                                <span className="pill ok">ส่งแล้ว</span>
+                              ) : ms.noBudget && !ms.count ? (
+                                <span className="pill none">ไม่ต้องส่ง (ไม่มีงบ)</span>
+                              ) : ms.count ? (
+                                <span className="pill warn">กรอกแล้ว ยังไม่ส่ง</span>
+                              ) : (
+                                <span className="pill bad">ยังไม่กรอก</span>
+                              )}
+                            </td>
+                            <td className="nowrap wide" data-label="">
+                              {/* ปุ่มเลือกโครงการเป็นงานหลักของแถวนี้ จึงเป็นปุ่มทึบสีหลัก
+                                  ส่วน PDF เป็นงานรอง ให้เป็นปุ่มโครงสีทอง ไม่แย่งสายตากัน
+                                  ยังไม่เลือกเดือนกดไม่ได้ — บังคับให้ทำข้อ 1 ก่อน */}
+                              <button
+                                className="btn"
+                                onClick={() => setOpenUid(p.uid)}
+                                disabled={allMonths}
+                                title={allMonths ? "เลือกเดือนในข้อ 1 ก่อน" : undefined}
+                              >
+                                รายงานงบประมาณ
+                              </button>{" "}
+                              <button
+                                className="iconbtn pdfbtn"
+                                onClick={() => setPrintItem(p)}
+                                title="พิมพ์รายงานของโครงการนี้หรือบันทึกเป็น PDF"
+                              >
+                                PDF
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
 
-          {rows.length > 150 ? (
-            <div className="small muted" style={{ marginTop: 8 }}>
-              แสดง 150 รายการแรกจาก {fmt(rows.length)} — ใช้ช่องค้นหาเพื่อจำกัดให้แคบลง
+                {rows.length > 150 ? (
+                  <div className="small muted" style={{ marginTop: 8 }}>
+                    แสดง 150 รายการแรกจาก {fmt(rows.length)} — ใช้ช่องค้นหาเพื่อจำกัดให้แคบลง
+                  </div>
+                ) : null}
+                {rows.length === 0 ? (
+                  <div className="small muted" style={{ marginTop: 8 }}>
+                    ไม่มีโครงการที่ตรงกับตัวกรอง
+                  </div>
+                ) : null}
+              </>
+            )}
+          </Sec>
+
+          {/* ข้อ 3-4 โผล่เมื่อทำข้อ 1-2 แล้วเท่านั้น
+              ก่อนหน้านั้นแสดงเป็นกล่องเส้นประบอกว่ายังไม่ถึง จะได้เห็นว่ามีอีกสองข้อรออยู่ */}
+          {openItem && !allMonths ? (
+            <MonthBudget item={openItem} month={asOfMonth} allMonths={allMonths} />
+          ) : (
+            <div className="rsec-empty">
+              <b>ข้อ 3 กรอกรายการค่าใช้จ่าย</b> และ <b>ข้อ 4 ส่งข้อมูลงบประมาณ</b>{" "}
+              จะเปิดให้หลังเลือก{allMonths ? "เดือนในข้อ 1 และ" : ""}โครงการในข้อ 2
             </div>
-          ) : null}
+          )}
         </section>
       ) : null}
 

@@ -1849,3 +1849,64 @@ section.block > h2 > .dlwrap{margin-inline-start:auto}
   position:absolute; width:1px; height:1px; padding:0; margin:-1px;
   overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
 }
+
+/* ---------- สถานะของกล่องเลขข้อ (หน้าที่ต้องทำตามลำดับ) ----------
+   is-now  ข้อที่ต้องทำตอนนี้ — กรอบสีหลัก + ป้าย "ทำข้อนี้" เห็นได้ทันทีว่าเริ่มตรงไหน
+   is-done เสร็จแล้ว — วงกลมเขียวมีเครื่องหมายถูก
+   is-todo ยังไม่ถึง — วงกลมเทา หัวข้อจางลงเล็กน้อย (เนื้อหาไม่จาง ยังอ่านได้ปกติ) */
+.rsec{scroll-margin-top:84px}
+.rsec.is-now{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
+.rsec.is-done .rsec-no{background:var(--ok)}
+.rsec.is-todo .rsec-no{background:var(--border); color:var(--muted)}
+.rsec.is-todo .rsec-title{color:var(--muted)}
+.rsec-tag{
+  display:inline-block; margin-inline-start:8px; padding:1px 9px; border-radius:999px;
+  background:var(--accent); color:var(--surface); font-size:11px; font-weight:700;
+  vertical-align:2px; white-space:nowrap;
+}
+
+/* ---------- หน้างบประมาณ: ข้อ 2 โครงการที่เลือกแล้ว ---------- */
+.bpick{
+  display:flex; flex-wrap:wrap; gap:12px 20px; align-items:center;
+}
+.bpick-name{flex:1 1 260px; min-width:0; overflow-wrap:anywhere}
+.bpick-nums{display:flex; flex-wrap:wrap; gap:8px 18px}
+.bpick-nums > div{display:flex; flex-direction:column; min-width:96px}
+.bpick-nums span{font-size:11.5px; color:var(--muted)}
+.bpick-nums b{font-size:15px; font-variant-numeric:tabular-nums}
+
+/* ช่องเลือกเดือนที่ยังไม่ได้เลือก — ขอบแดงบอกว่าต้องเลือกตรงนี้ก่อน */
+select.needpick{border-color:var(--bad); box-shadow:0 0 0 3px var(--bad-soft, rgba(198,40,40,.1))}
+
+/* ---------- ข้อ 3: กล่องรายการของแต่ละกิจกรรม ----------
+   กิจกรรมที่ยังไม่มีรายการมีแถบซ้ายสีแดง ไล่ตาลงมาก็เห็นว่าเหลือกล่องไหน */
+.bsub{
+  border:1px solid var(--border-soft); border-inline-start:4px solid var(--ok);
+  border-radius:10px; padding:10px 12px; margin-bottom:10px; background:var(--tint);
+}
+.bsub.empty{border-inline-start-color:var(--bad)}
+.bsub-head{display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; margin-bottom:8px}
+.bsub-title{flex:1 1 220px; min-width:0; font-size:13px; font-weight:600; overflow-wrap:anywhere}
+.bempty{
+  padding:12px 14px; border:1px dashed var(--border); border-radius:8px;
+  font-size:13px; color:var(--muted); background:var(--surface);
+}
+.orword{align-self:center; font-size:12.5px; color:var(--muted)}
+.bopt{display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; margin-top:8px}
+.bopt .linkbtn{display:inline; margin:0}
+
+/* ---------- ข้อ 4: รายการตรวจก่อนส่ง + ปุ่มส่ง ---------- */
+.bcheck{list-style:none; margin:0 0 12px; padding:0; display:flex; flex-direction:column; gap:6px}
+.bcheck li{position:relative; padding-inline-start:26px; font-size:13.5px}
+.bcheck li::before{
+  content:"✕"; position:absolute; inset-inline-start:0; top:1px;
+  display:inline-grid; place-items:center; width:18px; height:18px; border-radius:50%;
+  font-size:10.5px; font-weight:700; color:var(--surface); background:var(--bad);
+}
+.bcheck li.ok::before{content:"✓"; background:var(--ok)}
+.btn.bsubmit{padding:12px 24px; font-size:14.5px}
+
+@media print{
+  .rsec.is-now{box-shadow:none; border-color:#999}
+  .rsec-tag{display:none}
+}

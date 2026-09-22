@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ITEMS,
   PROJECTS,
@@ -31,6 +31,17 @@ export default function ProjectsPage() {
   const [sort, setSort] = useState("budget");
   const [dir, setDir] = useState(-1);
   const [openUid, setOpenUid] = useState(null);
+
+  /* เข้ามาจากปุ่ม "ขั้นต่อไป: รายงานผลโครงการ" ในหน้างบประมาณ — /projects?uid=xxx
+     เปิดลิ้นชักรายงานผลของโครงการนั้นเลย ไม่ต้องไปค้นหาเองใหม่
+     อ่าน window.location ใน useEffect แทน useSearchParams ด้วยเหตุผลเดียวกับ
+     หน้างบประมาณ (useSearchParams ต้องมี <Suspense> ครอบ ไม่งั้น build พัง) */
+  useEffect(() => {
+    const want = new URLSearchParams(window.location.search).get("uid");
+    if (!want) return;
+    setOpenUid(want);
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
 
   const alerts = useMemo(() => buildAlerts(results, asOfMonth, risk), [results, asOfMonth, risk]);
   const byUidAlerts = useMemo(() => groupByUid(alerts), [alerts]);
