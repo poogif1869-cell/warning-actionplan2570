@@ -774,3 +774,169 @@ create policy project_steps_delete on public.project_steps
 grant select, insert, update, delete on public.project_steps to authenticated;
 
 notify pgrst, 'reload schema';
+
+
+-- =====================================================================
+-- เพิ่มเมื่อ 22 ก.ย. — เปิด/ปิดการรายงานผล และล้างข้อมูลการรายงาน
+--
+-- ข้อมูลที่กรอกกันมาถึงตอนนี้เป็นการ "จำลองการรายงาน" จึงต้องมี
+--   1. ปุ่มล้างข้อมูลการรายงานทิ้ง ก่อนเริ่มรายงานจริง
+--   2. สวิตช์เปิด/ปิดการรายงานผล — ปิดแล้วไม่มีใครกรอกได้ (ยกเว้นผู้ดูแล)
+--
+-- ทั้งสองอย่าง **บังคับที่ฐานข้อมูล** ไม่ใช่แค่ซ่อนปุ่มในหน้าเว็บ
+-- เพราะ anon key เป็นของสาธารณะ ใครก็ยิง API ตรงได้ (กติกาเดิมของไฟล์นี้)
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- ค่าตั้งของระบบ — key/value แถวละหนึ่งเรื่อง
+--   reporting   { "open": true/false }            เปิด/ปิดการรายงานผล
+--   last_reset  { "at": ..., "by": ..., "parts": [...] }  ล้างข้อมูลครั้งล่าสุด
+-- ---------------------------------------------------------------------
+create table if not exists public.app_settings (
+  key         text primary key,
+  value       jsonb not null default '{}'::jsonb,
+  updated_at  timestamptz not null default now(),
+  updated_by  uuid references auth.users (id) on delete set null
+);
+
+drop trigger if exists stamp_app_settings on public.app_settings;
+create trigger stamp_app_settings
+  before insert or update on public.app_settings
+  for each row execute function public.stamp_row();
+
+alter table public.app_settings enable row level security;
+
+drop policy if exists app_settings_read  on public.app_settings;
+drop policy if exists app_settings_admin on public.app_settings;
+
+-- อ่านได้ทุกคน (ต้องรู้ว่าเปิดหรือปิดอยู่) แก้ได้เฉพาะผู้ดูแล
+create policy app_settings_read on public.app_settings
+  for select to authenticated using (true);
+create policy app_settings_admin on public.app_settings
+  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+grant select, insert, update, delete on public.app_settings to authenticated;
+
+-- ---------------------------------------------------------------------
+-- การรายงานผลเปิดอยู่หรือไม่
+--
+-- **ไม่มีแถว = เปิด** เพื่อให้ระบบที่ใช้งานอยู่แล้วไม่ถูกล็อกทันทีที่รันไฟล์นี้
+-- ผู้ดูแลต้องกด "ปิดการรายงานผล" เองถึงจะปิด
+-- ---------------------------------------------------------------------
+create or replace function public.reporting_open()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(
+    (select (value->>'open')::boolean from public.app_settings where key = 'reporting'),
+    true
+  );
+$$;
+
+-- เขียนข้อมูลการรายงานได้ = ผู้ดูแลเสมอ หรือผู้กรอกข้อมูลตอนที่เปิดการรายงานอยู่
+-- ผู้ดูแลเขียนได้แม้ปิดอยู่ เพื่อแก้ข้อมูลที่ผิดหลังปิดรอบได้โดยไม่ต้องเปิดให้ทุกคน
+create or replace function public.can_report()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_admin() or (public.can_edit() and public.reporting_open());
+$$;
+
+-- ---------------------------------------------------------------------
+-- เปลี่ยน RLS ของตารางการรายงานทั้งหมดให้ใช้ can_report() แทน can_edit()
+-- plan_edits ไม่อยู่ในรายการ — การแก้แผนไม่ใช่การรายงานผล ปิดรอบรายงานแล้ว
+-- ยังต้องแก้แผนตามมติได้ตามปกติ
+-- ---------------------------------------------------------------------
+do $$
+declare
+  t text;
+begin
+  foreach t in array array[
+    'kpi_results', 'project_results', 'monthly_reports', 'budget_entries',
+    'risk_reports', 'budget_submissions', 'project_steps'
+  ]
+  loop
+    execute format('drop policy if exists %I on public.%I', t || '_write', t);
+    execute format('drop policy if exists %I on public.%I', t || '_update', t);
+    execute format('drop policy if exists %I on public.%I', t || '_delete', t);
+
+    execute format(
+      'create policy %I on public.%I for insert to authenticated with check (public.can_report())',
+      t || '_write', t);
+    execute format(
+      'create policy %I on public.%I for update to authenticated using (public.can_report()) with check (public.can_report())',
+      t || '_update', t);
+    execute format(
+      'create policy %I on public.%I for delete to authenticated using (public.can_report())',
+      t || '_delete', t);
+  end loop;
+end;
+$$;
+
+-- ---------------------------------------------------------------------
+-- ล้างข้อมูลการรายงาน — เฉพาะผู้ดูแล
+--
+-- ทำเป็นฟังก์ชันในฐานข้อมูล ไม่ใช่สั่งลบทีละตารางจากหน้าเว็บ เพราะ
+--   1. ตรวจสิทธิ์ผู้ดูแลที่ฐานข้อมูล (ผู้กรอกข้อมูลลบทีละแถวได้ตาม RLS
+--      แต่ล้างทั้งระบบในคำสั่งเดียวต้องเป็นผู้ดูแลเท่านั้น)
+--   2. ทุกตารางถูกล้างในธุรกรรมเดียว — พังกลางทางแล้วย้อนกลับทั้งหมด
+--      ไม่มีสภาพที่ลบผลไปแล้วแต่งบยังค้าง
+--
+-- parts เลือกได้ว่าจะล้างอะไรบ้าง:
+--   results  ผลการดำเนินงานโครงการ + รายงานรายเดือน
+--   steps    ขั้นตอนการดำเนินงาน
+--   risk     รายงานความเสี่ยง
+--   kpi      ผลตัวชี้วัดองค์กร
+--   budget   รายการงบประมาณ + การส่งข้อมูลงบ
+--
+-- **ไม่แตะ plan_edits** — การแก้แผนตามมติไม่ใช่ข้อมูลจำลองการรายงาน
+--
+-- ใช้ "where true" เพราะ Supabase เปิด pg-safeupdate ไว้กับคำขอผ่าน API
+-- ซึ่งปฏิเสธ DELETE ที่ไม่มี WHERE เลย
+-- ---------------------------------------------------------------------
+create or replace function public.reset_reports(parts text[])
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'เฉพาะผู้ดูแลระบบเท่านั้นที่ล้างข้อมูลการรายงานได้';
+  end if;
+
+  if 'results' = any(parts) then
+    delete from public.monthly_reports where true;
+    delete from public.project_results where true;
+  end if;
+  if 'steps' = any(parts) then
+    delete from public.project_steps where true;
+  end if;
+  if 'risk' = any(parts) then
+    delete from public.risk_reports where true;
+  end if;
+  if 'kpi' = any(parts) then
+    delete from public.kpi_results where true;
+  end if;
+  if 'budget' = any(parts) then
+    delete from public.budget_entries where true;
+    delete from public.budget_submissions where true;
+  end if;
+
+  -- จดไว้ว่าใครล้างอะไรไปเมื่อไหร่ ข้อมูลที่ล้างไปกู้ไม่ได้ อย่างน้อยต้องรู้ว่าเกิดอะไรขึ้น
+  insert into public.app_settings (key, value)
+  values ('last_reset', jsonb_build_object('at', now(), 'by', auth.uid(), 'parts', to_jsonb(parts)))
+  on conflict (key) do update set value = excluded.value;
+end;
+$$;
+
+revoke all on function public.reset_reports(text[]) from public, anon;
+grant execute on function public.reset_reports(text[]) to authenticated;
+
+notify pgrst, 'reload schema';

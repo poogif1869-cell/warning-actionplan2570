@@ -1771,3 +1771,19 @@ section.block > h2 > .dlwrap{margin-inline-start:auto}
   .steptbl .st-name,.steptbl tfoot .st-foot-lab{position:static}
   .steptbl-wrap{overflow:visible}
 }
+
+/* ---------- แผงควบคุมรอบการรายงานผล ---------- */
+.rctl-head{
+  display:flex; gap:16px; align-items:center; justify-content:space-between; flex-wrap:wrap;
+}
+.rctl-state{
+  display:flex; align-items:center; gap:9px;
+  font-size:17px; font-weight:700; margin:3px 0 4px;
+}
+/* จุดสถานะ — เขียวกะพริบเบา ๆ ตอนเปิด ให้รู้ว่า "กำลังรับรายงานอยู่"
+   ตอนปิดเป็นจุดแดงนิ่ง ไม่ต้องขยับ */
+.rctl-state i{width:11px; height:11px; border-radius:50%; flex:none}
+.rctl-state.open{color:var(--ok)}
+.rctl-state.open i{background:var(--ok); box-shadow:0 0 0 4px color-mix(in srgb, var(--ok) 22%, transparent)}
+.rctl-state.closed{color:var(--bad)}
+.rctl-state.closed i{background:var(--bad)}

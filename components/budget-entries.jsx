@@ -21,7 +21,8 @@ import {
 export default function BudgetEntries({ uid, month, title }) {
   const {
     budget,
-    canEdit,
+    canEdit: canEditRole,
+    canReport,
     budgetHasSaved,
     hasSubmitTable,
     budgetSubmitted,
@@ -46,6 +47,11 @@ export default function BudgetEntries({ uid, month, title }) {
                      ต้องกด "แก้ไขงบประมาณ" ก่อนถึงจะกลับมาแก้ได้
      --------------------------------------------------------------- */
   const submitted = budgetSubmitted(uid, month);
+
+  /* canEdit ในไฟล์นี้หมายถึง "รายงานงบได้ตอนนี้" ไม่ใช่แค่มีสิทธิ์ผู้กรอก
+     ปิดการรายงานผลแล้วต้องล็อกเหมือนกัน (ผู้ดูแลยังแก้ได้ ตรงกับ can_report())
+     ตั้งชื่อทับไว้ที่เดียว ปุ่มทุกปุ่มในไฟล์ที่เช็ค canEdit อยู่แล้วจึงตามไปเอง */
+  const canEdit = canEditRole && canReport;
   const monthLocked = submitted || !canEdit;
 
   /* ---------------------------------------------------------------

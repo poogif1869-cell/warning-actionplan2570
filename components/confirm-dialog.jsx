@@ -19,6 +19,9 @@ export default function ConfirmDialog({
   cancelLabel = "ยกเลิก",
   danger = false,
   busy = false,
+  /* ปิดเฉพาะปุ่มยืนยัน โดยปุ่มยกเลิกยังกดได้ — ต่างจาก busy ที่ล็อกทั้งกล่อง
+     ใช้ตอนต้องให้กรอกอะไรให้ครบก่อน เช่น พิมพ์คำยืนยันก่อนล้างข้อมูล */
+  confirmDisabled = false,
   onConfirm,
   onCancel,
 }) {
@@ -57,7 +60,7 @@ export default function ConfirmDialog({
             ref={okRef}
             className={"btn" + (danger ? " danger" : "")}
             onClick={onConfirm}
-            disabled={busy}
+            disabled={busy || confirmDisabled}
           >
             {busy ? "กำลังทำงาน…" : confirmLabel}
           </button>

@@ -66,6 +66,8 @@ export default function Shell({ children }) {
     userEmail,
     canEdit,
     hasRoles,
+    isAdmin,
+    reportingOpen,
     planVersion,
     signOut,
     saveNow,
@@ -191,6 +193,17 @@ export default function Shell({ children }) {
           </div>
         ) : null}
         {saveError ? <div className="banner bad">{saveError}</div> : null}
+
+        {/* ปิดรอบรายงานผลอยู่ — บอกทุกหน้า ไม่งั้นคนจะนึกว่าเว็บเสีย
+            ที่ช่องกรอกเป็นสีเทาหมด ผู้ดูแลก็เห็นด้วย เพื่อจะได้ไม่ลืมว่าปิดไว้ */}
+        {loaded && !reportingOpen ? (
+          <div className="banner bad">
+            <b>ปิดการรายงานผลอยู่</b> — ดูข้อมูลได้อย่างเดียว
+            {isAdmin
+              ? " (ผู้ดูแลระบบยังแก้ได้) · เปิดได้ที่หน้าภาพรวม ส่วนข้อมูลและการสำรอง"
+              : " จนกว่าผู้ดูแลระบบจะเปิดการรายงานผล"}
+          </div>
+        ) : null}
 
         {/* บอกให้รู้ตัวว่าเข้ามาแบบดูอย่างเดียว ไม่งั้นจะงงว่าทำไมกรอกไม่ได้
             ขึ้นเฉพาะตอนที่ระบบบทบาทเปิดใช้จริงแล้ว (ฐานข้อมูลมีตาราง profiles) */}

@@ -12,7 +12,7 @@ import DownloadButton from "@/components/download-button";
 const S_COLORS = ["", "var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)"];
 
 export default function StrategyPage() {
-  const { results, loaded, setKpi } = useResults();
+  const { results, loaded, setKpi, canReport } = useResults();
 
   /* สรุปภาพรวมองค์กรจากตัวชี้วัดที่กรอกแล้ว */
   const summary = useMemo(() => {
@@ -279,6 +279,8 @@ export default function StrategyPage() {
                                 padding: "4px 7px",
                               }}
                               value={actual == null ? "" : actual}
+                              disabled={!canReport}
+                              title={canReport ? undefined : "ปิดการรายงานผลอยู่"}
                               onChange={(e) => setKpi(k.no, e.target.value)}
                             />
                           </td>

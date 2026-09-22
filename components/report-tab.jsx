@@ -50,7 +50,7 @@ export default function ReportTab({ item }) {
      หรือจากลิงก์ที่พิมพ์เอง) path อาจกลายเป็น "/projects/" ซึ่งไม่เท่ากับ
      "/projects" ตรง ๆ แล้วหน้าจะกลายเป็นดูอย่างเดียวทั้งที่อยู่หน้าเดียวกัน */
   const here = String(pathname || "").replace(/\/+$/, "") || "/";
-  const editable = here === HOME_PATH;
+  const onHome = here === HOME_PATH;
 
   const {
     results,
@@ -67,7 +67,15 @@ export default function ReportTab({ item }) {
     setMonthly,
     saveNow,
     steps,
+    canReport,
+    reportingOpen,
   } = useResults();
+
+  /* กรอกได้ต้องผ่านสองด่าน: อยู่หน้าโครงการ/กิจกรรม และตอนนี้รายงานได้
+     (มีสิทธิ์ผู้กรอกข้อมูล และผู้ดูแลเปิดการรายงานผลอยู่ — ผู้ดูแลกรอกได้เสมอ)
+     ใช้ตัวแปรเดียวคุมทั้งแท็บ ช่องกรอก ปุ่มบันทึก และการเขียนความคืบหน้ากลับ
+     จะได้ไม่มีที่ไหนหลุดไปเขียนตอนปิดรอบ */
+  const editable = onHome && canReport;
   const [actUid, setActUid] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -270,11 +278,16 @@ export default function ReportTab({ item }) {
        (มีเป็นสิบช่อง และเพิ่มใหม่เมื่อไหร่ก็ลืมได้ง่าย)
        ต้องมี min-width:0 ใน CSS ไม่งั้น fieldset จะดันความกว้างจนตารางล้น */
     <fieldset className="plainset" disabled={!editable}>
-      {!editable ? (
+      {!onHome ? (
         <div className="banner">
           หน้านี้ดูได้อย่างเดียว — <b>รายงานผลการดำเนินงานกรอกที่หน้า
           “โครงการ/กิจกรรม”</b> ที่เดียว เพื่อไม่ให้ข้อมูลชุดเดียวกัน
           ถูกแก้จากหลายที่จนตามไม่ทันว่าใครแก้อะไร
+        </div>
+      ) : !reportingOpen && !canReport ? (
+        <div className="banner bad">
+          <b>ปิดการรายงานผลแล้ว</b> — ดูข้อมูลได้อย่างเดียว
+          จนกว่าผู้ดูแลระบบจะกด “เริ่มรายงานผล”
         </div>
       ) : null}
 

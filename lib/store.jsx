@@ -382,6 +382,12 @@ export function ResultsProvider({ children }) {
      เรียงตาม ord เสมอ ตารางเพิ่มทีหลัง ฐานข้อมูลเก่าไม่มี = ตารางขึ้นแถบเตือนแทน */
   const [steps, setSteps] = useState({});
   const [hasStepsTable, setHasStepsTable] = useState(true);
+
+  /* เปิด/ปิดการรายงานผล — ค่าเริ่มต้นเปิด ตรงกับ reporting_open() ในฐานข้อมูล
+     ที่ถือว่า "ไม่มีแถว = เปิด" ระบบที่ยังไม่ได้รัน schema.sql จะได้ใช้ได้ตามเดิม */
+  const [reportingOpen, setReportingOpenState] = useState(true);
+  const [lastReset, setLastReset] = useState(null);
+  const [hasSettings, setHasSettings] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [saveError, setSaveError] = useState("");
@@ -439,6 +445,24 @@ export function ResultsProvider({ children }) {
     setSaveError(
       "บัญชีนี้เข้าใช้งานแบบดูอย่างเดียว จึงแก้ไขข้อมูลไม่ได้ — " +
         "ให้ผู้ดูแลระบบเปิดสิทธิ์ “ผู้กรอกข้อมูล” ให้ก่อน"
+    );
+    return true;
+  }
+
+  /* ด่านของการ "รายงานผล" โดยเฉพาะ — ต้องผ่าน denyReadOnly ก่อน
+     แล้วถ้าปิดการรายงานผลอยู่ เฉพาะผู้ดูแลที่ยังเขียนได้ (ตรงกับ can_report()
+     ในฐานข้อมูล) การแก้แผน (plan_edits) ไม่ผ่านด่านนี้ เพราะไม่ใช่การรายงาน
+     ⚠️ ด่านนี้แค่กันไม่ให้กดแล้วเจอ error ด่านจริงคือ RLS ในฐานข้อมูล */
+  const reportOpenRef = useRef(true);
+  reportOpenRef.current = reportingOpen;
+  const isAdminRef = useRef(false);
+  isAdminRef.current = role === "admin";
+
+  function denyReport() {
+    if (denyReadOnly()) return true;
+    if (reportOpenRef.current || isAdminRef.current) return false;
+    setSaveError(
+      "ขณะนี้ปิดการรายงานผลอยู่ — แก้ไขข้อมูลไม่ได้จนกว่าผู้ดูแลระบบจะเปิดการรายงานผล"
     );
     return true;
   }
@@ -675,6 +699,22 @@ export function ResultsProvider({ children }) {
       }
     }
 
+    /* ค่าตั้งของระบบ — เปิด/ปิดการรายงาน และการล้างข้อมูลครั้งล่าสุด
+       ตารางไม่มี = ถือว่าเปิด ตรงกับ reporting_open() ในฐานข้อมูล */
+    let nextOpen = true;
+    let nextReset = null;
+    let hasSet = true;
+    {
+      const res = await supabase.from("app_settings").select("key,value,updated_at,updated_by");
+      if (res.error) hasSet = false;
+      else {
+        (res.data || []).forEach((row) => {
+          if (row.key === "reporting") nextOpen = !(row.value && row.value.open === false);
+          if (row.key === "last_reset") nextReset = row.value || null;
+        });
+      }
+    }
+
     const nextRisk = {};
     (riskRes.data || []).forEach((row) => {
       if (!nextRisk[row.uid]) nextRisk[row.uid] = {};
@@ -694,6 +734,9 @@ export function ResultsProvider({ children }) {
       hasEdits,
       steps: nextSteps,
       hasSteps,
+      reportingOpen: nextOpen,
+      lastReset: nextReset,
+      hasSettings: hasSet,
       hasSaved,
       hasOther,
       hasOrg,
@@ -749,6 +792,9 @@ export function ResultsProvider({ children }) {
           setHasPlanEdits(next.hasEdits !== false);
           setSteps(next.steps || {});
           setHasStepsTable(next.hasSteps !== false);
+          setReportingOpenState(next.reportingOpen !== false);
+          setLastReset(next.lastReset || null);
+          setHasSettings(next.hasSettings !== false);
           // ทับแผนก่อน setLoaded เสมอ ไม่งั้นหน้าแรกจะวาดด้วยแผนเดิมแวบหนึ่ง
           // แล้วตัวเลขกระโดดต่อหน้าผู้ใช้ทั้งที่ไม่มีใครกดอะไร
           if ((next.edits || []).length) refreshPlan(next.edits);
@@ -1038,7 +1084,7 @@ export function ResultsProvider({ children }) {
       },
 
       setKpi(no, actual) {
-        if (denyReadOnly()) return;
+        if (denyReport()) return;
         setRaw((prev) => ({
           ...prev,
           kpi: { ...prev.kpi, [no]: { ...(prev.kpi[no] || {}), actual } },
@@ -1048,7 +1094,7 @@ export function ResultsProvider({ children }) {
       },
 
       setProject(uid, patch) {
-        if (denyReadOnly()) return;
+        if (denyReport()) return;
         setRaw((prev) => ({
           ...prev,
           project: { ...prev.project, [uid]: { ...(prev.project[uid] || {}), ...patch } },
@@ -1058,7 +1104,7 @@ export function ResultsProvider({ children }) {
       },
 
       setMonthly(uid, i, patch) {
-        if (denyReadOnly()) return;
+        if (denyReport()) return;
         setRaw((prev) => {
           const curP = prev.project[uid] || {};
           const monthly = { ...(curP.monthly || {}) };
@@ -1071,7 +1117,7 @@ export function ResultsProvider({ children }) {
 
       /* ---------- รายการงบประมาณ ---------- */
       async addBudgetEntry(uid, month, extra) {
-        if (denyReadOnly()) return;
+        if (denyReport()) return;
         const supabase = getSupabase();
         /* คอลัมน์เสริมสองตัวเพิ่มมาคนละรอบ ต้องต่อทีละตัวตามที่ฐานข้อมูลมีจริง
            ถ้าส่งคอลัมน์ที่ไม่มี PostgREST จะปฏิเสธทั้งคำสั่ง */
@@ -1120,7 +1166,7 @@ export function ResultsProvider({ children }) {
       },
 
       updateBudgetEntry(uid, id, patch) {
-        if (denyReadOnly()) return;
+        if (denyReport()) return;
         setBudget((prev) => ({
           ...prev,
           [uid]: (prev[uid] || []).map((e) => (e.id === id ? { ...e, ...patch } : e)),
@@ -1135,7 +1181,7 @@ export function ResultsProvider({ children }) {
          ซึ่งยังไม่มีค่า saved ที่เพิ่งตั้งไป (setState ยังไม่ทัน re-render)
          แต่ต้อง flush ค่าที่พิมพ์ค้างไว้ก่อน ไม่งั้นตัวเลขที่เพิ่งกรอกจะยังไม่ถูกบันทึก */
       async setEntriesSaved(uid, ids, saved) {
-        if (denyReadOnly()) return;
+        if (denyReport()) return;
         if (!ids || !ids.length) return true;
 
         if (!budgetHasSaved) {
@@ -1177,7 +1223,7 @@ export function ResultsProvider({ children }) {
       },
 
       async deleteBudgetEntry(uid, id) {
-        if (denyReadOnly()) return;
+        if (denyReport()) return;
         setBudget((prev) => ({
           ...prev,
           [uid]: (prev[uid] || []).filter((e) => e.id !== id),
@@ -1187,6 +1233,90 @@ export function ResultsProvider({ children }) {
         if (error) setSaveError("ลบรายการงบประมาณไม่สำเร็จ: " + error.message);
       },
 
+      /* =========================================================
+         เปิด/ปิดการรายงานผล และล้างข้อมูลการรายงาน — เฉพาะผู้ดูแล
+
+         canReport คือสิ่งที่หน้าเว็บใช้ตัดสินว่าจะเปิดช่องกรอกหรือไม่
+         ตรงกับ can_report() ในฐานข้อมูล: ผู้ดูแลเสมอ หรือผู้กรอกข้อมูลตอนเปิดอยู่
+         ========================================================= */
+      reportingOpen,
+      lastReset,
+      hasSettings,
+      canReport:
+        role === "admin" || ((role === "editor" || role === "admin") && reportingOpen),
+
+      async setReportingOpen(open) {
+        if (role !== "admin") {
+          setSaveError("เฉพาะผู้ดูแลระบบเท่านั้นที่เปิด/ปิดการรายงานผลได้");
+          return false;
+        }
+        if (!hasSettings) {
+          setSaveError(
+            "ยังเปิด/ปิดการรายงานผลไม่ได้ เพราะฐานข้อมูลไม่มีตาราง app_settings — " +
+              "ให้ผู้ดูแลรัน supabase/schema.sql ใน SQL Editor"
+          );
+          return false;
+        }
+        const { error } = await getSupabase()
+          .from("app_settings")
+          .upsert({ key: "reporting", value: { open: open === true } }, { onConflict: "key" });
+        if (error) {
+          setSaveError((open ? "เปิด" : "ปิด") + "การรายงานผลไม่สำเร็จ — " + explainError(error));
+          return false;
+        }
+        setReportingOpenState(open === true);
+        setSaveError("");
+        setSavedHint(open ? "เปิดการรายงานผลแล้ว" : "ปิดการรายงานผลแล้ว");
+        return true;
+      },
+
+      /* ล้างข้อมูลการรายงาน — ยิงฟังก์ชัน reset_reports ในฐานข้อมูล
+         ซึ่งตรวจสิทธิ์ผู้ดูแลเองและล้างทุกตารางในธุรกรรมเดียว
+         สำเร็จแล้วล้าง state ในหน้าเว็บให้ตรงกัน ไม่ต้องรีโหลดทั้งหน้า */
+      async resetReports(parts) {
+        if (role !== "admin") {
+          setSaveError("เฉพาะผู้ดูแลระบบเท่านั้นที่ล้างข้อมูลการรายงานได้");
+          return false;
+        }
+        const list = (parts || []).filter(Boolean);
+        if (!list.length) return false;
+
+        // ส่งของที่ค้างในคิวทิ้งก่อน ไม่งั้น flush ที่ตามมาทีหลังจะเขียนข้อมูลเก่ากลับเข้าไป
+        clearTimeout(flushTimer.current);
+        pending.current = {
+          kpi: new Set(),
+          project: new Set(),
+          monthly: new Set(),
+          budget: new Set(),
+          risk: new Set(),
+          steps: new Set(),
+        };
+
+        const { error } = await getSupabase().rpc("reset_reports", { parts: list });
+        if (error) {
+          setSaveError("ล้างข้อมูลการรายงานไม่สำเร็จ — " + explainError(error));
+          return false;
+        }
+
+        const has = (k) => list.indexOf(k) >= 0;
+        if (has("results") || has("kpi")) {
+          setRaw((prev) => ({
+            kpi: has("kpi") ? {} : prev.kpi,
+            project: has("results") ? {} : prev.project,
+          }));
+        }
+        if (has("steps")) setSteps({});
+        if (has("risk")) setRiskState({});
+        if (has("budget")) {
+          setBudget({});
+          setSubmitState({});
+        }
+        setLastReset({ at: new Date().toISOString(), parts: list });
+        setSaveError("");
+        setSavedHint("ล้างข้อมูลการรายงานแล้ว");
+        return true;
+      },
+
       /* ---------- ขั้นตอนการดำเนินงาน ----------
          เพิ่ม/ลบ ยิงตรงทันที (ต้องได้ id จากฐานข้อมูลก่อนถึงจะแก้ต่อได้)
          แก้ค่าในช่อง ผ่านคิว flush แบบหน่วงเวลาเหมือนช่องอื่น ไม่ยิงทุกตัวอักษร */
@@ -1194,7 +1324,7 @@ export function ResultsProvider({ children }) {
       hasStepsTable,
 
       async addStep(uid) {
-        if (denyReadOnly()) return null;
+        if (denyReport()) return null;
         if (!hasStepsTable) {
           setSaveError(
             "ยังใช้ตารางขั้นตอนการดำเนินงานไม่ได้ เพราะฐานข้อมูลไม่มีตาราง project_steps — " +
@@ -1219,7 +1349,7 @@ export function ResultsProvider({ children }) {
       },
 
       updateStep(uid, id, patch) {
-        if (denyReadOnly()) return;
+        if (denyReport()) return;
         setSteps((prev) => ({
           ...prev,
           [uid]: (prev[uid] || []).map((s) => (s.id === id ? { ...s, ...patch } : s)),
@@ -1229,7 +1359,7 @@ export function ResultsProvider({ children }) {
       },
 
       async deleteStep(uid, id) {
-        if (denyReadOnly()) return;
+        if (denyReport()) return;
         setSteps((prev) => ({ ...prev, [uid]: (prev[uid] || []).filter((s) => s.id !== id) }));
         pending.current.steps.delete(id);
         const { error } = await getSupabase().from("project_steps").delete().eq("id", id);
@@ -1238,7 +1368,7 @@ export function ResultsProvider({ children }) {
 
       /* ---------- รายงานความเสี่ยงรายเดือน ---------- */
       setRisk(uid, month, patch) {
-        if (denyReadOnly()) return;
+        if (denyReport()) return;
         setRiskState((prev) => {
           const cur = prev[uid] || {};
           return { ...prev, [uid]: { ...cur, [month]: { ...(cur[month] || {}), ...patch } } };
@@ -1257,7 +1387,7 @@ export function ResultsProvider({ children }) {
          ต้องเห็นผลทันทีว่าเดือนนี้ส่งแล้ว จึงจะรายงานผลได้
          --------------------------------------------------------- */
       async setBudgetSubmitted(uid, month, value) {
-        if (denyReadOnly()) return false;
+        if (denyReport()) return false;
         if (!hasSubmitTable) {
           setSaveError(
             "ยังใช้การส่งข้อมูลงบประมาณไม่ได้ เพราะฐานข้อมูลไม่มีตาราง " +
@@ -1369,7 +1499,7 @@ export function ResultsProvider({ children }) {
 
       /* ล้างข้อมูลของโครงการเดียว — ลบออกจากฐานข้อมูลจริง ทุกคนจะเห็นผล */
       async clearProject(uid) {
-        if (denyReadOnly()) return;
+        if (denyReport()) return;
         setRaw((prev) => {
           const project = { ...prev.project };
           delete project[uid];
@@ -1551,7 +1681,7 @@ export function ResultsProvider({ children }) {
         window.location.href = "/login";
       },
     };
-  }, [results, raw, budget, risk, submit, hasSubmitTable, loaded, loadError, saveError, savedHint, userEmail, userName, budgetHasSaved, monthlyHasIssue, hasIndicatorCols, asOf, fyStarted, role, hasRoles, people, planEdits, hasPlanEdits, planVersion, steps, hasStepsTable]);
+  }, [results, raw, budget, risk, submit, hasSubmitTable, loaded, loadError, saveError, savedHint, userEmail, userName, budgetHasSaved, monthlyHasIssue, hasIndicatorCols, asOf, fyStarted, role, hasRoles, people, planEdits, hasPlanEdits, planVersion, steps, hasStepsTable, reportingOpen, lastReset, hasSettings]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

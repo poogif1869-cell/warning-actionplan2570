@@ -12,6 +12,7 @@ import Bars from "@/components/bars";
 import Donut from "@/components/donut";
 import ProjectList from "@/components/project-list";
 import DownloadButton from "@/components/download-button";
+import ReportingControl from "@/components/reporting-control";
 
 const S_COLORS = ["", "var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)"];
 
@@ -591,7 +592,12 @@ export default function OverviewPage() {
 
       <section className="block">
         <h2>ข้อมูลและการสำรอง</h2>
-        <div className="card pad">
+
+        {/* รอบการรายงานผล — วางไว้เหนือปุ่มสำรองข้อมูล เพราะก่อนล้างข้อมูล
+            ควรส่งออกไฟล์สำรองก่อน สองอย่างนี้จึงควรอยู่ใกล้กัน */}
+        <ReportingControl />
+
+        <div className="card pad" style={{ marginTop: 14 }}>
           <p style={{ marginTop: 0 }} className="small">
             ทุกอย่างที่กรอกถูกบันทึกขึ้น <b>Supabase</b> อัตโนมัติหลังหยุดพิมพ์ประมาณ 1 วินาที
             ทุกคนที่เข้าสู่ระบบเห็นข้อมูลชุดเดียวกัน
