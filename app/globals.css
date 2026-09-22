@@ -1692,3 +1692,82 @@ section.block > h2 > .dlwrap{margin-inline-start:auto}
 /* ป้ายชั้นในรายการที่ปนกันสองระดับ (หน้าแก้ไขแผน) */
 .lvltag{font-weight:700}
 .lvltag.act{font-weight:500; color:var(--muted)}
+
+/* =====================================================================
+   ตารางขั้นตอนการดำเนินงาน (แผน/ผลรายเดือน)
+
+   กว้างเกินจอแน่นอน — 12 เดือนบวกอีก 4 คอลัมน์ จึงเลื่อนแนวนอนในกล่องของตัวเอง
+   คอลัมน์ชื่อขั้นตอน **ตรึงไว้ซ้าย** เวลาเลื่อนไปดูเดือนท้าย ๆ ยังเห็นว่า
+   กำลังกรอกของขั้นไหนอยู่ ไม่งั้นเลื่อนไป ก.ย. แล้วไม่รู้ว่าแถวนี้คืออะไร
+   ===================================================================== */
+.steptbl-box{margin-bottom:8px}
+.steptbl-wrap{overflow-x:auto}
+.steptbl{border-collapse:separate; border-spacing:0; width:max-content; min-width:100%; font-size:12.5px}
+.steptbl th,.steptbl td{padding:6px 6px; vertical-align:middle; border-bottom:1px solid var(--border-soft)}
+.steptbl thead th{text-align:center; white-space:nowrap}
+
+.steptbl .st-name{
+  position:sticky; inset-inline-start:0; z-index:2;
+  background:var(--surface); min-width:210px; max-width:260px;
+  border-inline-end:1px solid var(--border);
+}
+.steptbl thead .st-name{background:var(--tint); z-index:3}
+.st-namebox{display:flex; gap:8px; align-items:flex-start}
+.st-no{
+  flex:none; width:22px; height:22px; border-radius:50%;
+  display:grid; place-items:center; font-size:11px; font-weight:700;
+  background:var(--accent); color:var(--surface); margin-top:3px;
+}
+.st-namebox textarea{
+  flex:1 1 auto; min-width:0; resize:vertical; font:inherit; font-size:13px; font-weight:600;
+  border:1px solid var(--border); border-radius:8px; padding:5px 8px;
+  background:var(--surface); color:var(--text);
+}
+
+/* ป้ายแผน/ผล — สีต่างกันชัด เพราะสองแถวนี้หน้าตาเหมือนกันทุกอย่างนอกจากป้าย */
+.st-kind{width:40px; text-align:center; font-weight:700; font-size:11.5px; white-space:nowrap}
+.st-kind.plan{color:var(--s3)}
+.st-kind.actual{color:var(--accent)}
+.st-planrow td{background:var(--tint)}
+.st-planrow td.st-name{background:var(--surface)}
+
+.st-target{min-width:104px}
+.st-target input{
+  display:block; width:100%; margin-bottom:4px; font:inherit; font-size:12.5px;
+  border:1px solid var(--border); border-radius:7px; padding:4px 6px;
+  background:var(--surface); color:var(--text);
+}
+.st-warn{font-size:11px; color:var(--warn); line-height:1.4}
+
+.st-m{text-align:center; min-width:62px}
+.st-m input{
+  width:56px; text-align:center; font:inherit; font-size:12.5px;
+  font-variant-numeric:tabular-nums;
+  border:1px solid var(--border); border-radius:7px; padding:4px 2px;
+  background:var(--surface); color:var(--text);
+}
+/* เดือนที่เลือกดูอยู่ ขีดกรอบให้รู้ว่าตอนนี้ควรไปถึงตรงไหน */
+.st-m.now{box-shadow:inset 0 0 0 2px var(--gold)}
+.st-future{color:var(--faint)}
+
+.st-prog{min-width:112px; text-align:center; line-height:1.4}
+.st-big{display:block; font-size:17px; font-variant-numeric:tabular-nums}
+.st-prog.st-ok .st-big,.st-prog.st-ok .small{color:var(--ok)}
+.st-prog.st-warn .st-big,.st-prog.st-warn .small{color:var(--warn)}
+.st-prog.st-bad .st-big,.st-prog.st-bad .small{color:var(--bad)}
+
+/* แถวสรุปความคืบหน้าทั้งโครงการ */
+.steptbl tfoot td{background:var(--accent-soft); border-bottom:none; padding:10px 8px}
+.steptbl tfoot .st-foot-lab{
+  position:sticky; inset-inline-start:0; z-index:2; font-weight:700;
+  background:var(--accent-soft);
+}
+.st-bar{position:relative; height:12px; border-radius:99px; background:var(--surface); overflow:hidden}
+.st-bar i{position:absolute; inset-block:0; inset-inline-start:0; border-radius:99px}
+.st-bar i.plan{background:var(--border)}
+.st-bar i.done{background:var(--accent)}
+
+@media print{
+  .steptbl .st-name,.steptbl tfoot .st-foot-lab{position:static}
+  .steptbl-wrap{overflow:visible}
+}

@@ -14,7 +14,9 @@ import {
   monthlyOf,
   projectTrack,
   budgetRollup,
+  stepsOf,
 } from "@/lib/store";
+import StepsTable from "@/components/steps-table";
 
 /* แท็บ "รายงานผลรายเดือน" ในลิ้นชักรายละเอียด
 
@@ -64,6 +66,7 @@ export default function ReportTab({ item }) {
     setProject,
     setMonthly,
     saveNow,
+    steps,
   } = useResults();
   const [actUid, setActUid] = useState("");
   const [saving, setSaving] = useState(false);
@@ -150,6 +153,24 @@ export default function ReportTab({ item }) {
      ไม่งั้นการเลือกทั้งปีจะกลายเป็นทางลัดให้กรอกล่วงหน้าได้ทั้งปี
      --------------------------------------------------------------- */
   const lastMonth = allMonths ? currentFiscalMonth().index : asOfMonth;
+
+  /* ---------------------------------------------------------------
+     ความก้าวหน้า (%) ของโครงการ/กิจกรรม มาจากตารางขั้นตอนการดำเนินงาน
+
+     เขียนกลับลงช่อง progress เฉพาะตอนค่าเปลี่ยนจริง และเฉพาะหน้าที่กรอกได้
+     หน้าอื่นเปิดลิ้นชักดูอย่างเดียว ถ้าให้เขียนด้วยจะยิงไปชน denyReadOnly
+     ทุกครั้งที่มีคนเปิดดู
+     --------------------------------------------------------------- */
+  const ownSteps = stepsOf(steps, item.uid);
+
+  function syncProgress(uid) {
+    return (value) => {
+      if (!editable) return;
+      const cur = projectTrack(results, uid).progress;
+      if (String(cur == null ? "" : cur) === String(value)) return;
+      setProject(uid, { progress: String(value) });
+    };
+  }
 
   const area = {
     width: "100%",
@@ -367,14 +388,30 @@ export default function ReportTab({ item }) {
           <label className="small muted" htmlFor={"pg-" + item.uid}>
             ความก้าวหน้า (%)
           </label>
+          {/* มีตารางขั้นตอนเมื่อไหร่ ช่องนี้กลายเป็นค่าที่คำนวณ กรอกเองไม่ได้
+              ไม่งั้นจะมีสองตัวเลขที่ขัดกันได้ในหน้าเดียว */}
           <input
             id={"pg-" + item.uid}
             inputMode="decimal"
             value={tk.progress == null ? "" : tk.progress}
+            readOnly={ownSteps.length > 0}
+            title={ownSteps.length ? "คำนวณจากตารางขั้นตอนการดำเนินงาน" : undefined}
             onChange={(e) => setProject(item.uid, { progress: e.target.value })}
           />
+          {ownSteps.length ? (
+            <div className="small muted">คำนวณจากขั้นตอนการดำเนินงานด้านล่าง</div>
+          ) : null}
         </div>
       </div>
+
+      {/* ---------- ขั้นตอนการดำเนินงาน (แผน/ผลรายเดือน) ---------- */}
+      <h4>ขั้นตอนการดำเนินงาน</h4>
+      <StepsTable
+        uid={item.uid}
+        upto={lastMonth}
+        editable={editable}
+        onProgress={syncProgress(item.uid)}
+      />
 
       {!hasIndicatorCols ? (
         <div className="banner" style={{ marginTop: 14 }}>
@@ -572,6 +609,16 @@ export default function ReportTab({ item }) {
                 กิจกรรมไม่มีช่องผลลัพธ์ เพราะผลลัพธ์ (Outcome) เป็นตัวชี้วัดของทั้งโครงการ
                 ไม่ได้วัดรายกิจกรรม
               </div>
+
+              {/* กิจกรรมมีตารางขั้นตอนของตัวเอง แยกจากของโครงการ
+                  ใช้ uid ของกิจกรรมเป็นเจ้าของ ความคืบหน้าจึงแยกกันด้วย */}
+              <h4>ขั้นตอนการดำเนินงานของกิจกรรม</h4>
+              <StepsTable
+                uid={activity.uid}
+                upto={lastMonth}
+                editable={editable}
+                onProgress={syncProgress(activity.uid)}
+              />
             </div>
           ) : (
             <div className="small muted" style={{ marginBottom: 10 }}>

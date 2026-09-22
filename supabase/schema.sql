@@ -713,3 +713,64 @@ create policy plan_edits_delete on public.plan_edits
 grant select, insert, update, delete on public.plan_edits to authenticated;
 
 notify pgrst, 'reload schema';
+
+
+-- =====================================================================
+-- เพิ่มเมื่อ 22 ก.ย. — ขั้นตอนการดำเนินงาน (แผน/ผล รายเดือน)
+--
+-- ตารางในหน้ารายงานผล: หนึ่งขั้นตอน = หนึ่งแถวในตารางนี้
+-- แต่บนหน้าจอแสดงเป็นสองแถว (แผน กับ ผล) คู่กัน
+--
+--   name    ชื่อขั้นตอน เช่น "จัดประชุมชี้แจง"
+--   target  ค่าเป้าหมายของขั้นตอน (ข้อความ เพราะบางขั้นเป็น "1 ครั้ง" ไม่ใช่ตัวเลขล้วน)
+--   unit    หน่วยนับ
+--   plan    อาร์เรย์ 12 ช่อง ต.ค. 69 ถึง ก.ย. 70 = เป้าหมายรายเดือน
+--   actual  อาร์เรย์ 12 ช่อง = ผลที่ทำได้จริงรายเดือน
+--   ord     ลำดับการแสดง (ขั้นที่ 1, 2, 3 ...)
+--
+-- เก็บแผนกับผลในแถวเดียวกันเป็น jsonb ไม่แตกเป็น 24 คอลัมน์
+-- เพราะทุกครั้งที่อ่านต้องใช้ครบทั้ง 12 เดือนพร้อมกันเสมอ
+-- และไม่แตกเป็นตารางลูกรายเดือน เพราะไม่มีใครค้นหา "เดือนใดเดือนหนึ่ง" ข้ามโครงการ
+--
+-- ความคืบหน้าคำนวณที่หน้าเว็บ ไม่ได้เก็บ — เก็บไว้จะมีวันที่ไม่ตรงกับตัวเลขในตาราง
+-- =====================================================================
+
+create table if not exists public.project_steps (
+  id          uuid primary key default gen_random_uuid(),
+  uid         text not null,
+  ord         integer not null default 0,
+  name        text,
+  target      text,
+  unit        text,
+  plan        jsonb not null default '[]'::jsonb,
+  actual      jsonb not null default '[]'::jsonb,
+  updated_at  timestamptz not null default now(),
+  updated_by  uuid references auth.users (id) on delete set null
+);
+
+create index if not exists project_steps_uid_idx on public.project_steps (uid);
+
+drop trigger if exists stamp_project_steps on public.project_steps;
+create trigger stamp_project_steps
+  before insert or update on public.project_steps
+  for each row execute function public.stamp_row();
+
+alter table public.project_steps enable row level security;
+
+drop policy if exists project_steps_read   on public.project_steps;
+drop policy if exists project_steps_write  on public.project_steps;
+drop policy if exists project_steps_update on public.project_steps;
+drop policy if exists project_steps_delete on public.project_steps;
+
+create policy project_steps_read on public.project_steps
+  for select to authenticated using (true);
+create policy project_steps_write on public.project_steps
+  for insert to authenticated with check (public.can_edit());
+create policy project_steps_update on public.project_steps
+  for update to authenticated using (public.can_edit()) with check (public.can_edit());
+create policy project_steps_delete on public.project_steps
+  for delete to authenticated using (public.can_edit());
+
+grant select, insert, update, delete on public.project_steps to authenticated;
+
+notify pgrst, 'reload schema';

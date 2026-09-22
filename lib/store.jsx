@@ -155,6 +155,88 @@ export function budgetRollup(budget, item, month) {
   };
 }
 
+/* ---------------------------------------------------------------------
+   ขั้นตอนการดำเนินงาน — แผน/ผลรายเดือน และความคืบหน้าที่คำนวณจากสองอย่างนั้น
+
+   แถวจากฐานข้อมูลผ่าน normStep ก่อนเสมอ ให้ plan/actual เป็นอาร์เรย์ 12 ช่อง
+   ของข้อความ ไม่ใช่ null หรืออาร์เรย์สั้น ๆ ที่ค้างมาจากแถวเก่า
+   ไม่งั้นโค้ดที่อ่าน plan[i] ตรง ๆ จะเจอ undefined แล้วช่องกรอกเปลี่ยน
+   จาก uncontrolled เป็น controlled กลางทาง (React เตือนและเคอร์เซอร์กระโดด)
+   --------------------------------------------------------------------- */
+function arr12(v) {
+  const src = Array.isArray(v) ? v : [];
+  const out = [];
+  for (let i = 0; i < 12; i++) out.push(src[i] == null ? "" : String(src[i]));
+  return out;
+}
+
+function normStep(row) {
+  return {
+    id: row.id,
+    uid: row.uid,
+    ord: Number(row.ord) || 0,
+    name: row.name || "",
+    target: row.target == null ? "" : String(row.target),
+    unit: row.unit || "",
+    plan: arr12(row.plan),
+    actual: arr12(row.actual),
+  };
+}
+
+export function stepsOf(steps, uid) {
+  return ((steps || {})[uid] || []).slice().sort((a, b) => a.ord - b.ord);
+}
+
+/* ---------------------------------------------------------------------
+   ความคืบหน้าของขั้นตอนหนึ่ง
+
+     total    ฐานที่ใช้หาร = ค่าเป้าหมายถ้าเป็นตัวเลข ไม่งั้นใช้ผลรวมแผน 12 เดือน
+              (บางขั้นเขียนเป้าหมายเป็นคำ เช่น "1 ครั้ง" จึงต้องมีทางถอย)
+     planPct  แผนถึงเดือน upto คิดเป็นกี่ % ของทั้งหมด = ควรไปถึงไหนแล้ว
+     donePct  ผลที่ทำได้ถึงเดือน upto คิดเป็นกี่ % = ไปถึงไหนแล้วจริง
+     gap      donePct - planPct  บวก = เร็วกว่าแผน  ลบ = ช้ากว่าแผน
+
+   ตัดที่ 100% — ทำเกินเป้าไม่ได้ทำให้ขั้นอื่นเสร็จเร็วขึ้น
+   ถ้าไม่ตัด ขั้นเดียวที่ทำเกินจะดึงค่าเฉลี่ยทั้งโครงการขึ้นจนดูเหมือนเสร็จแล้ว
+   --------------------------------------------------------------------- */
+export function stepProgress(step, upto) {
+  const plan = step.plan || [];
+  const actual = step.actual || [];
+  const last = upto == null ? 11 : Math.max(0, Math.min(11, upto));
+
+  let planAll = 0;
+  let planTo = 0;
+  let doneTo = 0;
+  for (let i = 0; i < 12; i++) {
+    const p = toNum(plan[i]);
+    planAll += p;
+    if (i <= last) {
+      planTo += p;
+      doneTo += toNum(actual[i]);
+    }
+  }
+
+  const t = toNum(step.target);
+  const total = t > 0 ? t : planAll;
+  if (!total) return { total: 0, planPct: null, donePct: null, gap: null };
+
+  const planPct = Math.min(100, (planTo / total) * 100);
+  const donePct = Math.min(100, (doneTo / total) * 100);
+  return { total, planPct, donePct, gap: donePct - planPct };
+}
+
+/* ความคืบหน้าทั้งโครงการ = ค่าเฉลี่ยของทุกขั้นที่คำนวณได้
+   ถ่วงเท่ากันทุกขั้น ไม่ถ่วงตามค่าเป้าหมาย เพราะหน่วยนับของแต่ละขั้นต่างกัน
+   (ขั้นหนึ่งนับเป็น "ราย" อีกขั้นนับเป็น "ครั้ง") เอามาบวกกันตรง ๆ ไม่ได้ */
+export function stepsProgress(list, upto) {
+  const each = (list || []).map((s) => stepProgress(s, upto)).filter((p) => p.donePct != null);
+  if (!each.length) return { count: 0, planPct: null, donePct: null, gap: null };
+  const avg = (k) => each.reduce((a, p) => a + p[k], 0) / each.length;
+  const planPct = avg("planPct");
+  const donePct = avg("donePct");
+  return { count: each.length, planPct, donePct, gap: donePct - planPct };
+}
+
 /* ---------- รายงานความเสี่ยงรายเดือน ---------- */
 export function riskOf(risk, uid) {
   return (risk || {})[uid] || {};
@@ -295,6 +377,11 @@ export function ResultsProvider({ children }) {
   const [planEdits, setPlanEdits] = useState([]);
   const [hasPlanEdits, setHasPlanEdits] = useState(true);
   const [planVersion, setPlanVersion] = useState(0);
+
+  /* ขั้นตอนการดำเนินงาน — steps[uid] = [{ id, ord, name, target, unit, plan[12], actual[12] }]
+     เรียงตาม ord เสมอ ตารางเพิ่มทีหลัง ฐานข้อมูลเก่าไม่มี = ตารางขึ้นแถบเตือนแทน */
+  const [steps, setSteps] = useState({});
+  const [hasStepsTable, setHasStepsTable] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [saveError, setSaveError] = useState("");
@@ -372,13 +459,14 @@ export function ResultsProvider({ children }) {
     monthly: new Set(),
     budget: new Set(),
     risk: new Set(),
+    steps: new Set(),
   });
   const flushTimer = useRef(null);
 
   const results = useMemo(() => applyBudget(raw, budget), [raw, budget]);
 
-  const snap = useRef({ raw, budget, risk });
-  snap.current = { raw, budget, risk };
+  const snap = useRef({ raw, budget, risk, steps });
+  snap.current = { raw, budget, risk, steps };
 
   /* โหลดข้อมูล ถ้าเจอ error เกี่ยวกับ token ให้ขอ token ใหม่แล้วลองอีกครั้งหนึ่ง
      กรณีนาฬิกาเครื่องเพี้ยนเล็กน้อย token ใบใหม่มักใช้ได้ทันที
@@ -569,6 +657,24 @@ export function ResultsProvider({ children }) {
       else nextEdits = res.data || [];
     }
 
+    /* ขั้นตอนการดำเนินงาน — อ่านไม่ได้ = ยังไม่ได้รัน schema.sql รอบนี้
+       ต้องไม่ล้มทั้งหน้า แค่ตารางขั้นตอนจะขึ้นแถบบอกให้รันก่อน */
+    const nextSteps = {};
+    let hasSteps = true;
+    {
+      const res = await supabase
+        .from("project_steps")
+        .select("id,uid,ord,name,target,unit,plan,actual")
+        .order("ord", { ascending: true });
+      if (res.error) hasSteps = false;
+      else {
+        (res.data || []).forEach((row) => {
+          if (!nextSteps[row.uid]) nextSteps[row.uid] = [];
+          nextSteps[row.uid].push(normStep(row));
+        });
+      }
+    }
+
     const nextRisk = {};
     (riskRes.data || []).forEach((row) => {
       if (!nextRisk[row.uid]) nextRisk[row.uid] = {};
@@ -586,6 +692,8 @@ export function ResultsProvider({ children }) {
       submit: nextSubmit,
       edits: nextEdits,
       hasEdits,
+      steps: nextSteps,
+      hasSteps,
       hasSaved,
       hasOther,
       hasOrg,
@@ -639,6 +747,8 @@ export function ResultsProvider({ children }) {
           setHasSubmitTable(next.hasSubmit !== false);
           setPlanEdits(next.edits || []);
           setHasPlanEdits(next.hasEdits !== false);
+          setSteps(next.steps || {});
+          setHasStepsTable(next.hasSteps !== false);
           // ทับแผนก่อน setLoaded เสมอ ไม่งั้นหน้าแรกจะวาดด้วยแผนเดิมแวบหนึ่ง
           // แล้วตัวเลขกระโดดต่อหน้าผู้ใช้ทั้งที่ไม่มีใครกดอะไร
           if ((next.edits || []).length) refreshPlan(next.edits);
@@ -677,6 +787,7 @@ export function ResultsProvider({ children }) {
       monthly: new Set(),
       budget: new Set(),
       risk: new Set(),
+      steps: new Set(),
     };
 
     const cur = snap.current;
@@ -762,6 +873,34 @@ export function ResultsProvider({ children }) {
       });
       if (rows.length) {
         jobs.push(supabase.from("budget_entries").upsert(rows, { onConflict: "id" }));
+      }
+    }
+
+    /* ขั้นตอนการดำเนินงาน — คิวเก็บ id ของขั้น อ่านค่าล่าสุดจาก snapshot
+       ขั้นที่ถูกลบไประหว่างรอ flush จะหาไม่เจอแล้วข้ามไปเอง */
+    if (queue.steps.size) {
+      const rows = [];
+      [...queue.steps].forEach((id) => {
+        let found = null;
+        Object.keys(cur.steps || {}).some((uid) => {
+          const hit = cur.steps[uid].find((s) => s.id === id);
+          if (hit) found = hit;
+          return !!hit;
+        });
+        if (!found) return;
+        rows.push({
+          id: found.id,
+          uid: found.uid,
+          ord: found.ord,
+          name: found.name ?? "",
+          target: found.target ?? "",
+          unit: found.unit ?? "",
+          plan: found.plan,
+          actual: found.actual,
+        });
+      });
+      if (rows.length) {
+        jobs.push(supabase.from("project_steps").upsert(rows, { onConflict: "id" }));
       }
     }
 
@@ -1046,6 +1185,55 @@ export function ResultsProvider({ children }) {
         pending.current.budget.delete(id);
         const { error } = await getSupabase().from("budget_entries").delete().eq("id", id);
         if (error) setSaveError("ลบรายการงบประมาณไม่สำเร็จ: " + error.message);
+      },
+
+      /* ---------- ขั้นตอนการดำเนินงาน ----------
+         เพิ่ม/ลบ ยิงตรงทันที (ต้องได้ id จากฐานข้อมูลก่อนถึงจะแก้ต่อได้)
+         แก้ค่าในช่อง ผ่านคิว flush แบบหน่วงเวลาเหมือนช่องอื่น ไม่ยิงทุกตัวอักษร */
+      steps,
+      hasStepsTable,
+
+      async addStep(uid) {
+        if (denyReadOnly()) return null;
+        if (!hasStepsTable) {
+          setSaveError(
+            "ยังใช้ตารางขั้นตอนการดำเนินงานไม่ได้ เพราะฐานข้อมูลไม่มีตาราง project_steps — " +
+              "ให้ผู้ดูแลรัน supabase/schema.sql ใน SQL Editor"
+          );
+          return null;
+        }
+        const list = (steps || {})[uid] || [];
+        const ord = list.reduce((m, s) => Math.max(m, s.ord), 0) + 1;
+        const { data, error } = await getSupabase()
+          .from("project_steps")
+          .insert({ uid, ord, name: "", target: "", unit: "", plan: arr12(), actual: arr12() })
+          .select("id,uid,ord,name,target,unit,plan,actual")
+          .single();
+        if (error) {
+          setSaveError("เพิ่มขั้นตอนไม่สำเร็จ — " + explainError(error));
+          return null;
+        }
+        const step = normStep(data);
+        setSteps((prev) => ({ ...prev, [uid]: (prev[uid] || []).concat([step]) }));
+        return step.id;
+      },
+
+      updateStep(uid, id, patch) {
+        if (denyReadOnly()) return;
+        setSteps((prev) => ({
+          ...prev,
+          [uid]: (prev[uid] || []).map((s) => (s.id === id ? { ...s, ...patch } : s)),
+        }));
+        pending.current.steps.add(id);
+        scheduleFlush();
+      },
+
+      async deleteStep(uid, id) {
+        if (denyReadOnly()) return;
+        setSteps((prev) => ({ ...prev, [uid]: (prev[uid] || []).filter((s) => s.id !== id) }));
+        pending.current.steps.delete(id);
+        const { error } = await getSupabase().from("project_steps").delete().eq("id", id);
+        if (error) setSaveError("ลบขั้นตอนไม่สำเร็จ — " + explainError(error));
       },
 
       /* ---------- รายงานความเสี่ยงรายเดือน ---------- */
@@ -1363,7 +1551,7 @@ export function ResultsProvider({ children }) {
         window.location.href = "/login";
       },
     };
-  }, [results, raw, budget, risk, submit, hasSubmitTable, loaded, loadError, saveError, savedHint, userEmail, userName, budgetHasSaved, monthlyHasIssue, hasIndicatorCols, asOf, fyStarted, role, hasRoles, people, planEdits, hasPlanEdits, planVersion]);
+  }, [results, raw, budget, risk, submit, hasSubmitTable, loaded, loadError, saveError, savedHint, userEmail, userName, budgetHasSaved, monthlyHasIssue, hasIndicatorCols, asOf, fyStarted, role, hasRoles, people, planEdits, hasPlanEdits, planVersion, steps, hasStepsTable]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
