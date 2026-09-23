@@ -940,3 +940,103 @@ revoke all on function public.reset_reports(text[]) from public, anon;
 grant execute on function public.reset_reports(text[]) to authenticated;
 
 notify pgrst, 'reload schema';
+
+
+-- =====================================================================
+-- เพิ่มเมื่อ 23 ก.ย. — รายละเอียดโครงการจากแบบฟอร์ม ฝยศ.1 และการเชื่อมโยง ESG/SDGs
+--
+-- project_details  เนื้อหาจากไฟล์คำของบประมาณใน Google Drive (แบบฟอร์ม ฝยศ.1)
+--                  หลักการและเหตุผล วัตถุประสงค์ ผลผลิต/ผลลัพธ์ ตัวชี้วัด
+--                  กลุ่มผู้มีส่วนได้ส่วนเสีย ประโยชน์ที่คาดว่าจะได้รับ ผู้รับผิดชอบ
+--
+--                  ⚠️ **ห้ามเอาข้อมูลชุดนี้ไปฝังในโค้ด** — repo นี้เป็น public
+--                  และไฟล์ .js ที่ส่งให้เบราว์เซอร์เปิดดูได้โดยไม่ต้องล็อกอิน
+--                  เก็บในตารางนี้ที่อ่านได้เฉพาะคนที่ล็อกอินแล้วเท่านั้น
+--                  (นี่คือเหตุผลเดียวที่ข้อมูลชุดนี้ไม่ได้อยู่ใน data/ เหมือนตัวแผน)
+--
+--                  นำเข้าด้วยไฟล์ SQL ที่สร้างจาก build/export-details.ps1
+--                  ซึ่งไม่ขึ้น git เช่นกัน (อยู่ใต้ data/project-details/)
+--
+--                  seq = ลำดับเอกสารของโครงการเดียวกัน (บางโครงการมีไฟล์รายกิจกรรม
+--                  หลายไฟล์) act_uid = uid ของกิจกรรม ถ้าเอกสารนั้นเป็นของกิจกรรมเดียว
+--
+-- project_esg      การเชื่อมโยงโครงการกับ ESG และ SDGs
+--                  ข้อเสนอตั้งต้นอยู่ในโค้ด (data/esg-sdg.json) เพราะได้มาจากชื่อ
+--                  และตัวชี้วัดของโครงการซึ่งเปิดเผยอยู่แล้วในตัวแผน
+--                  ตารางนี้เก็บ **เฉพาะที่เจ้าหน้าที่แก้หรือยืนยัน** ทับข้อเสนอนั้น
+-- =====================================================================
+
+create table if not exists public.project_details (
+  uid         text not null,
+  seq         smallint not null default 1,
+  act_uid     text,
+  source      text,
+  data        jsonb not null default '{}'::jsonb,
+  updated_at  timestamptz not null default now(),
+  updated_by  uuid references auth.users (id) on delete set null,
+  primary key (uid, seq)
+);
+
+create index if not exists project_details_uid_idx on public.project_details (uid);
+
+drop trigger if exists stamp_project_details on public.project_details;
+create trigger stamp_project_details
+  before insert or update on public.project_details
+  for each row execute function public.stamp_row();
+
+alter table public.project_details enable row level security;
+
+drop policy if exists project_details_read   on public.project_details;
+drop policy if exists project_details_write  on public.project_details;
+drop policy if exists project_details_update on public.project_details;
+drop policy if exists project_details_delete on public.project_details;
+
+-- อ่านได้ทุกคนที่ล็อกอิน · เขียนได้เฉพาะผู้ดูแล (นำเข้าเป็นรอบ ไม่ใช่งานประจำวัน)
+create policy project_details_read on public.project_details
+  for select to authenticated using (true);
+create policy project_details_write on public.project_details
+  for insert to authenticated with check (public.is_admin());
+create policy project_details_update on public.project_details
+  for update to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy project_details_delete on public.project_details
+  for delete to authenticated using (public.is_admin());
+
+grant select, insert, update, delete on public.project_details to authenticated;
+
+
+create table if not exists public.project_esg (
+  uid         text primary key,
+  esg         text[] not null default '{}',
+  sdg         smallint[] not null default '{}',
+  note        text,
+  confirmed   boolean not null default false,
+  updated_at  timestamptz not null default now(),
+  updated_by  uuid references auth.users (id) on delete set null
+);
+
+drop trigger if exists stamp_project_esg on public.project_esg;
+create trigger stamp_project_esg
+  before insert or update on public.project_esg
+  for each row execute function public.stamp_row();
+
+alter table public.project_esg enable row level security;
+
+drop policy if exists project_esg_read   on public.project_esg;
+drop policy if exists project_esg_write  on public.project_esg;
+drop policy if exists project_esg_update  on public.project_esg;
+drop policy if exists project_esg_delete on public.project_esg;
+
+-- การจัดหมวด ESG/SDGs เป็นข้อมูลของแผน ไม่ใช่การรายงานผล
+-- จึงใช้ can_edit() ไม่ใช่ can_report() — ปิดรอบรายงานผลแล้วยังแก้การเชื่อมโยงได้
+create policy project_esg_read on public.project_esg
+  for select to authenticated using (true);
+create policy project_esg_write on public.project_esg
+  for insert to authenticated with check (public.can_edit());
+create policy project_esg_update on public.project_esg
+  for update to authenticated using (public.can_edit()) with check (public.can_edit());
+create policy project_esg_delete on public.project_esg
+  for delete to authenticated using (public.is_admin());
+
+grant select, insert, update, delete on public.project_esg to authenticated;
+
+notify pgrst, 'reload schema';
