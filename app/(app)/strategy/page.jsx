@@ -46,6 +46,19 @@ export default function StrategyPage() {
 
   return (
     <>
+      {/* หน้านี้มีตารางหลายตาราง แต่กรอกได้ที่เดียว — บอกไว้ตั้งแต่บรรทัดแรก
+          จะได้ไม่ต้องไล่กดหาว่าช่องไหนพิมพ์ได้ */}
+      <div className="pagelead">
+        <span className="lead-ic" aria-hidden="true">
+          🎯
+        </span>
+        <span className="lead-tx">
+          หน้านี้กรอกได้อย่างเดียวคือ <b>ผลการดำเนินงานของตัวชี้วัดองค์กร</b>{" "}
+          (ช่องในตารางตัวชี้วัดของแต่ละยุทธศาสตร์ด้านล่าง) ส่วนอื่นเป็นข้อมูลตามแผน
+          ดูอย่างเดียว · ค่าเป็นเป้าหมายทั้งปี ไม่ต้องเลือกเดือน
+        </span>
+      </div>
+
       <section className="block">
         <h2>
           ภาพรวมการบรรลุตัวชี้วัดองค์กร
@@ -229,6 +242,10 @@ export default function StrategyPage() {
               <>
                 <h4 className="sublab">
                   ตัวชี้วัดของ SO{soNo} ({kpis.length} ตัว)
+                  {/* ป้ายบอกว่าตารางนี้แหละที่กรอกได้ ตารางอื่นในหน้าเดียวกันดูอย่างเดียว */}
+                  <span className={"pill " + (canReport ? "warn" : "none")}>
+                    {canReport ? "กรอกได้: ช่องผลการดำเนินงาน" : "ปิดการรายงานผลอยู่"}
+                  </span>
                 </h4>
                 <div className="tablewrap">
                   <table className="stack">

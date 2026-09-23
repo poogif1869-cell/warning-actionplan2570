@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useResults, riskOf } from "@/lib/store";
 import {
@@ -97,6 +98,17 @@ export default function AlertsPage() {
 
   return (
     <>
+      <div className="pagelead">
+        <span className="lead-ic" aria-hidden="true">
+          🔔
+        </span>
+        <span className="lead-tx">
+          หน้านี้ <b>ดูอย่างเดียว</b> รวมสิ่งที่ต้องรีบแก้ — ลำดับการใช้:
+          เลือกเดือน → เลือกเรื่องที่อยากดูจากปุ่มหัวข้อ → กดรายการในตารางเพื่อเปิดรายละเอียด ·
+          แก้ปัญหาจริงโดยไปกรอกผลที่ <Link href="/projects">โครงการ/กิจกรรม</Link>
+        </span>
+      </div>
+
       <MonthPicker />
 
       <section className="block">

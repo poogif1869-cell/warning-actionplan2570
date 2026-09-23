@@ -103,6 +103,18 @@ export default function OverviewPage() {
 
   return (
     <>
+      <div className="pagelead">
+        <span className="lead-ic" aria-hidden="true">
+          📊
+        </span>
+        <span className="lead-tx">
+          หน้านี้เป็น <b>ภาพรวมทั้งแผน ดูอย่างเดียว ไม่มีช่องกรอก</b> —
+          อ่านจากบนลงล่าง: สถานะการแจ้งเตือน → เงินและผลงาน → รายละเอียดแต่ละด้าน ·
+          จะกรอกผลการดำเนินงานไปที่ <Link href="/projects">โครงการ/กิจกรรม</Link> ·
+          กรอกงบที่ <Link href="/budget">งบประมาณโครงการ</Link>
+        </span>
+      </div>
+
       {/* แถบแจ้งเตือนไว้บนสุด เพราะเป็นเหตุผลหลักที่เว็บนี้มีอยู่ */}
       <section className="block">
         <h2>

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ITEMS,
   PROJECTS,
+  MONTHS,
   MONTHS_SHORT,
   monthsOf,
   FUNDS,
@@ -14,6 +15,7 @@ import { ORG_UNITS, inUnit } from "@/lib/rollup";
 import { useResults, projectTrack, monthlyOf, budgetRollup } from "@/lib/store";
 import { buildAlerts, groupByUid, worstSev, rolledReport, SEV_LABEL } from "@/lib/alerts";
 import MonthPicker from "@/components/month-picker";
+import Sec from "@/components/sec";
 import ProjectDrawer from "@/components/project-drawer";
 import DownloadButton from "@/components/download-button";
 import Bars from "@/components/bars";
@@ -21,7 +23,7 @@ import Donut from "@/components/donut";
 import StatusBadge, { ReportBadge } from "@/components/status-badge";
 
 export default function ProjectsPage() {
-  const { results, budget, risk, asOfMonth, loaded } = useResults();
+  const { results, budget, risk, asOfMonth, allMonths, loaded } = useResults();
   const [q, setQ] = useState("");
   const [sNo, setSNo] = useState("");
   const [fund, setFund] = useState("");
@@ -172,7 +174,34 @@ export default function ProjectsPage() {
 
   return (
     <>
-      <MonthPicker />
+      {/* ---------- บอกตั้งแต่บรรทัดแรกว่าหน้านี้ทำอะไร และเริ่มตรงไหน ----------
+          เดิมต้องอ่านคำอธิบายใต้หัวข้อกลางหน้าถึงจะรู้ว่าหน้านี้กรอกอะไรได้บ้าง */}
+      <div className="pagelead">
+        <span className="lead-ic" aria-hidden="true">
+          ✍️
+        </span>
+        <span className="lead-tx">
+          หน้านี้ใช้ <b>รายงานผลการดำเนินงาน</b> ของโครงการ/กิจกรรม ทำตามลำดับ{" "}
+          <b>ข้อ 1 เลือกเดือน → ข้อ 2 เลือกโครงการ → ข้อ 3 กรอกผล</b> ·
+          งบประมาณบันทึกที่ <Link href="/budget">งบประมาณโครงการ</Link> ·
+          แก้ตัวแผน (งบจัดสรร ตัวชี้วัด แผนรายเดือน) ทำที่{" "}
+          <Link href="/plan-edit">แก้ไขแผน</Link> ที่เดียว
+        </span>
+      </div>
+
+      <Sec
+        no={1}
+        title="เลือกเดือนที่จะรายงาน"
+        hint="การรายงานผลเป็นงานรายเดือน — เลือก “ทั้งปีงบประมาณ” ได้ถ้าจะดูภาพรวมอย่างเดียว ไม่กรอกผล"
+        state={allMonths ? "now" : "done"}
+        right={
+          <span className={"pill " + (allMonths ? "warn" : "ok")}>
+            {allMonths ? "ยังไม่ได้เลือกเดือน" : "ณ เดือน " + MONTHS[asOfMonth]}
+          </span>
+        }
+      >
+        <MonthPicker />
+      </Sec>
 
       <section className="block">
         <h2>
@@ -257,15 +286,6 @@ export default function ProjectsPage() {
           />
         </h2>
 
-        <div className="hint">
-          หน้านี้ทำได้อย่างเดียวคือ <b>รายงานผลการดำเนินงาน</b> —
-          คอลัมน์เบิกจ่ายดึงยอดมาจาก <Link href="/budget">งบประมาณโครงการ</Link>{" "}
-          ซึ่งเป็นที่เดียวที่บันทึกงบได้ ส่วนการเพิ่ม ลบ หรือแก้ตัวแผน
-          (งบที่จัดสรร ตัวชี้วัด แผนการดำเนินงาน) ทำที่{" "}
-          <Link href="/plan-edit">แก้ไขแผน</Link> ที่เดียว
-          เพราะต้องมีมติรองรับและต้องเก็บประวัติทุกครั้ง
-        </div>
-
         {/* ---------- สรุปสถานะของรายการที่กรองอยู่ ----------
             หน้านี้เดิมมีแต่ตาราง ต้องเลื่อนอ่านทีละแถวถึงจะรู้ว่ามีล่าช้ากี่โครงการ
             สองกราฟนี้ตอบได้ทันทีก่อนจะเริ่มเลื่อน และเปลี่ยนตามตัวกรองด้วย
@@ -274,7 +294,11 @@ export default function ProjectsPage() {
             ซ่อนตอนกำลังรายงานผลอยู่ เพราะตอนนั้นเหลือโครงการเดียว
             กราฟของหนึ่งโครงการไม่ได้บอกอะไร */}
         {!focused && rows.length ? (
-          <div className="cardgrid" style={{ marginBottom: 16 }}>
+          <Sec
+            title="ภาพรวมของรายการที่แสดงอยู่"
+            hint="ดูอย่างเดียว ไม่ต้องกรอก — เปลี่ยนตามตัวกรองในข้อ 2 ใช้หาว่าเหลือโครงการไหนยังไม่รายงาน"
+          >
+          <div className="cardgrid">
             <div className="card pad">
               <h3 className="cardtitle">สัดส่วนตามสถานะการดำเนินงาน</h3>
               <Donut
@@ -293,8 +317,20 @@ export default function ProjectsPage() {
               </div>
             </div>
           </div>
+          </Sec>
         ) : null}
 
+        <Sec
+          no={2}
+          title="เลือกโครงการที่จะรายงานผล"
+          hint="ค้นหาหรือกรองให้แคบลง แล้วกดชื่อโครงการในตารางเพื่อเปิดช่องกรอกผล"
+          state={focused ? "done" : allMonths ? "todo" : "now"}
+          right={
+            <span className="pill none">
+              {fmt(rows.length)} รายการ
+            </span>
+          }
+        >
         <div className="filters">
           <div className="field">
             <label htmlFor="p-q">ค้นหา</label>
@@ -424,6 +460,28 @@ export default function ProjectsPage() {
             ไม่มีรายการที่ตรงกับตัวกรองที่เลือก
           </div>
         ) : null}
+        </Sec>
+
+        {/* ---------- ข้อ 3 ----------
+            ช่องกรอกจริงอยู่ในลิ้นชักที่เปิดทับหน้าจอ ไม่ได้อยู่ในหน้า
+            ถ้าไม่มีกล่องนี้ คนที่ยังไม่เคยกดจะไม่รู้ว่าการกรอกผลอยู่ตรงไหน */}
+        <Sec
+          no={3}
+          title="กรอกผลการดำเนินงาน"
+          hint="ช่องกรอกอยู่ในลิ้นชักที่เปิดขึ้นมา — งบประมาณ สถานะ ขั้นตอน ตัวชี้วัด ผลรายเดือน และความเสี่ยง"
+          state={focused ? "now" : "todo"}
+        >
+          {focused ? (
+            <div className="banner ok" style={{ margin: 0 }}>
+              เปิดลิ้นชักของ <b>{focused.name}</b> อยู่ — กรอกในลิ้นชักได้เลย
+              ถ้าปิดไปแล้วให้กดชื่อโครงการในข้อ 2 ใหม่
+            </div>
+          ) : (
+            <div className="rsec-empty" style={{ margin: 0 }}>
+              ยังไม่ได้เลือกโครงการ — กดชื่อโครงการในข้อ 2 เพื่อเปิดช่องกรอกผล
+            </div>
+          )}
+        </Sec>
       </section>
 
       {openUid ? (

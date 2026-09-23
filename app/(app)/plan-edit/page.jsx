@@ -539,6 +539,20 @@ export default function PlanEditPage() {
 
   return (
     <>
+      {/* หน้านี้มีหลายโหมดและหลายขั้น บอกลำดับไว้บรรทัดแรกกันหลง */}
+      <div className="pagelead">
+        <span className="lead-ic" aria-hidden="true">
+          🛠️
+        </span>
+        <span className="lead-tx">
+          หน้านี้ใช้ <b>แก้ตัวแผน</b> (เพิ่ม/ลบโครงการ แก้งบจัดสรร ตัวชี้วัด แผนรายเดือน)
+          ทำตามลำดับ: <b>เลือกว่าจะทำอะไร (ปุ่มด้านล่าง) → ทำตามข้อ 1, 2, 3… → ใส่เหตุผล →
+          กดอนุมัติหรือบันทึกร่าง</b> · ผลการดำเนินงานกรอกที่{" "}
+          <Link href="/projects">โครงการ/กิจกรรม</Link> · ทุกการแก้ไขเก็บประวัติไว้ที่{" "}
+          <Link href="/changes">ถังการแก้ไขข้อมูล</Link>
+        </span>
+      </div>
+
       <section className="block">
         <h2>
           แก้ไขแผนปฏิบัติการ

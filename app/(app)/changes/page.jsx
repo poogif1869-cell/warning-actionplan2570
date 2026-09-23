@@ -159,6 +159,17 @@ export default function ChangesPage() {
 
   return (
     <>
+      <div className="pagelead">
+        <span className="lead-ic" aria-hidden="true">
+          🗂️
+        </span>
+        <span className="lead-tx">
+          หน้านี้ <b>ดูอย่างเดียว</b> เป็นประวัติว่าแผนถูกแก้อะไรไปบ้าง ใครแก้ เมื่อไหร่ —
+          จะเพิ่ม ลบ หรือแก้แผนจริง ต้องทำที่ <Link href="/plan-edit">แก้ไขแผน</Link> ที่เดียว
+          แล้วรายการจะมาโผล่ที่นี่เอง
+        </span>
+      </div>
+
       <section className="block">
         <h2>
           ถังการแก้ไขข้อมูล

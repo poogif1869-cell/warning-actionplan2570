@@ -18,15 +18,21 @@ export default function Sec({ no, title, hint, right, state, id, children }) {
        ของค่าใหม่ในตารางเทียบก่อน/หลัง) ถ้าใช้ชื่อตรง ๆ ทั้งกล่องจะหนาตาม */
     <section className={"rsec" + (state ? " is-" + state : "")} id={id}>
       <header className="rsec-head">
-        <span className="rsec-no" aria-hidden="true">
-          {state === "done" ? "✓" : no}
-        </span>
+        {/* ไม่ใส่ no = กล่องแบ่งเนื้อหาเฉย ๆ ไม่ใช่ขั้นตอนที่ต้องทำตามลำดับ
+            (หน้าที่ดูอย่างเดียวใช้แบบนี้ จะได้ไม่มีเลขข้อลวงว่าต้องกรอกอะไร) */}
+        {no ? (
+          <span className="rsec-no" aria-hidden="true">
+            {state === "done" ? "✓" : no}
+          </span>
+        ) : null}
         <div className="rsec-titles">
           <h4 className="rsec-title">
-            <span className="sr-only">
-              ข้อ {no}
-              {state === "done" ? " (เสร็จแล้ว) " : state === "now" ? " (ทำข้อนี้) " : " "}
-            </span>
+            {no ? (
+              <span className="sr-only">
+                ข้อ {no}
+                {state === "done" ? " (เสร็จแล้ว) " : state === "now" ? " (ทำข้อนี้) " : " "}
+              </span>
+            ) : null}
             {title}
             {state === "now" ? (
               <span className="rsec-tag" aria-hidden="true">

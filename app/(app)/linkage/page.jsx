@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { PLAN_LINKS, groupByField, missingCount } from "@/lib/rollup";
 import { PROJECTS } from "@/lib/plan";
@@ -54,6 +55,17 @@ export default function LinkagePage() {
 
   return (
     <>
+      <div className="pagelead">
+        <span className="lead-ic" aria-hidden="true">
+          🔗
+        </span>
+        <span className="lead-tx">
+          หน้านี้ <b>ดูอย่างเดียว</b> ใช้ตอบว่าโครงการไหนตอบแผนระดับใด —
+          ลำดับการใช้: เลือกแผนที่ต้องการดู → เลือกชั้นภายในแผนนั้น → ค้นหาหรือกดหัวข้อเพื่อดูโครงการที่ผูกอยู่ ·
+          การผูกโครงการกับแผนแก้ที่ <Link href="/plan-edit">แก้ไขแผน</Link>
+        </span>
+      </div>
+
       <section className="block">
         <h2>
           ความเชื่อมโยงแผน
