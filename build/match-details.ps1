@@ -265,6 +265,21 @@ foreach ($f in $files) {
       $rec.note = "รหัสที่แก้ด้วยมือ '" + $oc + "' ไม่มีในแผน — ใช้ผลอัตโนมัติไปก่อน"
     }
   }
+
+  # ---------- แบบฟอร์มของกิจกรรมเดียว ----------
+  # หลายหน่วยงานกรอก "1. โครงการ" เป็นชื่อโครงการแม่ แล้วใส่กิจกรรมของตัวเองไว้ในช่อง "4. กิจกรรม"
+  # (เช่น นธก. ส่งแยก 4 ไฟล์ของ 040107) ถ้าไม่ดูช่อง 4 ทุกไฟล์จะแย่งที่เดียวกันแล้วเหลือใช้ได้ไฟล์เดียว
+  # ใช้เฉพาะเมื่อช่อง 4 มีกิจกรรมเดียว — แบบฟอร์มทั้งโครงการที่ไล่ "1. ... 2. ..." ห้ามผูกกับกิจกรรมใดกิจกรรมหนึ่ง
+  $actsText = "" + $fields["4"]
+  if ($bp.lvl -eq 1 -and $actsText -and $actsText -notmatch "(^|\s)2\s*\.\s*\S") {
+    $na = Norm $actsText
+    $ga = Bigrams $na
+    $kid = $items | Where-Object { $_.lvl -eq 2 -and $_.top.uid -eq $bp.uid } |
+      ForEach-Object { [pscustomobject]@{ k = $_; s = (Sim $na $ga $_.n $_.g) } } |
+      Sort-Object s -Descending | Select-Object -First 1
+    if ($kid -and $kid.s -ge 0.6) { $bp = $kid.k }
+  }
+
   $rec.uid = $bp.top.uid; $rec.code = $bp.top.code; $rec.planName = $bp.top.name
   $rec.level = if ($bp.lvl -eq 2) { "กิจกรรม" } else { "โครงการ" }
   $rec.actUid = if ($bp.lvl -eq 2) { $bp.uid } else { "" }
@@ -355,6 +370,12 @@ $missPath = Join-Path $root "_โครงการที่ไม่มีไ�
 [System.IO.File]::WriteAllLines($missPath, [string[]]($missing | ConvertTo-Csv -NoTypeInformation), $bom)
 
 [System.IO.File]::WriteAllText((Join-Path $root "_extract.json"), ($extract | ConvertTo-Json -Depth 5), $bom)
+
+# ไฟล์ที่เลือกใช้จริง — build/export-details.ps1 อ่านรายการนี้ไปทำ SQL นำเข้า
+$selected = @($rows | Where-Object { $_.use -eq "ใช้" } | ForEach-Object {
+  [pscustomobject][ordered]@{ file = $_.file; uid = $_.uid; actUid = $_.actUid; actName = $_.actName }
+})
+[System.IO.File]::WriteAllText((Join-Path $root "_selected.json"), (ConvertTo-Json -InputObject $selected -Depth 3), $bom)
 
 # ---------- สรุปบนจอ ----------
 ""
