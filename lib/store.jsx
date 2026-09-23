@@ -385,6 +385,11 @@ export function ResultsProvider({ children }) {
 
   /* เปิด/ปิดการรายงานผล — ค่าเริ่มต้นเปิด ตรงกับ reporting_open() ในฐานข้อมูล
      ที่ถือว่า "ไม่มีแถว = เปิด" ระบบที่ยังไม่ได้รัน schema.sql จะได้ใช้ได้ตามเดิม */
+  /* การเชื่อมโยง ESG/SDGs ที่บันทึกไว้ (uid -> แถวในตาราง project_esg)
+     ข้อเสนอตั้งต้นอยู่ใน data/esg-sdg.json ไม่ได้เก็บที่นี่ */
+  const [esg, setEsg] = useState({});
+  const [hasEsgTable, setHasEsgTable] = useState(true);
+
   const [reportingOpen, setReportingOpenState] = useState(true);
   const [lastReset, setLastReset] = useState(null);
   const [hasSettings, setHasSettings] = useState(true);
@@ -699,6 +704,19 @@ export function ResultsProvider({ children }) {
       }
     }
 
+    /* การเชื่อมโยง ESG/SDGs ที่เจ้าหน้าที่แก้หรือยืนยันแล้ว
+       ตารางเล็ก (ไม่เกินจำนวนโครงการ) จึงโหลดมาทั้งก้อนพร้อมกันได้
+       อ่านไม่ได้ = ยังไม่ได้รัน schema.sql → หน้าเว็บใช้ข้อเสนอใน data/esg-sdg.json ไปก่อน */
+    const nextEsg = {};
+    let hasEsgTbl = true;
+    {
+      const res = await supabase
+        .from("project_esg")
+        .select("uid,esg,sdg,note,confirmed,updated_at,updated_by");
+      if (res.error) hasEsgTbl = false;
+      else (res.data || []).forEach((row) => { nextEsg[row.uid] = row; });
+    }
+
     /* ค่าตั้งของระบบ — เปิด/ปิดการรายงาน และการล้างข้อมูลครั้งล่าสุด
        ตารางไม่มี = ถือว่าเปิด ตรงกับ reporting_open() ในฐานข้อมูล */
     let nextOpen = true;
@@ -734,6 +752,8 @@ export function ResultsProvider({ children }) {
       hasEdits,
       steps: nextSteps,
       hasSteps,
+      esg: nextEsg,
+      hasEsgTable: hasEsgTbl,
       reportingOpen: nextOpen,
       lastReset: nextReset,
       hasSettings: hasSet,
@@ -792,6 +812,8 @@ export function ResultsProvider({ children }) {
           setHasPlanEdits(next.hasEdits !== false);
           setSteps(next.steps || {});
           setHasStepsTable(next.hasSteps !== false);
+          setEsg(next.esg || {});
+          setHasEsgTable(next.hasEsgTable !== false);
           setReportingOpenState(next.reportingOpen !== false);
           setLastReset(next.lastReset || null);
           setHasSettings(next.hasSettings !== false);
@@ -1234,6 +1256,53 @@ export function ResultsProvider({ children }) {
       },
 
       /* =========================================================
+         การเชื่อมโยง ESG/SDGs
+
+         เป็นข้อมูลของ "แผน" ไม่ใช่การรายงานผล จึงใช้ canEdit ไม่ใช่ canReport
+         ปิดรอบรายงานผลแล้วยังแก้การเชื่อมโยงได้ (ตรงกับ RLS ที่ใช้ can_edit())
+
+         ไม่ผ่านคิว flush เพราะเป็นการกดบันทึกที่ตั้งใจ ไม่ใช่การพิมพ์ต่อเนื่อง
+         ========================================================= */
+      esg,
+      hasEsgTable,
+
+      async saveEsg(uid, patch) {
+        if (denyReadOnly()) return false;
+        if (!hasEsgTable) {
+          setSaveError(
+            "ยังบันทึกการเชื่อมโยง ESG/SDGs ไม่ได้ เพราะฐานข้อมูลไม่มีตาราง project_esg — " +
+              "ให้ผู้ดูแลรัน supabase/schema.sql ใน SQL Editor"
+          );
+          return false;
+        }
+
+        const row = {
+          uid,
+          esg: patch.esg || [],
+          // เก็บเป็นตัวเลขเสมอ ช่องติ๊กในหน้าเว็บส่งมาเป็นสตริงได้
+          sdg: (patch.sdg || []).map((n) => Number(n)),
+          note: patch.note == null ? "" : patch.note,
+          confirmed: patch.confirmed === true,
+        };
+
+        const { data, error } = await getSupabase()
+          .from("project_esg")
+          .upsert(row, { onConflict: "uid" })
+          .select("uid,esg,sdg,note,confirmed,updated_at,updated_by")
+          .single();
+
+        if (error) {
+          setSaveError("บันทึกการเชื่อมโยง ESG/SDGs ไม่สำเร็จ — " + explainError(error));
+          return false;
+        }
+
+        setEsg((prev) => ({ ...prev, [uid]: data }));
+        setSaveError("");
+        setSavedHint(row.confirmed ? "ยืนยันการเชื่อมโยงแล้ว" : "บันทึกการเชื่อมโยงแล้ว");
+        return true;
+      },
+
+      /* =========================================================
          เปิด/ปิดการรายงานผล และล้างข้อมูลการรายงาน — เฉพาะผู้ดูแล
 
          canReport คือสิ่งที่หน้าเว็บใช้ตัดสินว่าจะเปิดช่องกรอกหรือไม่
@@ -1548,6 +1617,8 @@ export function ResultsProvider({ children }) {
           setRiskState(next.risk);
           setSubmitState(next.submit || {});
           setHasSubmitTable(next.hasSubmit !== false);
+          setEsg(next.esg || {});
+          setHasEsgTable(next.hasEsgTable !== false);
           return true;
         } catch (err) {
           setLoadError("ดึงข้อมูลใหม่ไม่สำเร็จ — " + explainError(err));
@@ -1681,7 +1752,7 @@ export function ResultsProvider({ children }) {
         window.location.href = "/login";
       },
     };
-  }, [results, raw, budget, risk, submit, hasSubmitTable, loaded, loadError, saveError, savedHint, userEmail, userName, budgetHasSaved, monthlyHasIssue, hasIndicatorCols, asOf, fyStarted, role, hasRoles, people, planEdits, hasPlanEdits, planVersion, steps, hasStepsTable, reportingOpen, lastReset, hasSettings]);
+  }, [results, raw, budget, risk, submit, hasSubmitTable, loaded, loadError, saveError, savedHint, userEmail, userName, budgetHasSaved, monthlyHasIssue, hasIndicatorCols, asOf, fyStarted, role, hasRoles, people, planEdits, hasPlanEdits, planVersion, steps, hasStepsTable, esg, hasEsgTable, reportingOpen, lastReset, hasSettings]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

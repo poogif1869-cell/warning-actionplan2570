@@ -33,6 +33,7 @@ import { money } from "@/lib/format";
 import { useResults } from "@/lib/store";
 import ApprovalFields, { isApprovalComplete } from "@/components/approval-fields";
 import ConfirmDialog from "@/components/confirm-dialog";
+import EsgEditor from "@/components/esg-editor";
 import {
   ItemPicker,
   OrgPicker,
@@ -49,6 +50,9 @@ const MODES = [
   ["activity", "เพิ่มกิจกรรมในโครงการเดิม"],
   ["edit", "แก้ไขโครงการ/กิจกรรม"],
   ["delete", "ลบโครงการ/กิจกรรม"],
+  /* ไม่ผ่านถังการแก้ไขและไม่ต้องมีมติ เพราะไม่ได้แก้ตัวแผน — เป็นการจัดหมวดข้อมูล
+     จึงมีฟอร์มของตัวเองแยกจากอีก 4 โหมด (components/esg-editor.jsx) */
+  ["esg", "เชื่อมโยง ESG/SDGs"],
 ];
 
 const LEAD = {
@@ -59,6 +63,7 @@ const LEAD = {
   edit:
     "เลือกโครงการครั้งเดียว แล้วเลือกว่าจะแก้อะไร และแก้ของโครงการอย่างเดียว หรือของกิจกรรมด้วย",
   delete: "เลือกได้ว่าจะลบทั้งโครงการ หรือลบเฉพาะบางกิจกรรม",
+  esg: "เลือกโครงการ แล้วตรวจ/แก้ว่าโครงการนั้นตอบด้าน ESG และเป้าหมาย SDGs ข้อไหน",
 };
 
 /* ส่วนที่แก้ได้ในโหมด edit — ตัวชี้วัดต้องมีมติ อีกสองอย่างแก้ได้เลย */
@@ -589,7 +594,15 @@ export default function PlanEditPage() {
           ))}
         </div>
 
-        <fieldset className="plainset" disabled={!canEdit || busy}>
+        {/* โหมด ESG/SDGs มีฟอร์มของตัวเอง ไม่ใช้ลำดับ เลือกรายการ → แก้ → มติ → เหตุผล
+            ของอีก 4 โหมด เพราะไม่ได้แก้ตัวแผนและไม่ต้องมีมติรองรับ */}
+        {mode === "esg" ? <EsgEditor /> : null}
+
+        <fieldset
+          className="plainset"
+          disabled={!canEdit || busy}
+          hidden={mode === "esg"}
+        >
           {/* ================= เลือกรายการเป้าหมาย ================= */}
           {mode !== "project" ? (
             <>

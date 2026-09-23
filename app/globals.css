@@ -1949,3 +1949,55 @@ section.block .card{background:var(--tint); box-shadow:none}
   section.block{box-shadow:none; border:1px solid #bbb; padding:10px 12px}
   .pagelead{display:none !important}
 }
+
+/* ---------- ป้าย ESG และ SDGs ----------
+   SDG ใช้สีประจำเป้าหมายของ UN ตามเลข คนที่คุ้นกับป้าย SDGs จำได้จากสีทันที
+   ESG ใช้สีของตัวเอง 3 สี ไม่ปนกับสี SDG จะได้ไม่เข้าใจผิดว่าเป็นเป้าหมายเดียวกัน */
+.esgrow{display:flex; flex-wrap:wrap; gap:7px; align-items:center}
+.esgchip,.sdgchip{
+  display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
+  padding:4px 11px; border-radius:999px; font-size:12.5px; font-weight:600;
+  color:#fff; max-width:100%; overflow-wrap:anywhere;
+}
+.esgchip{background:var(--ec)}
+.sdgchip{background:var(--sc)}
+.esgchip b,.sdgchip b{
+  display:inline-grid; place-items:center; min-width:18px; height:18px; padding:0 4px;
+  border-radius:99px; background:rgba(255,255,255,.28); font-size:11.5px;
+}
+.esgchip.sm,.sdgchip.sm{padding:3px 8px; font-size:11.5px}
+
+/* ปุ่มเลือกด้าน ESG ในหน้าแก้ไขแผน */
+.esgpick{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px}
+.esgopt{
+  display:flex; flex-direction:column; gap:3px; text-align:start; cursor:pointer;
+  padding:12px 14px; border-radius:12px; font:inherit; color:var(--text);
+  background:var(--surface); border:1.5px solid var(--border);
+}
+.esgopt:hover:not(:disabled){border-color:var(--ec)}
+.esgopt.on{border-color:var(--ec); background:color-mix(in srgb, var(--ec) 10%, transparent)}
+.esgopt b{
+  display:inline-grid; place-items:center; width:26px; height:26px; border-radius:50%;
+  background:var(--ec); color:#fff; font-size:13px;
+}
+.esgopt span{font-weight:600; font-size:13.5px}
+.esgopt small{color:var(--muted); font-size:11.5px; line-height:1.5}
+.esgopt:disabled{opacity:.55; cursor:default}
+
+/* ตาราง 17 เป้าหมาย — กดติ๊กได้ ไม่ใช่ดรอปดาวน์ เพราะต้องเห็นทั้ง 17 ข้อพร้อมกัน */
+.sdgpick{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px}
+.sdgopt{
+  display:flex; align-items:center; gap:8px; text-align:start; cursor:pointer;
+  padding:8px 10px; border-radius:10px; font:inherit; font-size:12px; line-height:1.35;
+  background:var(--surface); border:1.5px solid var(--border); color:var(--text);
+}
+.sdgopt b{
+  display:inline-grid; place-items:center; width:24px; height:24px; flex:none;
+  border-radius:6px; background:var(--sc); color:#fff; font-size:12.5px;
+}
+.sdgopt:hover:not(:disabled){border-color:var(--sc)}
+.sdgopt.on{border-color:var(--sc); background:color-mix(in srgb, var(--sc) 12%, transparent); font-weight:600}
+.sdgopt:disabled{opacity:.55; cursor:default}
+
+/* ข้อความยาวจากแบบฟอร์ม ฝยศ.1 — ขึ้นบรรทัดใหม่ตามที่กรอกมาในไฟล์ Excel */
+.longtext{white-space:pre-line; font-size:13.5px; line-height:1.75; overflow-wrap:anywhere}

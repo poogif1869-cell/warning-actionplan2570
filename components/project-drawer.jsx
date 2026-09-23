@@ -6,6 +6,7 @@ import { MONTHS, byUid } from "@/lib/plan";
 import { money, pct } from "@/lib/format";
 import { KIND_LABEL, SEV_LABEL } from "@/lib/alerts";
 import ReportTab from "@/components/report-tab";
+import ProjectDetails from "@/components/project-details";
 import DownloadButton from "@/components/download-button";
 
 /* ลิ้นชักรายละเอียดโครงการ — ใช้ร่วมกันทุกหน้า
@@ -66,6 +67,9 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
   const TABS = [
     ["report", "รายงานผลรายเดือน"],
     ["info", "รายละเอียดตามแผน"],
+    /* คำของบประมาณ (ฝยศ.1) + การเชื่อมโยง ESG/SDGs — คนละชุดกับ "ตามแผน"
+       ตามแผน = ตัวเลขที่อนุมัติแล้วในไฟล์แผน · ฝยศ.1 = เอกสารที่หน่วยงานขอมา */
+    ["detail", "รายละเอียดโครงการ (ฝยศ.1) · ESG"],
   ];
 
   return (
@@ -123,6 +127,8 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
               แยกไปไว้ใน report-tab.jsx เพราะกติกาต่างกันระหว่างโครงการที่มี
               กิจกรรมย่อยกับที่ไม่มี และลิ้นชักตัวนี้ยาวเกินไปแล้ว */}
           {tab === "report" ? <ReportTab item={p} /> : null}
+
+          {tab === "detail" ? <ProjectDetails item={p} /> : null}
 
 
           {/* ---------------- รายละเอียดตามแผน ---------------- */}
