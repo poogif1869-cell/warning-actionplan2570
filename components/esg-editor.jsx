@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { PROJECTS } from "@/lib/plan";
 import { useResults } from "@/lib/store";
-import { ESG, SDGS, esgOf, proposedCount } from "@/lib/esg-sdg";
+import { ESG_PILLARS, SDGS, esgOf, proposedCount } from "@/lib/esg-sdg";
 import { ItemPicker } from "@/components/plan-pickers";
 import EsgBadges from "@/components/esg-badges";
 import Sec from "@/components/sec";
@@ -125,7 +125,7 @@ export default function EsgEditor() {
             hint="เลือกได้มากกว่าหนึ่งด้าน — ด้านที่กดก่อนถือเป็นด้านหลัก"
           >
             <div className="esgpick">
-              {ESG.map((e) => (
+              {ESG_PILLARS.map((e) => (
                 <button
                   type="button"
                   key={e.key}

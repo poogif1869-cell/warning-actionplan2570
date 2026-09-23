@@ -1,9 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
-import { MONTHS, byUid } from "@/lib/plan";
-import { money, pct } from "@/lib/format";
+import { byUid } from "@/lib/plan";
 import { KIND_LABEL, SEV_LABEL } from "@/lib/alerts";
 import ReportTab from "@/components/report-tab";
 import ProjectDetails from "@/components/project-details";
@@ -39,37 +37,12 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
 
   const mine = (alerts || []).filter((a) => a.uid === uid);
 
-  const rows = [
-    ["รหัส", p.code],
-    ["ระดับ", p.lvl === 1 ? "โครงการ" : p.lvl === 0 ? "ค่าใช้จ่ายอื่น" : "กิจกรรม"],
-    ["ยุทธศาสตร์", p.strategy],
-    ["กลยุทธ์", p.tactic],
-    ["ตัวชี้วัดโครงการ", p.kpi],
-    ["แผนงาน", p.program],
-    ["ประเภทโครงการ", p.ptype],
-    ["หน่วยงานรับผิดชอบ", p.org],
-    ["แหล่งเงิน", p.fund],
-    ["งบประมาณ", p.budget ? money(p.budget) + " บาท" : "–"],
-    ["ระยะเวลา", p.period],
-    ["สาระสำคัญ", p.summary],
-  ].filter(([, v]) => v != null && v !== "");
-
-  const linkRows = [
-    ["ยุทธศาสตร์ชาติ", p.nX],
-    ["เป้าหมายยุทธศาสตร์ชาติ", p.nGoal],
-    ["ประเด็นแผนแม่บทฯ", p.nY],
-    ["แผนย่อยของแผนแม่บทฯ", p.nSub],
-    ["เป้าหมายแผนย่อย", p.nSubGoal],
-    ["ประเด็น แผนปฏิบัติราชการ กษ.", p.mIssue],
-    ["แนวทาง แผนปฏิบัติราชการ กษ.", p.mWay],
-  ].filter(([, v]) => v != null && v !== "");
-
+  /* สองแท็บพอ — "รายละเอียดโครงการ" รวมข้อมูลตามแผน ความเชื่อมโยงแผน (รวม ESG/SDGs)
+     กิจกรรมย่อย และเนื้อหาจากคำของบประมาณ ฝยศ.1 ไว้หน้าเดียวเรียงเป็นหัวข้อ
+     เดิมแยกเป็น "ตามแผน" กับ "ฝยศ.1" แล้วคนต้องสลับแท็บดูโครงการเดียวกัน */
   const TABS = [
     ["report", "รายงานผลรายเดือน"],
-    ["info", "รายละเอียดตามแผน"],
-    /* คำของบประมาณ (ฝยศ.1) + การเชื่อมโยง ESG/SDGs — คนละชุดกับ "ตามแผน"
-       ตามแผน = ตัวเลขที่อนุมัติแล้วในไฟล์แผน · ฝยศ.1 = เอกสารที่หน่วยงานขอมา */
-    ["detail", "รายละเอียดโครงการ (ฝยศ.1) · ESG"],
+    ["detail", "รายละเอียดโครงการ"],
   ];
 
   return (
@@ -130,88 +103,6 @@ export default function ProjectDrawer({ uid, alerts, onClose }) {
 
           {tab === "detail" ? <ProjectDetails item={p} /> : null}
 
-
-          {/* ---------------- รายละเอียดตามแผน ---------------- */}
-          {tab === "info" ? (
-            <>
-              {/* ไม่มีปุ่มแก้แผนที่นี่โดยตั้งใจ — หน้าโครงการ/กิจกรรม
-                  ทำได้อย่างเดียวคือ **รายงานผล** การเปลี่ยนตัวแผน
-                  (เพิ่ม ลบ แก้งบ แก้ตัวชี้วัด แก้แผนดำเนินงาน)
-                  ทำที่หน้า "แก้ไขแผน" ที่เดียว เพราะเป็นคนละงานกัน
-                  และต้องมีมติรองรับ ไม่ใช่งานประจำวันของคนรายงานผล */}
-              {!p._added && p.baseBudget != null && p.baseBudget !== p.budget ? (
-                <div className="banner">
-                  <b>งบประมาณถูกแก้จากแผนเดิม</b> — แผนเดิม {money(p.baseBudget)} บาท
-                  ปัจจุบัน {money(p.budget)} บาท ({p.budget > p.baseBudget ? "+" : ""}
-                  {money(p.budget - p.baseBudget)}) · ดูที่มาได้ที่{" "}
-                  <Link href="/changes">ถังการแก้ไขข้อมูล</Link>
-                </div>
-              ) : null}
-
-              {p._added ? (
-                <div className="banner ok">
-                  รายการนี้ <b>เพิ่มเข้ามาภายหลัง</b> ไม่ได้อยู่ในไฟล์แผนต้นฉบับ —
-                  ดูมติที่อ้างถึงได้ที่ <Link href="/changes">ถังการแก้ไขข้อมูล</Link>
-                </div>
-              ) : null}
-
-              <h4>รายละเอียดโครงการ</h4>
-              <dl className="dl">
-                {rows.map(([k, v]) => (
-                  <div key={k} style={{ display: "contents" }}>
-                    <dt>{k}</dt>
-                    <dd>{v}</dd>
-                  </div>
-                ))}
-              </dl>
-
-              {linkRows.length ? (
-                <>
-                  <h4>ความเชื่อมโยงแผน</h4>
-                  <dl className="dl">
-                    {linkRows.map(([k, v]) => (
-                      <div key={k} style={{ display: "contents" }}>
-                        <dt>{k}</dt>
-                        <dd>{v}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </>
-              ) : null}
-
-              {p._kids && p._kids.length ? (
-                <>
-                  <h4>กิจกรรมภายใต้โครงการ ({p._kids.length})</h4>
-                  <div className="tablewrap">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>กิจกรรม</th>
-                          <th className="num">งบประมาณ</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {p._kids.map((k) => (
-                          <tr key={k.uid}>
-                            <td className="small">{k.name}</td>
-                            <td className="num small">{money(k.budget)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="small muted" style={{ marginTop: 7 }}>
-                    งบของกิจกรรมรวมอยู่ในงบโครงการแม่แล้ว ไม่ต้องนำมาบวกซ้ำ
-                  </div>
-                </>
-              ) : null}
-
-              {/* ไม่มีปุ่มล้างข้อมูลที่นี่แล้ว — ปุ่มที่ลบผลการดำเนินงาน
-                  รายการงบประมาณ และรายงานความเสี่ยงของทั้งโครงการพร้อมกัน
-                  ในคลิกเดียว อันตรายเกินกว่าจะวางไว้ข้างข้อมูลที่ดูเฉย ๆ
-                  ถ้าต้องล้างจริง ให้ลบทีละรายการจากหน้าที่เป็นเจ้าของข้อมูลนั้น */}
-            </>
-          ) : null}
         </div>
       </aside>
     </>

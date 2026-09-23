@@ -4,30 +4,28 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getSupabase } from "@/lib/supabase/client";
 import { useResults } from "@/lib/store";
-import { esgOf } from "@/lib/esg-sdg";
+import { esgOf, ESG_BY_KEY, SDG_BY_NO } from "@/lib/esg-sdg";
 import { money } from "@/lib/format";
 import { byUid } from "@/lib/plan";
-import EsgBadges from "@/components/esg-badges";
 import Sec from "@/components/sec";
 
-/* แท็บ "รายละเอียดโครงการ" ในลิ้นชัก — สามส่วน
+/* แท็บ "รายละเอียดโครงการ" — รวมทุกอย่างของโครงการไว้หน้าเดียว แบ่งเป็นหัวข้อ
 
-   1. ข้อมูลหลักตามแผน (ตัวชี้วัด งบประมาณ ผู้รับผิดชอบ) — **ยึดอันนี้เป็นหลัก**
-   2. การเชื่อมโยง ESG / SDGs
-   3. เนื้อหาจากแบบฟอร์ม ฝยศ.1 (หลักการและเหตุผล วัตถุประสงค์ ประโยชน์ ฯลฯ)
+   1. ข้อมูลตามแผนปฏิบัติการ  ตัวชี้วัด งบ ผู้รับผิดชอบ — **ยึดชุดนี้เป็นหลัก**
+   2. ความเชื่อมโยงแผน        แผนระดับบน + ESG + SDGs (บอกรายข้อว่าเข้าข้อไหนเพราะอะไร)
+   3. กิจกรรมภายใต้โครงการ
+   4. รายละเอียดจากคำของบประมาณ (ฝยศ.1)
+
+   เดิมแยกเป็นสองแท็บ (ตามแผน / ฝยศ.1) คนต้องสลับไปมาเพื่อดูโครงการเดียวกัน
+   และไม่รู้ว่าตัวเลขสองชุดต่างกันตรงไหน ตอนนี้อยู่หน้าเดียวเรียงตามลำดับ
 
    ⚠️ **ไฟล์ ฝยศ.1 คือคำขอ ไม่ใช่แผนที่อนุมัติแล้ว** ตัวเลขหลายตัวในเอกสาร
-   (งบที่ขอ ตัวชี้วัด ผู้รับผิดชอบ) จึงไม่ตรงกับแผนที่ใช้จริงในเว็บ
-   ตามที่ผู้ใช้สั่งไว้: ให้ยึดข้อมูลในเว็บเป็นหลักเสมอ ส่วนของเอกสารแสดงเป็น
-   "ข้อมูลในเอกสาร" และถ้าต่างกันให้ขึ้นแถบเตือนให้เห็นว่าต่างตรงไหน
-   ไม่ใช่เอาค่าจากเอกสารไปทับหรือแสดงปนกันจนแยกไม่ออกว่าอันไหนของจริง
+   จึงไม่ตรงกับแผนที่ใช้จริง ตามที่ผู้ใช้สั่งไว้: ยึดข้อมูลในเว็บเป็นหลักเสมอ
+   ของในเอกสารแสดงแยกหัวข้อและบอกกำกับว่าเป็นของเอกสาร
 
-   ⚠️ โหลดเนื้อหาส่วนที่ 3 ตอนเปิดแท็บเท่านั้น ไม่โหลดรวมไปกับ store ตอนเข้าเว็บ
-   เพราะรวมกันหลายเมกะไบต์ คนส่วนใหญ่เปิดดูแค่ไม่กี่โครงการ
-   ข้อมูลอยู่ในฐานข้อมูลที่อ่านได้เฉพาะคนล็อกอิน ไม่ได้ฝังมากับโค้ด
-   (ดูหมายเหตุตาราง project_details ใน supabase/schema.sql) */
+   ⚠️ โหลดเนื้อหา ฝยศ.1 ตอนเปิดแท็บเท่านั้น ไม่โหลดรวมกับ store ตอนเข้าเว็บ
+   เพราะรวมกันหลายเมกะไบต์ และอยู่ในฐานข้อมูลที่อ่านได้เฉพาะคนล็อกอิน */
 
-/* ส่วนที่เอกสารมีแต่แผนไม่มี — เป็นเนื้อหาที่ทำให้แท็บนี้มีประโยชน์จริง */
 const SECTIONS = [
   ["rationale", "หลักการและเหตุผล"],
   ["objectives", "วัตถุประสงค์"],
@@ -43,8 +41,6 @@ function person(p) {
   return name || pos;
 }
 
-/* ตัดช่องว่างและอักขระที่ไม่ใช่ตัวอักษรออกก่อนเทียบ — เอกสารกับไฟล์แผน
-   พิมพ์เว้นวรรคไม่เหมือนกันบ่อยมาก ถ้าเทียบตรง ๆ จะขึ้นว่า "ต่างกัน" เกือบทุกโครงการ */
 const norm = (s) => String(s == null ? "" : s).replace(/[\s\.\,\(\)\-–—:;]/g, "");
 
 function same(a, b) {
@@ -99,42 +95,76 @@ export default function ProjectDetails({ item }) {
   const link = esgOf(top.uid, esg[top.uid]);
   const who = personName(link.updatedBy);
 
+  /* ---------- ข้อมูลตามแผน ---------- */
+  const planRows = [
+    ["รหัส", item.code],
+    ["ระดับ", item.lvl === 1 ? "โครงการ" : item.lvl === 0 ? "ค่าใช้จ่ายอื่น" : "กิจกรรม"],
+    ["ตัวชี้วัดผลผลิต (Output)", item.output],
+    ["ตัวชี้วัดผลลัพธ์ (Outcome)", item.outcome],
+    ["ตัวชี้วัดโครงการ", item.kpi],
+    ["งบประมาณที่ได้รับจัดสรร", item.budget ? money(item.budget) + " บาท" : "–"],
+    ["หน่วยงานรับผิดชอบ", item.org],
+    ["แหล่งเงิน", item.fund],
+    ["ระยะเวลา", item.period],
+    ["ยุทธศาสตร์", item.strategy],
+    ["กลยุทธ์", item.tactic],
+    ["แผนงาน", item.program],
+    ["ประเภทโครงการ", item.ptype],
+    ["สาระสำคัญ", item.summary],
+  ].filter(([, v]) => v != null && v !== "");
+
+  const linkRows = [
+    ["ยุทธศาสตร์ชาติ", item.nX],
+    ["เป้าหมายยุทธศาสตร์ชาติ", item.nGoal],
+    ["ประเด็นแผนแม่บทฯ", item.nY],
+    ["แผนย่อยของแผนแม่บทฯ", item.nSub],
+    ["เป้าหมายแผนย่อย", item.nSubGoal],
+    ["ประเด็น แผนปฏิบัติราชการ กษ.", item.mIssue],
+    ["แนวทาง แผนปฏิบัติราชการ กษ.", item.mWay],
+  ].filter(([, v]) => v != null && v !== "");
+
+  const kids = item._kids || [];
+
   return (
     <>
       {/* ================= 1. ข้อมูลหลักตามแผน ================= */}
       <Sec
-        title="ข้อมูลหลักตามแผนปฏิบัติการ"
-        hint="ยึดข้อมูลชุดนี้เป็นหลักเสมอ — เป็นตัวเลขที่ผ่านการอนุมัติและใช้คำนวณทุกหน้าในเว็บ"
+        title="ข้อมูลตามแผนปฏิบัติการ"
+        hint="ยึดชุดนี้เป็นหลักเสมอ — เป็นตัวเลขที่อนุมัติแล้วและใช้คำนวณทุกหน้าในเว็บ"
         right={<span className="pill ok">ข้อมูลจริง</span>}
       >
+        {!item._added && item.baseBudget != null && item.baseBudget !== item.budget ? (
+          <div className="banner" style={{ marginTop: 0 }}>
+            <b>งบประมาณถูกแก้จากแผนเดิม</b> — แผนเดิม {money(item.baseBudget)} บาท
+            ปัจจุบัน {money(item.budget)} บาท · ดูที่มาได้ที่{" "}
+            <Link href="/changes">ถังการแก้ไขข้อมูล</Link>
+          </div>
+        ) : null}
+
+        {item._added ? (
+          <div className="banner ok" style={{ marginTop: 0 }}>
+            รายการนี้ <b>เพิ่มเข้ามาภายหลัง</b> ไม่ได้อยู่ในไฟล์แผนต้นฉบับ —
+            ดูมติที่อ้างถึงได้ที่ <Link href="/changes">ถังการแก้ไขข้อมูล</Link>
+          </div>
+        ) : null}
+
         <dl className="dl" style={{ marginBottom: 0 }}>
-          <dt>รหัส / ชื่อโครงการ</dt>
-          <dd>
-            <b>{top.code}</b> {top.name}
-          </dd>
-          <dt>ตัวชี้วัดผลผลิต</dt>
-          <dd>{top.output || "–"}</dd>
-          <dt>ตัวชี้วัดผลลัพธ์</dt>
-          <dd>{top.outcome || "–"}</dd>
-          <dt>งบประมาณที่ได้รับจัดสรร</dt>
-          <dd>{money(top.budget)} บาท</dd>
-          <dt>ผู้รับผิดชอบ</dt>
-          <dd>{top.org || "–"}</dd>
-          <dt>แหล่งงบประมาณ</dt>
-          <dd>{top.fund || "–"}</dd>
-          {top.period ? (
-            <>
-              <dt>ระยะเวลาดำเนินการ</dt>
-              <dd>{top.period}</dd>
-            </>
-          ) : null}
+          {planRows.map(([k, v]) => (
+            <div key={k} style={{ display: "contents" }}>
+              <dt>{k}</dt>
+              <dd>{v}</dd>
+            </div>
+          ))}
         </dl>
       </Sec>
 
-      {/* ================= 2. ESG / SDGs ================= */}
+      {/* ================= 2. ความเชื่อมโยงแผน + ESG/SDGs =================
+          ESG กับ SDGs อยู่ในหัวข้อนี้ด้วย เพราะเป็นคำถามเดียวกันคือ
+          "โครงการนี้ไปตอบอะไรที่ใหญ่กว่าตัวเอง" — แผนระดับบนของไทย
+          และกรอบความยั่งยืนสากล ต่างกันแค่ว่าเป็นคนละกรอบ */}
       <Sec
-        title="การเชื่อมโยง ESG และ SDGs"
-        hint="แก้ไขได้ที่หน้าแก้ไขแผน → เชื่อมโยง ESG/SDGs"
+        title="ความเชื่อมโยงแผน"
+        hint="โครงการนี้ตอบแผนระดับบน ด้าน ESG และเป้าหมาย SDGs ข้อไหนบ้าง"
         right={
           <span
             className={
@@ -142,40 +172,100 @@ export default function ProjectDetails({ item }) {
               (link.source === "ยืนยันแล้ว" ? "ok" : link.source === "ยังไม่มี" ? "none" : "warn")
             }
           >
-            {link.source}
+            ESG/SDGs: {link.source}
           </span>
         }
       >
-        <EsgBadges esg={link.esg} sdg={link.sdg} />
-
-        {link.why ? (
-          <div className="small" style={{ marginTop: 10 }}>
-            <b>เหตุผล:</b> {link.why}
-          </div>
+        {linkRows.length ? (
+          <>
+            <div className="linklabel">แผนระดับบน</div>
+            <dl className="dl">
+              {linkRows.map(([k, v]) => (
+                <div key={k} style={{ display: "contents" }}>
+                  <dt>{k}</dt>
+                  <dd>{v}</dd>
+                </div>
+              ))}
+            </dl>
+          </>
         ) : null}
+
+        {/* ---------- ESG / SDGs ----------
+            บอกเป็นรายข้อว่าเข้าข้อไหนและเพราะอะไร ไม่ใช่โชว์แค่ป้ายสีแล้วจบ */}
+        <div className="linklabel">
+          ด้าน ESG ที่โครงการนี้ตอบ
+          <span className="small muted">
+            {link.basis === "ฝยศ.1"
+              ? " · วิเคราะห์จากวัตถุประสงค์ ผลผลิต/ผลลัพธ์ และประโยชน์ในคำของบประมาณของโครงการนี้"
+              : link.basis
+              ? " · วิเคราะห์จากชื่อโครงการและตัวชี้วัดในไฟล์แผน เพราะยังไม่มีเอกสาร ฝยศ.1"
+              : ""}
+          </span>
+        </div>
+
+        {link.esg.length || link.sdg.length ? (
+          <>
+            <ul className="esglist">
+              {link.esg.map((k) => {
+                const e = ESG_BY_KEY.get(k);
+                if (!e) return null;
+                return (
+                  <li key={k} style={{ "--ec": e.color }}>
+                    <span className="esgmark">{k}</span>
+                    <div>
+                      <b>{e.full}</b>
+                      <div className="small">{link.esgWhy[k] || link.why || "—"}</div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+
+            <div className="linklabel">เป้าหมายการพัฒนาที่ยั่งยืน (SDGs) ที่เกี่ยวข้อง</div>
+            <ul className="esglist">
+              {link.sdg.map((n) => {
+                const s = SDG_BY_NO.get(Number(n));
+                if (!s) return null;
+                return (
+                  <li key={n} style={{ "--ec": s.color }}>
+                    <span className="esgmark">{s.no}</span>
+                    <div>
+                      <b>
+                        SDG {s.no} · {s.short}
+                      </b>
+                      <div className="small muted">{s.full}</div>
+                      <div className="small">{link.sdgWhy[String(n)] || link.why || "—"}</div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        ) : (
+          <div className="small muted">ยังไม่ได้ระบุการเชื่อมโยง ESG/SDGs</div>
+        )}
 
         {/* บอกให้ชัดว่าอันไหนเป็นของทางการ อันไหนเป็นข้อเสนอของระบบ
             ไม่งั้นคนจะเอาไปใช้อ้างอิงทั้งที่ยังไม่มีใครตรวจ */}
         {link.source === "ข้อเสนอ" ? (
-          <div className="banner" style={{ marginTop: 12, marginBottom: 0 }}>
-            <b>ยังเป็นข้อเสนอ ไม่ใช่ข้อมูลทางการ</b> — วิเคราะห์จาก
-            {link.basis === "ฝยศ.1"
-              ? "วัตถุประสงค์ ผลผลิต/ผลลัพธ์ และประโยชน์ที่คาดว่าจะได้รับ ในแบบฟอร์ม ฝยศ.1 ของโครงการนี้"
-              : "ชื่อโครงการและตัวชี้วัดในไฟล์แผน เพราะโครงการนี้ยังไม่มีเอกสาร ฝยศ.1 ในระบบ"}{" "}
-            · ให้เจ้าหน้าที่ตรวจและยืนยันที่ <Link href="/plan-edit">แก้ไขแผน</Link> ก่อนนำไปอ้างอิง
+          <div className="banner" style={{ marginTop: 14, marginBottom: 0 }}>
+            <b>ESG/SDGs ยังเป็นข้อเสนอ ไม่ใช่ข้อมูลทางการ</b> —
+            ให้เจ้าหน้าที่ตรวจและยืนยันที่ <Link href="/plan-edit">แก้ไขแผน</Link> →
+            เชื่อมโยง ESG/SDGs ก่อนนำไปอ้างอิง (ส่วนแผนระดับบนด้านบนมาจากไฟล์แผน
+            เป็นข้อมูลจริง)
           </div>
         ) : null}
 
         {link.source === "ยังไม่มี" ? (
           <div className="small muted" style={{ marginTop: 10 }}>
-            โครงการนี้เพิ่มเข้ามาภายหลัง จึงยังไม่มีข้อเสนอการเชื่อมโยง —
+            โครงการนี้เพิ่มเข้ามาภายหลัง จึงยังไม่มีข้อเสนอการเชื่อมโยง ESG/SDGs —
             เลือกเองได้ที่หน้าแก้ไขแผน
           </div>
         ) : null}
 
         {link.updatedAt ? (
           <div className="small muted" style={{ marginTop: 8 }}>
-            แก้ล่าสุดเมื่อ {new Date(link.updatedAt).toLocaleString("th-TH")}
+            ESG/SDGs แก้ล่าสุดเมื่อ {new Date(link.updatedAt).toLocaleString("th-TH")}
             {who ? " โดย " + who : ""}
           </div>
         ) : null}
@@ -188,9 +278,39 @@ export default function ProjectDetails({ item }) {
         ) : null}
       </Sec>
 
-      {/* ================= 3. เนื้อหาจากแบบฟอร์ม ฝยศ.1 ================= */}
+      {/* ================= 3. กิจกรรมภายใต้โครงการ ================= */}
+      {kids.length ? (
+        <Sec
+          title={"กิจกรรมภายใต้โครงการ (" + kids.length + ")"}
+          hint="งบของกิจกรรมรวมอยู่ในงบโครงการแม่แล้ว ไม่ต้องนำมาบวกซ้ำ"
+        >
+          <div className="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>กิจกรรม</th>
+                  <th className="num">งบประมาณ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {kids.map((k) => (
+                  <tr key={k.uid}>
+                    <td className="small">
+                      <b>{k.code}</b> {k.name}
+                    </td>
+                    <td className="num small">{money(k.budget)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Sec>
+      ) : null}
+
+
+      {/* ================= 5. เนื้อหาจากแบบฟอร์ม ฝยศ.1 ================= */}
       {docs === null ? (
-        <div className="muted">กำลังโหลดรายละเอียดโครงการ…</div>
+        <div className="muted">กำลังโหลดรายละเอียดจากคำของบประมาณ…</div>
       ) : docs.length === 0 ? (
         <div className="banner">
           <b>ยังไม่มีรายละเอียดจากแบบฟอร์ม ฝยศ.1 ของโครงการนี้</b> —
@@ -205,12 +325,10 @@ export default function ProjectDetails({ item }) {
           /* เทียบกับ "รายการที่เอกสารฉบับนี้เป็นของ" คือกิจกรรมถ้าเป็นเอกสารรายกิจกรรม
              ไม่งั้นงบของกิจกรรมเดียวจะถูกเทียบกับงบทั้งโครงการแล้วขึ้นว่าไม่ตรงทุกฉบับ
 
-             เตือนเฉพาะ "งบประมาณ" เท่านั้น เพราะเป็นตัวเลขที่เทียบแล้วเห็นชัดว่าต่าง
-             ส่วนผู้รับผิดชอบกับตัวชี้วัดต่างกันเกือบทุกฉบับด้วยวิธีเขียน เช่น
+             เตือนแบบมีแถบเฉพาะ "งบประมาณ" ที่ตัวเลขต่างกันเท่านั้น
+             ผู้รับผิดชอบกับตัวชี้วัดเขียนต่างกันเกือบทุกฉบับด้วยวิธีเขียน เช่น
              "ฝกม./กคบ.1/กคบ.2" กับ "ฝกม./กคบ.1 และ กคบ.2" ซึ่งคือหน่วยงานเดียวกัน
-             ถ้าขึ้นเตือนทุกจุดแถบเตือนจะกลายเป็นสิ่งที่ทุกคนเลื่อนผ่าน
-             จึงบอกกติกาไว้บรรทัดเดียวว่าให้ยึดข้อมูลหลักด้านบน แล้วโชว์ของในเอกสาร
-             ไว้ในหัวข้อ "ข้อมูลประกอบในเอกสาร" แบบสีจาง ให้รู้ว่าเป็นของเอกสาร */
+             ถ้าเตือนทุกจุด แถบเตือนจะกลายเป็นสิ่งที่ทุกคนเลื่อนผ่าน */
           const ref = act || top;
           const budgetDiff =
             f.budget && Number(f.budget) !== Number(ref.budget || 0)
@@ -222,7 +340,7 @@ export default function ProjectDetails({ item }) {
           return (
             <div key={d.seq}>
               <div className="rsec-for">
-                เอกสารคำของบประมาณ (ฝยศ.1) ฉบับที่ {d.seq}
+                คำของบประมาณ (แบบฟอร์ม ฝยศ.1) ฉบับที่ {d.seq}
                 {act ? (
                   <>
                     {" "}— ของกิจกรรม <b>{act.code}</b> {act.name}
@@ -232,11 +350,9 @@ export default function ProjectDetails({ item }) {
                 )}
               </div>
 
-              {/* เอกสารคือ "คำขอ" ตัวเลขจึงเป็นของก่อนอนุมัติ ต่างจากแผนได้เป็นปกติ */}
               <div className="small muted" style={{ margin: "-6px 0 12px" }}>
-                เอกสารนี้คือ <b>คำของบประมาณก่อนอนุมัติ</b> — ตัวชี้วัด งบประมาณ
-                และผู้รับผิดชอบ <b>ให้ยึดข้อมูลหลักตามแผนด้านบน</b> ส่วนด้านล่างคือ
-                เหตุผลและรายละเอียดที่หน่วยงานเขียนไว้ในคำขอ
+                เอกสารนี้คือ <b>คำขอก่อนอนุมัติ</b> — ตัวชี้วัด งบประมาณ และผู้รับผิดชอบ
+                <b> ให้ยึดข้อมูลตามแผนในหัวข้อแรก</b>
                 {kpiDiff || orgDiff
                   ? " (ฉบับนี้เขียน" +
                     [kpiDiff ? "ตัวชี้วัด" : "", orgDiff ? "ผู้รับผิดชอบ" : ""]
@@ -261,8 +377,8 @@ export default function ProjectDetails({ item }) {
                 </Sec>
               ))}
 
-              {/* ช่องประกอบอื่นของเอกสาร — ไม่ใช่ตัวเลขที่ใช้คำนวณ จึงแสดงได้ตามที่เขียนมา */}
-              <Sec title="ข้อมูลประกอบในเอกสาร" hint="ตามที่หน่วยงานกรอกไว้ในแบบฟอร์ม ฝยศ.1">
+              {/* ช่องประกอบอื่นของเอกสาร — ไม่ใช่ตัวเลขที่ใช้คำนวณ จึงแสดงตามที่เขียนมา */}
+              <Sec title="ข้อมูลประกอบในคำขอ" hint="ตามที่หน่วยงานกรอกไว้ในแบบฟอร์ม">
                 <dl className="dl" style={{ marginBottom: 0 }}>
                   {f.place ? (
                     <>
