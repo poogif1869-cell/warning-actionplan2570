@@ -2027,3 +2027,21 @@ section.block .card{background:var(--tint); box-shadow:none}
   margin:16px 0 8px; padding-bottom:5px; border-bottom:1px solid var(--border-soft);
 }
 .linklabel:first-child{margin-top:0}
+
+/* ---------- ตัวชี้วัดที่มีหลายข้อ: กล่องรายงานผลทีละข้อ ----------
+   หัวกล่องคือข้อความของข้อนั้นตามแผน เพื่อให้คนกรอกเห็นว่ากำลังรายงานข้อไหน
+   โดยไม่ต้องเลื่อนขึ้นไปอ่านตัวชี้วัดรวมด้านบน */
+.kpiitem{
+  border:1px solid var(--border-soft); border-radius:10px;
+  padding:12px 14px; margin-bottom:10px; background:var(--tint);
+}
+.kpiitem:last-child{margin-bottom:0}
+.kpiitem-head{
+  display:flex; gap:9px; align-items:flex-start; flex-wrap:wrap; margin-bottom:10px;
+}
+.kpino{
+  flex:none; display:inline-grid; place-items:center; width:22px; height:22px;
+  border-radius:50%; background:var(--accent); color:var(--surface);
+  font-size:12px; font-weight:700;
+}
+.kpitext{flex:1 1 220px; min-width:0; font-size:13px; line-height:1.6; overflow-wrap:anywhere}

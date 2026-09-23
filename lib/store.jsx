@@ -426,6 +426,9 @@ export function ResultsProvider({ children }) {
   // ฐานข้อมูลที่ยังไม่ได้รัน schema.sql รอบล่าสุดจะไม่มี issue/solution
   const [monthlyHasIssue, setMonthlyHasIssue] = useState(true);
   const [hasIndicatorCols, setHasIndicatorCols] = useState(true);
+  /* คอลัมน์รายงานผลรายข้อ (output_items/outcome_items) เพิ่มทีหลังอีกรอบ
+     เช็คแยกจากสี่คอลัมน์เดิม ฐานข้อมูลที่มีของเดิมแต่ยังไม่มีอันนี้จะได้ใช้ของเดิมต่อได้ */
+  const [hasKpiItemCols, setHasKpiItemCols] = useState(true);
   const hasSavedRef = useRef(true);
   hasSavedRef.current = budgetHasSaved;
   const hasOtherRef = useRef(true);
@@ -475,6 +478,8 @@ export function ResultsProvider({ children }) {
   hasIssueRef.current = monthlyHasIssue;
   const hasIndicatorRef = useRef(true);
   hasIndicatorRef.current = hasIndicatorCols;
+  const hasKpiItemsRef = useRef(true);
+  hasKpiItemsRef.current = hasKpiItemCols;
 
   /* "ณ เดือน" ที่ใช้เป็นฐานคำนวณการแจ้งเตือน — ใช้ร่วมกันทุกหน้า
      ค่าเริ่มต้นต้องคงที่ตอน render แรก ไม่งั้น hydration ฝั่งเซิร์ฟเวอร์กับเบราว์เซอร์ไม่ตรงกัน */
@@ -544,14 +549,32 @@ export function ResultsProvider({ children }) {
       supabase.from("risk_reports").select("uid,month,level,situation,action"),
     ]);
 
-    const proj = await selectOptional("project_results", "uid,status,progress,note", [
-      "output_result",
-      "output_issue",
-      "outcome_result",
-      "outcome_issue",
-    ]);
-    const projRes = proj.res;
-    const hasIndicator = proj.supported;
+    /* ลองดึงพร้อมคอลัมน์รายข้อก่อน ถ้าฐานข้อมูลยังไม่มีค่อยถอยไปชุดเดิม
+       ถอยทีเดียวทั้งหกคอลัมน์ไม่ได้ เพราะจะทำให้ฐานข้อมูลที่มีสี่คอลัมน์เดิมอยู่แล้ว
+       กลายเป็นไม่มีช่องรายงานตัวชี้วัดไปด้วย ทั้งที่ของเดิมใช้ได้ปกติ */
+    const INDICATOR_COLS = ["output_result", "output_issue", "outcome_result", "outcome_issue"];
+    const ITEM_COLS = ["output_items", "outcome_items"];
+
+    let projRes;
+    let hasIndicator;
+    let hasKpiItems;
+    {
+      const withItems = await selectOptional(
+        "project_results",
+        "uid,status,progress,note",
+        INDICATOR_COLS.concat(ITEM_COLS)
+      );
+      if (withItems.supported) {
+        projRes = withItems.res;
+        hasIndicator = true;
+        hasKpiItems = true;
+      } else {
+        const proj = await selectOptional("project_results", "uid,status,progress,note", INDICATOR_COLS);
+        projRes = proj.res;
+        hasIndicator = proj.supported;
+        hasKpiItems = false;
+      }
+    }
 
     const mon = await selectOptional(
       "monthly_reports",
@@ -621,6 +644,10 @@ export function ResultsProvider({ children }) {
         outputIssue: hasIndicator && row.output_issue != null ? row.output_issue : "",
         outcomeResult: hasIndicator && row.outcome_result != null ? row.outcome_result : "",
         outcomeIssue: hasIndicator && row.outcome_issue != null ? row.outcome_issue : "",
+        /* รายงานผลรายข้อของตัวชี้วัดที่เขียนหลายข้อรวมกัน — [{r, i}, ...]
+           เรียงตามลำดับข้อที่แยกได้จากข้อความตัวชี้วัด (ดู lib/kpi-items.js) */
+        outputItems: hasKpiItems && Array.isArray(row.output_items) ? row.output_items : [],
+        outcomeItems: hasKpiItems && Array.isArray(row.outcome_items) ? row.outcome_items : [],
         monthly: {},
       };
     });
@@ -763,6 +790,7 @@ export function ResultsProvider({ children }) {
       hasSubmit,
       hasIssue,
       hasIndicator,
+      hasKpiItems,
     };
   }
 
@@ -805,6 +833,7 @@ export function ResultsProvider({ children }) {
           setBudgetHasOrg(next.hasOrg !== false);
           setMonthlyHasIssue(next.hasIssue !== false);
           setHasIndicatorCols(next.hasIndicator !== false);
+          setHasKpiItemCols(next.hasKpiItems !== false);
           setRiskState(next.risk);
           setSubmitState(next.submit || {});
           setHasSubmitTable(next.hasSubmit !== false);
@@ -886,6 +915,13 @@ export function ResultsProvider({ children }) {
                 output_issue: p.outputIssue ?? "",
                 outcome_result: p.outcomeResult ?? "",
                 outcome_issue: p.outcomeIssue ?? "",
+              }
+            : {}),
+          // รายงานผลรายข้อ — ส่งเฉพาะเมื่อฐานข้อมูลมีคอลัมน์ ไม่งั้นทั้งคำสั่งถูกปฏิเสธ
+          ...(hasKpiItemsRef.current
+            ? {
+                output_items: p.outputItems ?? [],
+                outcome_items: p.outcomeItems ?? [],
               }
             : {}),
         };
@@ -1053,6 +1089,7 @@ export function ResultsProvider({ children }) {
       budgetHasSaved,
       monthlyHasIssue,
       hasIndicatorCols,
+      hasKpiItemCols,
 
       /* ---------------------------------------------------------
          สิทธิ์การแก้ไข
@@ -1121,6 +1158,35 @@ export function ResultsProvider({ children }) {
           ...prev,
           project: { ...prev.project, [uid]: { ...(prev.project[uid] || {}), ...patch } },
         }));
+        pending.current.project.add(uid);
+        scheduleFlush();
+      },
+
+      /* รายงานผลของตัวชี้วัด "รายข้อ" — ใช้กับโครงการที่เขียนตัวชี้วัดไว้หลายข้อ
+         which = "output" | "outcome" · idx = ลำดับข้อ (เริ่ม 0) · patch = { r } หรือ { i }
+
+         ข้อแรกถูกคัดลอกลงช่องเดิม (outputResult/outputIssue) ด้วย เพราะที่อื่น
+         ในเว็บยังอ่านช่องเดิมอยู่ เช่น การนับว่ากิจกรรมนี้รายงานแล้วหรือยัง
+         และไฟล์ PDF/Excel ถ้าไม่คัดลอก สรุปพวกนั้นจะว่างทั้งที่กรอกครบแล้ว */
+      setProjectItem(uid, which, idx, patch) {
+        if (denyReport()) return;
+        const listKey = which === "outcome" ? "outcomeItems" : "outputItems";
+        const resultKey = which === "outcome" ? "outcomeResult" : "outputResult";
+        const issueKey = which === "outcome" ? "outcomeIssue" : "outputIssue";
+
+        setRaw((prev) => {
+          const cur = prev.project[uid] || {};
+          const list = Array.isArray(cur[listKey]) ? cur[listKey].slice() : [];
+          while (list.length <= idx) list.push({ r: "", i: "" });
+          list[idx] = { ...(list[idx] || {}), ...patch };
+
+          const merged = { ...cur, [listKey]: list };
+          if (idx === 0) {
+            if (patch.r != null) merged[resultKey] = patch.r;
+            if (patch.i != null) merged[issueKey] = patch.i;
+          }
+          return { ...prev, project: { ...prev.project, [uid]: merged } };
+        });
         pending.current.project.add(uid);
         scheduleFlush();
       },
@@ -1614,6 +1680,7 @@ export function ResultsProvider({ children }) {
           setBudgetHasOrg(next.hasOrg !== false);
           setMonthlyHasIssue(next.hasIssue !== false);
           setHasIndicatorCols(next.hasIndicator !== false);
+          setHasKpiItemCols(next.hasKpiItems !== false);
           setRiskState(next.risk);
           setSubmitState(next.submit || {});
           setHasSubmitTable(next.hasSubmit !== false);
@@ -1670,6 +1737,12 @@ export function ResultsProvider({ children }) {
                   output_issue: p.outputIssue ?? "",
                   outcome_result: p.outcomeResult ?? "",
                   outcome_issue: p.outcomeIssue ?? "",
+                }
+              : {}),
+            ...(hasKpiItemsRef.current
+              ? {
+                  output_items: p.outputItems ?? [],
+                  outcome_items: p.outcomeItems ?? [],
                 }
               : {}),
           });
@@ -1737,6 +1810,7 @@ export function ResultsProvider({ children }) {
         setBudgetHasOrg(next.hasOrg !== false);
         setMonthlyHasIssue(next.hasIssue !== false);
         setHasIndicatorCols(next.hasIndicator !== false);
+        setHasKpiItemCols(next.hasKpiItems !== false);
         setRiskState(next.risk);
         setSubmitState(next.submit || {});
         setHasSubmitTable(next.hasSubmit !== false);
@@ -1752,7 +1826,7 @@ export function ResultsProvider({ children }) {
         window.location.href = "/login";
       },
     };
-  }, [results, raw, budget, risk, submit, hasSubmitTable, loaded, loadError, saveError, savedHint, userEmail, userName, budgetHasSaved, monthlyHasIssue, hasIndicatorCols, asOf, fyStarted, role, hasRoles, people, planEdits, hasPlanEdits, planVersion, steps, hasStepsTable, esg, hasEsgTable, reportingOpen, lastReset, hasSettings]);
+  }, [results, raw, budget, risk, submit, hasSubmitTable, loaded, loadError, saveError, savedHint, userEmail, userName, budgetHasSaved, monthlyHasIssue, hasIndicatorCols, hasKpiItemCols, asOf, fyStarted, role, hasRoles, people, planEdits, hasPlanEdits, planVersion, steps, hasStepsTable, esg, hasEsgTable, reportingOpen, lastReset, hasSettings]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

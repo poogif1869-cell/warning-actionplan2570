@@ -16,6 +16,7 @@ import {
   budgetRollup,
   stepsOf,
 } from "@/lib/store";
+import { kpiItems } from "@/lib/kpi-items";
 import StepsTable from "@/components/steps-table";
 import Sec from "@/components/sec";
 
@@ -70,7 +71,9 @@ export default function ReportTab({ item }) {
     setRisk,
     monthlyHasIssue,
     hasIndicatorCols,
+    hasKpiItemCols,
     setProject,
+    setProjectItem,
     setMonthly,
     saveNow,
     steps,
@@ -258,36 +261,117 @@ export default function ReportTab({ item }) {
      คอมโพเนนต์ React จะเห็นเป็น "คนละชนิด" ทุกรอบแล้ว unmount ทิ้งสร้างใหม่
      ช่องที่กำลังพิมพ์จะหลุดโฟกัสหลังพิมพ์ทุกตัวอักษร
      หัวข้อไม่ได้อยู่ในนี้แล้ว ย้ายไปเป็นหัวของกล่อง Sec แทน */
-  function indicator({ planValue, uid, resultKey, issueKey }) {
+  function indicator({ planValue, uid, resultKey, issueKey, which }) {
     const t = projectTrack(results, uid);
+
+    /* ตัวชี้วัดที่เขียนหลายข้อรวมในช่องเดียว เช่น
+         "1. ได้ผู้สืบทอดตำแหน่ง 8 ตำแหน่ง 2. พัฒนาพนักงานศักยภาพสูง 9 ราย"
+       แยกเป็นข้อ ๆ แล้วให้ช่องรายงานผลกับช่องปัญหาอุปสรรคของแต่ละข้อ
+       ไม่งั้นต้องยัดผลของทุกข้อลงช่องเดียว แล้วสรุปไม่ได้ว่าข้อไหนติดปัญหา */
+    const items = kpiItems(planValue);
+    const multi = items.length > 1;
+    const listKey = which === "outcome" ? "outcomeItems" : "outputItems";
+    const saved = Array.isArray(t[listKey]) ? t[listKey] : [];
+
+    function itemValue(idx, field) {
+      const row = saved[idx] || {};
+      if (row[field] != null && row[field] !== "") return row[field];
+      /* ข้อแรกของโครงการที่เคยกรอกไว้ตอนยังเป็นช่องเดียว ยังอยู่ในคอลัมน์เดิม
+         ดึงมาแสดงเป็นข้อ 1 จะได้ไม่เหมือนข้อมูลหายไปหลังอัปเดต */
+      if (idx === 0) {
+        const legacy = field === "r" ? t[resultKey] : t[issueKey];
+        return legacy == null ? "" : legacy;
+      }
+      return "";
+    }
+
+    if (!multi) {
+      return (
+        <>
+          <dl className="dl">
+            <dt>ค่าตามแผน</dt>
+            <dd>{planValue || "–"}</dd>
+          </dl>
+          <div className="trackgrid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+            <div>
+              <label className="small muted">รายงานผล</label>
+              <textarea
+                value={t[resultKey] == null ? "" : t[resultKey]}
+                disabled={!hasIndicatorCols}
+                placeholder={hasIndicatorCols ? "ผลที่ทำได้จริง" : "ยังไม่พร้อมใช้"}
+                onChange={(e) => setProject(uid, { [resultKey]: e.target.value })}
+                style={area}
+              />
+            </div>
+            <div>
+              <label className="small muted">ปัญหาอุปสรรค</label>
+              <textarea
+                value={t[issueKey] == null ? "" : t[issueKey]}
+                disabled={!hasIndicatorCols}
+                placeholder={hasIndicatorCols ? "ติดปัญหาอะไร" : "ยังไม่พร้อมใช้"}
+                onChange={(e) => setProject(uid, { [issueKey]: e.target.value })}
+                style={area}
+              />
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    const done = items.filter((_, i) => String(itemValue(i, "r")).trim() !== "").length;
+
     return (
       <>
-        <dl className="dl">
-          <dt>ค่าตามแผน</dt>
-          <dd>{planValue || "–"}</dd>
-        </dl>
-        <div className="trackgrid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-          <div>
-            <label className="small muted">รายงานผล</label>
-            <textarea
-              value={t[resultKey] == null ? "" : t[resultKey]}
-              disabled={!hasIndicatorCols}
-              placeholder={hasIndicatorCols ? "ผลที่ทำได้จริง" : "ยังไม่พร้อมใช้"}
-              onChange={(e) => setProject(uid, { [resultKey]: e.target.value })}
-              style={area}
-            />
-          </div>
-          <div>
-            <label className="small muted">ปัญหาอุปสรรค</label>
-            <textarea
-              value={t[issueKey] == null ? "" : t[issueKey]}
-              disabled={!hasIndicatorCols}
-              placeholder={hasIndicatorCols ? "ติดปัญหาอะไร" : "ยังไม่พร้อมใช้"}
-              onChange={(e) => setProject(uid, { [issueKey]: e.target.value })}
-              style={area}
-            />
-          </div>
+        <div className="small muted" style={{ marginBottom: 10 }}>
+          ตัวชี้วัดนี้มี <b>{items.length} ข้อ</b> — รายงานผลและปัญหาอุปสรรคแยกทีละข้อ ·
+          รายงานแล้ว {done}/{items.length} ข้อ
         </div>
+
+        {!hasKpiItemCols ? (
+          <div className="banner bad">
+            ยังบันทึกผลรายข้อไม่ได้ เพราะฐานข้อมูลไม่มีคอลัมน์{" "}
+            <code>project_results.output_items</code> — ให้ผู้ดูแลรัน{" "}
+            <code>supabase/schema.sql</code> ก่อน (ช่องด้านล่างพิมพ์ได้แต่จะไม่ถูกบันทึก)
+          </div>
+        ) : null}
+
+        {items.map((text, idx) => (
+          <div className="kpiitem" key={idx}>
+            <div className="kpiitem-head">
+              <span className="kpino">{idx + 1}</span>
+              <span className="kpitext">{text}</span>
+              <span
+                className={
+                  "pill " + (String(itemValue(idx, "r")).trim() ? "ok" : "none")
+                }
+              >
+                {String(itemValue(idx, "r")).trim() ? "รายงานแล้ว" : "ยังไม่รายงาน"}
+              </span>
+            </div>
+            <div className="trackgrid" style={{ gridTemplateColumns: "1fr 1fr", marginBottom: 0 }}>
+              <div>
+                <label className="small muted">รายงานผลข้อ {idx + 1}</label>
+                <textarea
+                  value={itemValue(idx, "r")}
+                  disabled={!hasIndicatorCols}
+                  placeholder={hasIndicatorCols ? "ผลที่ทำได้จริงของข้อนี้" : "ยังไม่พร้อมใช้"}
+                  onChange={(e) => setProjectItem(uid, which, idx, { r: e.target.value })}
+                  style={area}
+                />
+              </div>
+              <div>
+                <label className="small muted">ปัญหาอุปสรรคข้อ {idx + 1}</label>
+                <textarea
+                  value={itemValue(idx, "i")}
+                  disabled={!hasIndicatorCols}
+                  placeholder={hasIndicatorCols ? "ข้อนี้ติดปัญหาอะไร" : "ยังไม่พร้อมใช้"}
+                  onChange={(e) => setProjectItem(uid, which, idx, { i: e.target.value })}
+                  style={area}
+                />
+              </div>
+            </div>
+          </div>
+        ))}
       </>
     );
   }
@@ -478,6 +562,7 @@ export default function ReportTab({ item }) {
           uid: item.uid,
           resultKey: "outputResult",
           issueKey: "outputIssue",
+          which: "output",
         })}
       </Sec>
 
@@ -491,6 +576,7 @@ export default function ReportTab({ item }) {
           uid: item.uid,
           resultKey: "outcomeResult",
           issueKey: "outcomeIssue",
+          which: "outcome",
         })}
       </Sec>
 
@@ -668,6 +754,7 @@ export default function ReportTab({ item }) {
                   uid: activity.uid,
                   resultKey: "outputResult",
                   issueKey: "outputIssue",
+                  which: "output",
                 })}
               </Sec>
 
